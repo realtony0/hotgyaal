@@ -193,6 +193,28 @@ export const Layout = () => {
         <Outlet />
       </main>
 
+      <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
+        <NavLink to="/" className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}>
+          <span>Accueil</span>
+        </NavLink>
+        <NavLink
+          to="/boutique"
+          className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}
+        >
+          <span>Boutique</span>
+        </NavLink>
+        <NavLink to="/panier" className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}>
+          <span>Panier</span>
+          {totalItems > 0 ? <strong className="mobile-nav-count">{totalItems}</strong> : null}
+        </NavLink>
+        <NavLink
+          to="/contact"
+          className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}
+        >
+          <span>Contact</span>
+        </NavLink>
+      </nav>
+
       <footer className="footer">
         <div className="container footer__content footer__content--grid">
           <div className="footer-brand">

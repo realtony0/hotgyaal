@@ -71,6 +71,10 @@ main {
   flex: 1;
 }
 
+.mobile-bottom-nav {
+  display: none;
+}
+
 .announcement-bar {
   background: #171215;
   color: white;
@@ -1675,6 +1679,10 @@ textarea:focus {
 }
 
 @media (max-width: 760px) {
+  main {
+    padding-bottom: 4.8rem;
+  }
+
   .container {
     width: min(1160px, 100% - 1.1rem);
   }
@@ -1747,6 +1755,58 @@ textarea:focus {
 
   .header__actions .nav-link:first-child {
     display: none;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: calc(0.65rem + env(safe-area-inset-bottom));
+    z-index: 60;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+    border: 1px solid #e5d8df;
+    border-radius: 1rem;
+    padding: 0.35rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 20px 28px -26px rgba(20, 13, 16, 0.58);
+  }
+
+  .mobile-nav-link {
+    min-height: 42px;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.24rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 0.54rem;
+    color: #5f4750;
+    background: transparent;
+  }
+
+  .mobile-nav-link.is-active {
+    background: #fcf2f6;
+    border-color: #e8c8d5;
+    color: #482833;
+    font-weight: 700;
+  }
+
+  .mobile-nav-count {
+    min-width: 1rem;
+    height: 1rem;
+    border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    background: #1f171a;
+    color: #fff;
+    font-size: 0.52rem;
+    line-height: 1;
+    font-weight: 700;
   }
 
   .hero {
@@ -2154,6 +2214,23 @@ textarea:focus {
 }
 
 @media (max-width: 460px) {
+  main {
+    padding-bottom: 5.05rem;
+  }
+
+  .mobile-bottom-nav {
+    left: 0.45rem;
+    right: 0.45rem;
+    gap: 0.28rem;
+    padding: 0.3rem;
+  }
+
+  .mobile-nav-link {
+    min-height: 40px;
+    font-size: 0.5rem;
+    letter-spacing: 0.07em;
+  }
+
   .shop-mobile-actions {
     margin-bottom: 0.45rem;
   }
