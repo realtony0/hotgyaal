@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/router'
 import { useAuth } from '../../context/AuthContext'
 
 export const AdminLoginPage = () => {
-  const navigate = useNavigate()
+  const router = useRouter()
   const { isAdmin, unlockAdminByCode } = useAuth()
 
   const [accessCode, setAccessCode] = useState('')
@@ -12,9 +12,9 @@ export const AdminLoginPage = () => {
 
   useEffect(() => {
     if (isAdmin) {
-      navigate('/admin', { replace: true })
+      void router.replace('/admin')
     }
-  }, [isAdmin, navigate])
+  }, [isAdmin, router])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -23,7 +23,7 @@ export const AdminLoginPage = () => {
       setLoading(true)
       setError(null)
       await unlockAdminByCode(accessCode)
-      navigate('/admin', { replace: true })
+      await router.replace('/admin')
     } catch (submitError) {
       setError(
         submitError instanceof Error

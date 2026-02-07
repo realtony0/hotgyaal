@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -58,7 +58,9 @@ const SHIPPING_OPTIONS: ShippingOption[] = [
 ]
 
 const ORDER_CHAT_NUMBER = (
-  import.meta.env.VITE_ORDER_CHAT_NUMBER ?? '221770000000'
+  process.env.NEXT_PUBLIC_ORDER_CHAT_NUMBER ??
+  process.env.VITE_ORDER_CHAT_NUMBER ??
+  '221770000000'
 )
   .toString()
   .replace(/\D/g, '')
@@ -215,13 +217,13 @@ export const CartPage = () => {
         <div>
           <div className="section__header">
             <h1>Panier</h1>
-            <Link to="/boutique">Continuer mes achats</Link>
+            <Link href="/boutique">Continuer mes achats</Link>
           </div>
 
           {items.length === 0 ? (
             <div className="empty-state">
               <p>Votre panier est vide.</p>
-              <Link className="button" to="/boutique">
+              <Link className="button" href="/boutique">
                 Découvrir la boutique
               </Link>
             </div>

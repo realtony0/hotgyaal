@@ -1,0 +1,25 @@
+import type { AppProps } from 'next/app'
+import { useRouter } from 'next/router'
+import { Layout } from '../src/components/Layout'
+import { AuthProvider } from '../src/context/AuthContext'
+import { CartProvider } from '../src/context/CartContext'
+import '../src/index.css'
+
+export default function App({ Component, pageProps }: AppProps) {
+  const router = useRouter()
+  const isAdminRoute = router.pathname.startsWith('/admin')
+
+  return (
+    <AuthProvider>
+      <CartProvider>
+        {isAdminRoute ? (
+          <Component {...pageProps} />
+        ) : (
+          <Layout>
+            <Component {...pageProps} />
+          </Layout>
+        )}
+      </CartProvider>
+    </AuthProvider>
+  )
+}

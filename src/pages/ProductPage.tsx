@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
 import { getLocalProductBySlug, LOCAL_PRODUCTS } from '../data/localProducts'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -9,7 +10,9 @@ import { formatCurrency } from '../utils/format'
 import { getProductVariantMeta, getRelatedVariants } from '../utils/products'
 
 export const ProductPage = () => {
-  const { slug } = useParams<{ slug: string }>()
+  const router = useRouter()
+  const slugParam = router.query.slug
+  const slug = Array.isArray(slugParam) ? slugParam[0] : slugParam
   const [product, setProduct] = useState<Product | null>(null)
   const [relatedVariants, setRelatedVariants] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,6 +26,10 @@ export const ProductPage = () => {
 
   useEffect(() => {
     const loadProduct = async () => {
+      if (!router.isReady) {
+        return
+      }
+
       if (!slug) {
         setLoading(false)
         setError('Produit introuvable.')
@@ -82,7 +89,7 @@ export const ProductPage = () => {
     }
 
     loadProduct()
-  }, [slug])
+  }, [router.isReady, slug])
 
   const gallery = useMemo(() => {
     if (!product) {
@@ -151,7 +158,7 @@ export const ProductPage = () => {
       <div className="section">
         <div className="container">
           <p className="error-text">{error ?? 'Produit introuvable.'}</p>
-          <Link to="/boutique" className="button">
+          <Link href="/boutique" className="button">
             Retour à la boutique
           </Link>
         </div>
@@ -205,7 +212,7 @@ export const ProductPage = () => {
                   return (
                     <Link
                       key={variant.slug}
-                      to={`/produit/${variant.slug}`}
+                      href={`/produit/${variant.slug}`}
                       className={
                         variant.slug === product.slug ? 'chip chip--active' : 'chip'
                       }
@@ -263,7 +270,7 @@ export const ProductPage = () => {
             >
               {product.is_out_of_stock ? 'Indisponible' : 'Ajouter au panier'}
             </button>
-            <Link to="/panier" className="button button--ghost">
+            <Link href="/panier" className="button button--ghost">
               Voir le panier
             </Link>
           </div>

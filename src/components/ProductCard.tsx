@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 import { formatCurrency } from '../utils/format'
 import type { Product } from '../types'
 
@@ -13,7 +13,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
 
   return (
     <article className="product-card">
-      <Link to={`/produit/${product.slug}`} className="product-card__media">
+      <Link href={`/produit/${product.slug}`} className="product-card__media">
         <img
           src={product.image_url || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80'}
           alt={product.name}
@@ -38,7 +38,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
           <span>{product.sub_category}</span>
         </div>
 
-        <Link to={`/produit/${product.slug}`} className="product-card__title">
+        <Link href={`/produit/${product.slug}`} className="product-card__title">
           {product.name}
         </Link>
 
@@ -53,7 +53,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
           <p className="product-card__saving">Vous économisez {formatCurrency(savings)}</p>
         ) : null}
 
-        <Link to={`/produit/${product.slug}`} className="product-card__cta">
+        <Link href={`/produit/${product.slug}`} className="product-card__cta">
           Voir la fiche
         </Link>
       </div>

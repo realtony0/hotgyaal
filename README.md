@@ -1,6 +1,6 @@
 # HOTGYAAL
 
-Site e-commerce moderne (storefront + panier + back-office admin) construit avec React, TypeScript, Vite et Supabase.
+Site e-commerce moderne (storefront + panier + back-office admin) construit avec Next.js, React, TypeScript et Supabase.
 
 ## Fonctionnalités
 
@@ -16,8 +16,7 @@ Site e-commerce moderne (storefront + panier + back-office admin) construit avec
 
 ## Stack
 
-- React 19 + TypeScript + Vite
-- React Router
+- Next.js 15 (Pages Router) + React 19 + TypeScript
 - Supabase (`Auth`, `Postgres`, `Storage`)
 
 ## Installation
@@ -30,10 +29,10 @@ cp .env.example .env
 Renseignez ensuite `.env`:
 
 ```env
-VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
-VITE_SITE_URL=https://hotgyaal.com
-VITE_ORDER_CHAT_NUMBER=221774931474
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
+NEXT_PUBLIC_SITE_URL=https://hotgyaal.com
+NEXT_PUBLIC_ORDER_CHAT_NUMBER=221774931474
 ```
 
 ## Configuration Supabase
@@ -71,14 +70,14 @@ Build production:
 
 ```bash
 npm run build
-npm run preview
+npm run start
 ```
 
 ## Routes principales
 
 - `/` : accueil
 - `/boutique` : catalogue + filtres
-- `/produit/:slug` : détail produit
+- `/produit/[slug]` : détail produit
 - `/panier` : panier + checkout
 - `/admin/login` : connexion admin
 - `/admin` : dashboard admin

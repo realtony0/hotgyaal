@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useMemo, useState, type ReactNode } from 'react'
+import Head from 'next/head'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
 
 const storefrontLinks = [
-  { to: '/', label: 'Accueil' },
-  { to: '/boutique', label: 'Boutique' },
-  { to: '/boutique?categorie=V%C3%AAtements%20Femmes&sous_categorie=Robes', label: 'Robes' },
-  { to: '/boutique?categorie=Bijoux%20%26%20Accessoires', label: 'Accessoires' },
-  { to: '/boutique?categorie=Chaussures', label: 'Chaussures' },
+  { href: '/', label: 'Accueil' },
+  { href: '/boutique', label: 'Boutique' },
+  { href: '/boutique?categorie=V%C3%AAtements%20Femmes&sous_categorie=Robes', label: 'Robes' },
+  { href: '/boutique?categorie=Bijoux%20%26%20Accessoires', label: 'Accessoires' },
+  { href: '/boutique?categorie=Chaussures', label: 'Chaussures' },
 ]
 
-const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://hotgyaal.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://hotgyaal.com'
 
 const getSeoContent = (pathname: string) => {
   if (pathname.startsWith('/boutique')) {
@@ -69,13 +71,6 @@ const getSeoContent = (pathname: string) => {
     }
   }
 
-  if (pathname.startsWith('/admin')) {
-    return {
-      title: 'Admin HOTGYAAL',
-      description: 'Back-office HOTGYAAL pour la gestion produits et commandes.',
-    }
-  }
-
   return {
     title: 'HOTGYAAL - Boutique Multi-Categories',
     description:
@@ -83,59 +78,53 @@ const getSeoContent = (pathname: string) => {
   }
 }
 
-const setMeta = (
-  selector: string,
-  content: string,
-  attr: 'name' | 'property' = 'name',
-) => {
-  const element = document.head.querySelector(
-    `meta[${attr}="${selector}"]`,
-  ) as HTMLMetaElement | null
+const stripQuery = (path: string) => path.split('?')[0] || '/'
 
-  if (element) {
-    element.setAttribute('content', content)
-    return
+const isPathActive = (href: string, asPath: string) => {
+  if (href.includes('?')) {
+    return asPath === href
   }
 
-  const meta = document.createElement('meta')
-  meta.setAttribute(attr, selector)
-  meta.setAttribute('content', content)
-  document.head.append(meta)
+  const currentPath = stripQuery(asPath)
+  if (href === '/') {
+    return currentPath === '/'
+  }
+
+  return currentPath === href || currentPath.startsWith(`${href}/`)
 }
 
-export const Layout = () => {
+type LayoutProps = {
+  children: ReactNode
+}
+
+export const Layout = ({ children }: LayoutProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { totalItems } = useCart()
-  const location = useLocation()
+  const router = useRouter()
 
-  useEffect(() => {
-    const seo = getSeoContent(location.pathname)
-    document.title = seo.title
+  const seo = useMemo(() => {
+    const currentPath = stripQuery(router.asPath || '/')
+    return getSeoContent(currentPath)
+  }, [router.asPath])
 
-    const pageUrl = `${SITE_URL}${location.pathname}${location.search}`
-
-    setMeta('description', seo.description)
-    setMeta('og:title', seo.title, 'property')
-    setMeta('og:description', seo.description, 'property')
-    setMeta('og:url', pageUrl, 'property')
-    setMeta('twitter:title', seo.title)
-    setMeta('twitter:description', seo.description)
-
-    let canonical = document.head.querySelector(
-      'link[rel="canonical"]',
-    ) as HTMLLinkElement | null
-
-    if (!canonical) {
-      canonical = document.createElement('link')
-      canonical.setAttribute('rel', 'canonical')
-      document.head.append(canonical)
-    }
-
-    canonical.setAttribute('href', pageUrl)
-  }, [location.pathname, location.search])
+  const pageUrl = useMemo(
+    () => `${SITE_URL}${router.asPath || '/'}`,
+    [router.asPath],
+  )
 
   return (
     <div className="app-shell">
+      <Head>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        <meta property="og:title" content={seo.title} />
+        <meta property="og:description" content={seo.description} />
+        <meta property="og:url" content={pageUrl} />
+        <meta name="twitter:title" content={seo.title} />
+        <meta name="twitter:description" content={seo.description} />
+        <link rel="canonical" href={pageUrl} />
+      </Head>
+
       <header className="site-header">
         <div className="announcement-bar">
           <div className="container announcement-bar__content">
@@ -157,62 +146,76 @@ export const Layout = () => {
 
               <nav className={`nav ${isMenuOpen ? 'is-open' : ''}`}>
                 {storefrontLinks.map((link) => (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    className={({ isActive }) =>
-                      isActive ? 'nav-link is-active' : 'nav-link'
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={
+                      isPathActive(link.href, router.asPath || '/')
+                        ? 'nav-link is-active'
+                        : 'nav-link'
                     }
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {link.label}
-                  </NavLink>
+                  </Link>
                 ))}
               </nav>
             </div>
 
-            <Link to="/" className="brand brand--center">
+            <Link href="/" className="brand brand--center">
               HOTGYAAL
             </Link>
 
             <div className="header__actions">
-              <NavLink to="/contact" className="nav-link" onClick={() => setIsMenuOpen(false)}>
+              <Link
+                href="/contact"
+                className={isPathActive('/contact', router.asPath || '/') ? 'nav-link is-active' : 'nav-link'}
+                onClick={() => setIsMenuOpen(false)}
+              >
                 Contact
-              </NavLink>
+              </Link>
 
-              <NavLink to="/panier" className="nav-link" onClick={() => setIsMenuOpen(false)}>
+              <Link
+                href="/panier"
+                className={isPathActive('/panier', router.asPath || '/') ? 'nav-link is-active' : 'nav-link'}
+                onClick={() => setIsMenuOpen(false)}
+              >
                 Panier
                 {totalItems > 0 ? <span className="cart-count">{totalItems}</span> : null}
-              </NavLink>
+              </Link>
             </div>
           </div>
         </div>
       </header>
 
-      <main>
-        <Outlet />
-      </main>
+      <main>{children}</main>
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
-        <NavLink to="/" className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}>
+        <Link
+          href="/"
+          className={isPathActive('/', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
+        >
           <span>Accueil</span>
-        </NavLink>
-        <NavLink
-          to="/boutique"
-          className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}
+        </Link>
+        <Link
+          href="/boutique"
+          className={isPathActive('/boutique', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
         >
           <span>Boutique</span>
-        </NavLink>
-        <NavLink to="/panier" className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}>
+        </Link>
+        <Link
+          href="/panier"
+          className={isPathActive('/panier', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
+        >
           <span>Panier</span>
           {totalItems > 0 ? <strong className="mobile-nav-count">{totalItems}</strong> : null}
-        </NavLink>
-        <NavLink
-          to="/contact"
-          className={({ isActive }) => (isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link')}
+        </Link>
+        <Link
+          href="/contact"
+          className={isPathActive('/contact', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
         >
           <span>Contact</span>
-        </NavLink>
+        </Link>
       </nav>
 
       <footer className="footer">
@@ -233,11 +236,11 @@ export const Layout = () => {
             <div className="footer-column">
               <p className="footer-title">Navigation</p>
               <nav className="footer-links">
-                <Link to="/boutique">Boutique</Link>
-                <Link to="/contact">Contact</Link>
-                <Link to="/faq">FAQ</Link>
-                <Link to="/cgv-retours">Conditions</Link>
-                <Link to="/confidentialite">Confidentialite</Link>
+                <Link href="/boutique">Boutique</Link>
+                <Link href="/contact">Contact</Link>
+                <Link href="/faq">FAQ</Link>
+                <Link href="/cgv-retours">Conditions</Link>
+                <Link href="/confidentialite">Confidentialite</Link>
               </nav>
             </div>
 

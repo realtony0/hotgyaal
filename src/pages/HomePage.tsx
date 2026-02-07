@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { CATEGORY_TREE } from '../constants/categories'
 import { ProductCard } from '../components/ProductCard'
@@ -173,7 +173,7 @@ export const HomePage = () => {
               Chine puis proposes au marche senegalais.
             </p>
             <div className="hero__actions">
-              <Link to="/boutique" className="button">
+              <Link href="/boutique" className="button">
                 Decouvrir la boutique
               </Link>
               <a href="#new-in" className="button button--ghost">
@@ -194,7 +194,7 @@ export const HomePage = () => {
               <p className="eyebrow">Collection Signature</p>
               <h2>Collection signature</h2>
             </div>
-            <Link to="/boutique">Tout voir</Link>
+            <Link href="/boutique">Tout voir</Link>
           </div>
 
           <div className="product-grid stagger-grid">
@@ -212,7 +212,7 @@ export const HomePage = () => {
               <p className="eyebrow">Nouveautés</p>
               <h2>Les nouveautés</h2>
             </div>
-            <Link to="/boutique">Voir tout</Link>
+            <Link href="/boutique">Voir tout</Link>
           </div>
 
           {loading ? <p>Chargement des nouveautés...</p> : null}
@@ -236,7 +236,7 @@ export const HomePage = () => {
               <p className="eyebrow">Shoppez par catégorie</p>
               <h2>Nos univers</h2>
             </div>
-            <Link to="/boutique">Voir tout</Link>
+            <Link href="/boutique">Voir tout</Link>
           </div>
 
           <div className="category-grid category-grid--media">
@@ -258,7 +258,7 @@ export const HomePage = () => {
               return (
                 <Link
                   key={category.slug}
-                  to={`/boutique?categorie=${encodeURIComponent(category.name)}`}
+                  href={`/boutique?categorie=${encodeURIComponent(category.name)}`}
                   className="category-card category-card--media"
                   style={style}
                 >
@@ -299,7 +299,7 @@ export const HomePage = () => {
               <p className="eyebrow">Favoris</p>
               <h2>Les incontournables</h2>
             </div>
-            <Link to="/boutique">Découvrir</Link>
+            <Link href="/boutique">Découvrir</Link>
           </div>
 
           <div className="product-grid stagger-grid">

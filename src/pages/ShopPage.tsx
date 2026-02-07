@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useRouter } from 'next/router'
 import { ProductCard } from '../components/ProductCard'
 import {
   CATEGORY_TREE,
@@ -50,13 +50,20 @@ const SHOP_CATEGORY_VISUALS: Record<string, ShopCategoryVisual> = {
 }
 
 export const ShopPage = () => {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const initialCategory = searchParams.get('categorie') ?? ''
-  const initialSubCategory = searchParams.get('sous_categorie') ?? ''
+  const initialCategory = useMemo(() => {
+    const queryValue = router.query.categorie
+    return Array.isArray(queryValue) ? queryValue[0] ?? '' : queryValue ?? ''
+  }, [router.query.categorie])
+
+  const initialSubCategory = useMemo(() => {
+    const queryValue = router.query.sous_categorie
+    return Array.isArray(queryValue) ? queryValue[0] ?? '' : queryValue ?? ''
+  }, [router.query.sous_categorie])
 
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState(initialCategory)
@@ -65,9 +72,13 @@ export const ShopPage = () => {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
 
   useEffect(() => {
+    if (!router.isReady) {
+      return
+    }
+
     setSelectedCategory(initialCategory)
     setSelectedSubCategory(initialSubCategory)
-  }, [initialCategory, initialSubCategory])
+  }, [router.isReady, initialCategory, initialSubCategory])
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -168,33 +179,55 @@ export const ShopPage = () => {
     })
   }, [products, search, selectedCategory, selectedSubCategory, sort])
 
+  const updateShopQuery = (patch: Record<string, string | null>) => {
+    if (!router.isReady) {
+      return
+    }
+
+    const nextQuery: Record<string, string> = {}
+
+    Object.entries(router.query).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        nextQuery[key] = value
+        return
+      }
+
+      if (Array.isArray(value) && value[0]) {
+        nextQuery[key] = value[0]
+      }
+    })
+
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value && value.trim()) {
+        nextQuery[key] = value
+      } else {
+        delete nextQuery[key]
+      }
+    })
+
+    void router.replace(
+      {
+        pathname: '/boutique',
+        query: nextQuery,
+      },
+      undefined,
+      { shallow: true, scroll: false },
+    )
+  }
+
   const applyCategoryFilter = (category: string) => {
     setSelectedCategory(category)
     setSelectedSubCategory('')
-
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current)
-      if (category) {
-        next.set('categorie', category)
-      } else {
-        next.delete('categorie')
-      }
-      next.delete('sous_categorie')
-      return next
+    updateShopQuery({
+      categorie: category || null,
+      sous_categorie: null,
     })
   }
 
   const applySubCategoryFilter = (subCategory: string) => {
     setSelectedSubCategory(subCategory)
-
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current)
-      if (subCategory) {
-        next.set('sous_categorie', subCategory)
-      } else {
-        next.delete('sous_categorie')
-      }
-      return next
+    updateShopQuery({
+      sous_categorie: subCategory || null,
     })
   }
 
@@ -203,7 +236,9 @@ export const ShopPage = () => {
     setSelectedCategory('')
     setSelectedSubCategory('')
     setSort('newest')
-    setSearchParams(new URLSearchParams())
+    if (router.isReady) {
+      void router.replace('/boutique', undefined, { shallow: true, scroll: false })
+    }
     setIsFilterPanelOpen(false)
   }
 

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useRouter } from 'next/router'
 import { useAuth } from '../../context/AuthContext'
 
 type AdminRouteProps = {
@@ -7,7 +8,14 @@ type AdminRouteProps = {
 }
 
 export const AdminRoute = ({ children }: AdminRouteProps) => {
+  const router = useRouter()
   const { isAdmin, loading } = useAuth()
+
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      void router.replace('/admin/login')
+    }
+  }, [isAdmin, loading, router])
 
   if (loading) {
     return (
@@ -18,7 +26,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/admin/login" replace />
+    return null
   }
 
   return <>{children}</>
