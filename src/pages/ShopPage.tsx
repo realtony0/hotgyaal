@@ -62,6 +62,7 @@ export const ShopPage = () => {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory)
   const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory)
   const [sort, setSort] = useState<SortOption>('newest')
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
 
   useEffect(() => {
     setSelectedCategory(initialCategory)
@@ -203,7 +204,12 @@ export const ShopPage = () => {
     setSelectedSubCategory('')
     setSort('newest')
     setSearchParams(new URLSearchParams())
+    setIsFilterPanelOpen(false)
   }
+
+  const hasActiveFilters = Boolean(
+    selectedCategory || selectedSubCategory || search.trim(),
+  )
 
   return (
     <section className="section">
@@ -300,13 +306,54 @@ export const ShopPage = () => {
           })}
         </div>
 
-        <div className="filters-card filters-card--shop">
+        <div className="shop-mobile-actions">
+          <button
+            type="button"
+            className="mobile-filter-toggle"
+            onClick={() => setIsFilterPanelOpen((current) => !current)}
+            aria-expanded={isFilterPanelOpen}
+            aria-controls="shop-filters-panel"
+          >
+            {isFilterPanelOpen ? 'Masquer filtres' : 'Filtres et tri'}
+          </button>
+
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              className="chip chip--clear mobile-filter-clear"
+              onClick={resetFilters}
+            >
+              Reinitialiser
+            </button>
+          ) : null}
+        </div>
+
+        <div
+          id="shop-filters-panel"
+          className={
+            [
+              'filters-card',
+              'filters-card--shop',
+              'shop-filters-panel',
+              isFilterPanelOpen ? 'is-open' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+          }
+        >
           <div className="shop-filters-head">
             <p>
               Categorie active:{' '}
               <strong>{selectedCategory || 'Toutes les categories'}</strong>
             </p>
             {selectedSubCategory ? <p>Sous-categorie: {selectedSubCategory}</p> : null}
+            <button
+              type="button"
+              className="shop-filters-close"
+              onClick={() => setIsFilterPanelOpen(false)}
+            >
+              Fermer
+            </button>
           </div>
 
           <div className="filters-grid">
@@ -366,7 +413,7 @@ export const ShopPage = () => {
             </div>
           ) : null}
 
-          {(selectedCategory || selectedSubCategory || search.trim()) && (
+          {hasActiveFilters && (
             <div className="shop-active-filters">
               {selectedCategory ? <span className="active-pill">{selectedCategory}</span> : null}
               {selectedSubCategory ? (
