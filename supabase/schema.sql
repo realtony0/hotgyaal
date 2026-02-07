@@ -1,0 +1,272 @@
+create extension if not exists pgcrypto;
+
+create or replace function public.touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text,
+  role text not null default 'customer' check (role in ('admin', 'customer')),
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id)
+  values (new.id)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user();
+
+create or replace function public.is_admin(user_id uuid default auth.uid())
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = user_id and role = 'admin'
+  );
+$$;
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  description text not null,
+  price numeric(10, 2) not null check (price >= 0),
+  compare_price numeric(10, 2) check (compare_price >= 0),
+  stock integer not null default 0 check (stock >= 0),
+  main_category text not null,
+  sub_category text not null,
+  image_url text,
+  gallery_urls text[] not null default '{}',
+  sizes text[] not null default '{}',
+  is_out_of_stock boolean not null default false,
+  is_new boolean not null default false,
+  is_best_seller boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.products
+  add column if not exists sizes text[] not null default '{}';
+
+alter table public.products
+  add column if not exists is_out_of_stock boolean not null default false;
+
+update public.products
+set sizes = array['Taille unique']
+where sizes is null or cardinality(sizes) = 0;
+
+update public.products
+set is_out_of_stock = stock <= 0
+where is_out_of_stock is null;
+
+drop trigger if exists products_touch_updated_at on public.products;
+create trigger products_touch_updated_at
+  before update on public.products
+  for each row
+  execute function public.touch_updated_at();
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  order_number text not null unique default (
+    'HG-' || upper(substring(replace(gen_random_uuid()::text, '-', ''), 1, 8))
+  ),
+  user_id uuid references auth.users(id) on delete set null,
+  customer_name text not null,
+  customer_email text not null,
+  customer_phone text,
+  shipping_address jsonb not null,
+  status text not null default 'pending' check (
+    status in ('pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled')
+  ),
+  total_amount numeric(10, 2) not null check (total_amount >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists orders_touch_updated_at on public.orders;
+create trigger orders_touch_updated_at
+  before update on public.orders
+  for each row
+  execute function public.touch_updated_at();
+
+create table if not exists public.order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  product_id uuid references public.products(id) on delete set null,
+  product_name text not null,
+  selected_size text,
+  unit_price numeric(10, 2) not null check (unit_price >= 0),
+  quantity integer not null check (quantity > 0),
+  subtotal numeric(10, 2) not null check (subtotal >= 0)
+);
+
+alter table public.order_items
+  add column if not exists selected_size text;
+
+create index if not exists idx_products_category
+  on public.products (main_category, sub_category);
+
+create index if not exists idx_orders_created_at
+  on public.orders (created_at desc);
+
+create index if not exists idx_order_items_order_id
+  on public.order_items (order_id);
+
+alter table public.profiles enable row level security;
+alter table public.products enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+
+drop policy if exists "profiles_select_own_or_admin" on public.profiles;
+create policy "profiles_select_own_or_admin"
+  on public.profiles
+  for select
+  using (id = auth.uid() or public.is_admin(auth.uid()));
+
+drop policy if exists "profiles_insert_own" on public.profiles;
+create policy "profiles_insert_own"
+  on public.profiles
+  for insert
+  with check (id = auth.uid());
+
+drop policy if exists "profiles_update_own_or_admin" on public.profiles;
+create policy "profiles_update_own_or_admin"
+  on public.profiles
+  for update
+  using (id = auth.uid() or public.is_admin(auth.uid()))
+  with check (id = auth.uid() or public.is_admin(auth.uid()));
+
+drop policy if exists "products_public_read" on public.products;
+create policy "products_public_read"
+  on public.products
+  for select
+  using (true);
+
+drop policy if exists "products_admin_insert" on public.products;
+create policy "products_admin_insert"
+  on public.products
+  for insert
+  with check (public.is_admin(auth.uid()));
+
+drop policy if exists "products_admin_update" on public.products;
+create policy "products_admin_update"
+  on public.products
+  for update
+  using (public.is_admin(auth.uid()))
+  with check (public.is_admin(auth.uid()));
+
+drop policy if exists "products_admin_delete" on public.products;
+create policy "products_admin_delete"
+  on public.products
+  for delete
+  using (public.is_admin(auth.uid()));
+
+drop policy if exists "orders_insert_public" on public.orders;
+create policy "orders_insert_public"
+  on public.orders
+  for insert
+  with check (true);
+
+drop policy if exists "orders_select_owner_or_admin" on public.orders;
+create policy "orders_select_owner_or_admin"
+  on public.orders
+  for select
+  using (public.is_admin(auth.uid()) or user_id = auth.uid());
+
+drop policy if exists "orders_update_admin" on public.orders;
+create policy "orders_update_admin"
+  on public.orders
+  for update
+  using (public.is_admin(auth.uid()))
+  with check (public.is_admin(auth.uid()));
+
+drop policy if exists "order_items_insert_public" on public.order_items;
+create policy "order_items_insert_public"
+  on public.order_items
+  for insert
+  with check (true);
+
+drop policy if exists "order_items_select_owner_or_admin" on public.order_items;
+create policy "order_items_select_owner_or_admin"
+  on public.order_items
+  for select
+  using (
+    public.is_admin(auth.uid())
+    or exists (
+      select 1
+      from public.orders
+      where orders.id = order_items.order_id
+        and orders.user_id = auth.uid()
+    )
+  );
+
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "product_images_public_read" on storage.objects;
+create policy "product_images_public_read"
+  on storage.objects
+  for select
+  to public
+  using (bucket_id = 'product-images');
+
+drop policy if exists "product_images_admin_insert" on storage.objects;
+create policy "product_images_admin_insert"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'product-images'
+    and public.is_admin(auth.uid())
+  );
+
+drop policy if exists "product_images_admin_update" on storage.objects;
+create policy "product_images_admin_update"
+  on storage.objects
+  for update
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and public.is_admin(auth.uid())
+  )
+  with check (
+    bucket_id = 'product-images'
+    and public.is_admin(auth.uid())
+  );
+
+drop policy if exists "product_images_admin_delete" on storage.objects;
+create policy "product_images_admin_delete"
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and public.is_admin(auth.uid())
+  );
