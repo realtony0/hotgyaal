@@ -106,6 +106,19 @@ export const CATEGORY_TREE: CategoryGroup[] = [
       'Plantes',
     ],
   },
+  {
+    slug: 'beaute',
+    name: 'Beauté',
+    description: 'Soins, maquillage et essentials premium.',
+    subcategories: [
+      'Maquillage',
+      'Soins visage',
+      'Soins corps',
+      'Cheveux',
+      'Parfums',
+      'Accessoires beauté',
+    ],
+  },
 ]
 
 export const MAIN_CATEGORY_NAMES = CATEGORY_TREE.map((category) => category.name)

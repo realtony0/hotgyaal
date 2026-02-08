@@ -59,6 +59,12 @@ const CATEGORY_VISUALS: Record<string, CategoryVisual> = {
     textColor: '#ffffff',
     highlights: ['Decoration murale', 'Mobilier', 'Cuisine'],
   },
+  Beauté: {
+    note: 'Make-up, soins et parfums',
+    tone: 'linear-gradient(130deg, #3a2630 0%, #8f4e68 52%, #d39ab0 100%)',
+    textColor: '#ffffff',
+    highlights: ['Maquillage', 'Soins visage', 'Parfums'],
+  },
 }
 
 export const HomePage = () => {

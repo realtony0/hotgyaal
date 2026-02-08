@@ -14,7 +14,8 @@ import { groupProductsForStorefront } from '../utils/products'
 type SortOption = 'newest' | 'price-asc' | 'price-desc'
 
 type ShopCategoryVisual = {
-  image: string
+  image?: string
+  tone?: string
   note: string
 }
 
@@ -46,6 +47,10 @@ const SHOP_CATEGORY_VISUALS: Record<string, ShopCategoryVisual> = {
   'Home & Living': {
     image: '/categories/home-living.webp',
     note: 'Maison et deco',
+  },
+  Beauté: {
+    note: 'Make-up et soins',
+    tone: 'linear-gradient(130deg, #2f1e27 0%, #854d64 52%, #c98ea5 100%)',
   },
 }
 
@@ -294,7 +299,11 @@ export const ShopPage = () => {
             const visual = SHOP_CATEGORY_VISUALS[category.name]
             const isActive = selectedCategory === category.name
             const hasProducts = category.total > 0
-            const categoryImage = visual?.image ?? '/categories/women-fashion.webp'
+            const mediaStyle = visual?.image
+              ? { backgroundImage: `url(${visual.image})` }
+              : visual?.tone
+                ? { background: visual.tone }
+                : { backgroundImage: 'url(/categories/women-fashion.webp)' }
 
             return (
               <button
@@ -314,7 +323,7 @@ export const ShopPage = () => {
               >
                 <div
                   className="shop-category-card__media"
-                  style={{ backgroundImage: `url(${categoryImage})` }}
+                  style={mediaStyle}
                 >
                   <span>{category.total} produit(s)</span>
                 </div>
