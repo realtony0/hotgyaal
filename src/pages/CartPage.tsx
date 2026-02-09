@@ -9,24 +9,18 @@ import { formatCurrency } from '../utils/format'
 
 type CheckoutFormState = {
   customerName: string
-  customerEmail: string
   customerPhone: string
   line1: string
   line2: string
   city: string
-  postalCode: string
-  country: string
 }
 
 const initialCheckoutState: CheckoutFormState = {
   customerName: '',
-  customerEmail: '',
   customerPhone: '',
   line1: '',
   line2: '',
   city: '',
-  postalCode: '',
-  country: 'Sénégal',
 }
 
 type ShippingOption = {
@@ -68,6 +62,12 @@ const ORDER_CHAT_NUMBER = (
 const getShippingOptionById = (shippingId: string) =>
   SHIPPING_OPTIONS.find((option) => option.id === shippingId) ?? null
 
+const getFallbackEmail = (phone: string) => {
+  const digits = phone.replace(/\D/g, '')
+  const safeDigits = digits || 'client'
+  return `commande-${safeDigits}@hotgyaal.local`
+}
+
 const buildOrderMessage = (
   formState: CheckoutFormState,
   items: CartItem[],
@@ -80,7 +80,6 @@ const buildOrderMessage = (
     orderNumber ? `Reference: ${orderNumber}` : 'Reference: En attente',
     '',
     `Nom: ${formState.customerName}`,
-    `Email: ${formState.customerEmail}`,
     `Telephone: ${formState.customerPhone || 'Non renseigne'}`,
     '',
     'Articles:',
@@ -100,9 +99,10 @@ const buildOrderMessage = (
   lines.push('Frais transport exacts: confirmes apres calcul du poids/volume.')
   lines.push('Vente au Senegal, sourcing import-export depuis la Chine.')
   lines.push('')
-  lines.push(
-    `Adresse: ${formState.line1}${formState.line2 ? `, ${formState.line2}` : ''}, ${formState.postalCode} ${formState.city}, ${formState.country}`,
-  )
+  lines.push(`Adresse: ${formState.line1}, ${formState.city}`)
+  if (formState.line2.trim()) {
+    lines.push(`Note cliente: ${formState.line2.trim()}`)
+  }
 
   return lines.join('\n')
 }
@@ -119,8 +119,9 @@ export const CartPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const total = subtotal
+  const productsTotal = subtotal
   const selectedShippingOption = getShippingOptionById(selectedShippingId)
+  const normalizedCustomerEmail = getFallbackEmail(formState.customerPhone)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -159,14 +160,14 @@ export const CartPage = () => {
           const order = await createOrder({
             userId: user?.id ?? null,
             customerName: formState.customerName,
-            customerEmail: formState.customerEmail,
+            customerEmail: normalizedCustomerEmail,
             customerPhone: formState.customerPhone,
             shippingAddress: {
               line1: formState.line1,
               line2: line2Parts.join(' | '),
               city: formState.city,
-              postal_code: formState.postalCode,
-              country: formState.country,
+              postal_code: '00000',
+              country: 'Senegal',
             },
             items,
           })
@@ -290,13 +291,13 @@ export const CartPage = () => {
               <dt>Transport</dt>
               <dd>
                 {selectedShippingOption
-                  ? `${selectedShippingOption.priceLabel}`
+                  ? `${selectedShippingOption.name} (${selectedShippingOption.timeline})`
                   : 'A choisir'}
               </dd>
             </div>
             <div>
-              <dt>Total</dt>
-              <dd>{formatCurrency(total)}</dd>
+              <dt>Total produits</dt>
+              <dd>{formatCurrency(productsTotal)}</dd>
             </div>
           </dl>
           <p className="shipping-note">
@@ -304,7 +305,11 @@ export const CartPage = () => {
             ou du volume.
           </p>
 
-          <form className="checkout-form" onSubmit={handleSubmit}>
+          <p className="checkout-card__lead">
+            Remplissez ces 4 infos et validez. La commande part directement en confirmation.
+          </p>
+
+          <form className="checkout-form checkout-form--simple" onSubmit={handleSubmit}>
             <fieldset className="shipping-selector">
               <legend>Choix transport</legend>
               <div className="shipping-options">
@@ -342,53 +347,43 @@ export const CartPage = () => {
               </p>
             </fieldset>
 
-            <label>
-              Nom complet
-              <input
-                required
-                value={formState.customerName}
-                onChange={(event) =>
-                  setFormState((state) => ({
-                    ...state,
-                    customerName: event.target.value,
-                  }))
-                }
-              />
-            </label>
+            <div className="checkout-customer-grid">
+              <label>
+                Nom complet
+                <input
+                  required
+                  placeholder="Ex: Aissatou Ndiaye"
+                  value={formState.customerName}
+                  onChange={(event) =>
+                    setFormState((state) => ({
+                      ...state,
+                      customerName: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label>
+                Téléphone
+                <input
+                  required
+                  placeholder="Ex: 77 000 00 00"
+                  value={formState.customerPhone}
+                  onChange={(event) =>
+                    setFormState((state) => ({
+                      ...state,
+                      customerPhone: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </div>
 
             <label>
-              Email
+              Quartier / Adresse
               <input
                 required
-                type="email"
-                value={formState.customerEmail}
-                onChange={(event) =>
-                  setFormState((state) => ({
-                    ...state,
-                    customerEmail: event.target.value,
-                  }))
-                }
-              />
-            </label>
-
-            <label>
-              Téléphone
-              <input
-                required
-                value={formState.customerPhone}
-                onChange={(event) =>
-                  setFormState((state) => ({
-                    ...state,
-                    customerPhone: event.target.value,
-                  }))
-                }
-              />
-            </label>
-
-            <label>
-              Adresse
-              <input
-                required
+                placeholder="Ex: Parcelles Assainies Unite 10"
                 value={formState.line1}
                 onChange={(event) =>
                   setFormState((state) => ({
@@ -400,56 +395,29 @@ export const CartPage = () => {
             </label>
 
             <label>
-              Complément
+              Ville
               <input
-                value={formState.line2}
+                required
+                placeholder="Ex: Dakar"
+                value={formState.city}
                 onChange={(event) =>
                   setFormState((state) => ({
                     ...state,
-                    line2: event.target.value,
+                    city: event.target.value,
                   }))
                 }
               />
             </label>
 
-            <div className="inline-fields">
-              <label>
-                Ville
-                <input
-                  required
-                  value={formState.city}
-                  onChange={(event) =>
-                    setFormState((state) => ({
-                      ...state,
-                      city: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                Code postal
-                <input
-                  required
-                  value={formState.postalCode}
-                  onChange={(event) =>
-                    setFormState((state) => ({
-                      ...state,
-                      postalCode: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-            </div>
-
             <label>
-              Pays
+              Note (optionnel)
               <input
-                required
-                value={formState.country}
+                placeholder="Ex: Disponible apres 17h"
+                value={formState.line2}
                 onChange={(event) =>
                   setFormState((state) => ({
                     ...state,
-                    country: event.target.value,
+                    line2: event.target.value,
                   }))
                 }
               />
