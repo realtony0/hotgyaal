@@ -8,6 +8,7 @@ const storefrontLinks = [
   { href: '/', label: 'Accueil' },
   { href: '/boutique', label: 'Boutique' },
   { href: '/boutique?categorie=V%C3%AAtements%20Femmes&sous_categorie=Robes', label: 'Robes' },
+  { href: '/boutique?categorie=Beaut%C3%A9', label: 'Beauté' },
   { href: '/boutique?categorie=Bijoux%20%26%20Accessoires', label: 'Accessoires' },
   { href: '/boutique?categorie=Chaussures', label: 'Chaussures' },
 ]

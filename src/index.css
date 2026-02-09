@@ -1946,6 +1946,23 @@ textarea:focus {
     letter-spacing: 0.09em;
   }
 
+  .category-grid--media {
+    display: flex;
+    gap: 0.62rem;
+    overflow-x: auto;
+    padding-bottom: 0.24rem;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  .category-grid--media .category-card--media {
+    min-width: 238px;
+    max-width: 238px;
+    flex: 0 0 238px;
+    min-height: 220px;
+    scroll-snap-align: start;
+  }
+
   .shop-category-browser {
     display: flex;
     gap: 0.55rem;
@@ -2316,6 +2333,13 @@ textarea:focus {
 
   .category-card--media {
     min-height: 208px;
+  }
+
+  .category-grid--media .category-card--media {
+    min-width: 206px;
+    max-width: 206px;
+    flex-basis: 206px;
+    min-height: 196px;
   }
 
   .shop-category-card {
