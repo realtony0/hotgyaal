@@ -51,13 +51,30 @@ const SHIPPING_OPTIONS: ShippingOption[] = [
   },
 ]
 
-const ORDER_CHAT_NUMBER = (
-  process.env.NEXT_PUBLIC_ORDER_CHAT_NUMBER ??
-  process.env.VITE_ORDER_CHAT_NUMBER ??
-  '221770000000'
+const normalizeChatNumber = (rawNumber: string) => {
+  const digits = rawNumber.replace(/\D/g, '')
+
+  if (digits.length === 9 && digits.startsWith('7')) {
+    return `221${digits}`
+  }
+
+  if (digits.length === 10 && digits.startsWith('0')) {
+    const local = digits.slice(1)
+    if (local.length === 9 && local.startsWith('7')) {
+      return `221${local}`
+    }
+  }
+
+  return digits
+}
+
+const ORDER_CHAT_NUMBER = normalizeChatNumber(
+  (
+    process.env.NEXT_PUBLIC_ORDER_CHAT_NUMBER ??
+    process.env.VITE_ORDER_CHAT_NUMBER ??
+    '221770000000'
+  ).toString(),
 )
-  .toString()
-  .replace(/\D/g, '')
 
 const getShippingOptionById = (shippingId: string) =>
   SHIPPING_OPTIONS.find((option) => option.id === shippingId) ?? null
