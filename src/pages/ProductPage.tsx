@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
-import { getLocalProductBySlug, LOCAL_PRODUCTS } from '../data/localProducts'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { getProductBySlug, listProducts } from '../services/products'
 import type { Product } from '../types'
@@ -40,17 +39,10 @@ export const ProductPage = () => {
         setLoading(true)
 
         if (!isSupabaseConfigured) {
-          const localProduct = getLocalProductBySlug(slug)
-          if (!localProduct) {
-            setError('Produit introuvable.')
-            setProduct(null)
-            return
-          }
-
-          setProduct(localProduct)
-          setRelatedVariants(getRelatedVariants(LOCAL_PRODUCTS, localProduct))
-          setActiveImage(localProduct.image_url)
-          setError(null)
+          setError(
+            'Supabase n\'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.',
+          )
+          setProduct(null)
           return
         }
 
@@ -69,19 +61,11 @@ export const ProductPage = () => {
         setActiveImage(data.image_url)
         setError(null)
       } catch (loadError) {
-        const localProduct = getLocalProductBySlug(slug)
-        if (localProduct) {
-          setProduct(localProduct)
-          setRelatedVariants(getRelatedVariants(LOCAL_PRODUCTS, localProduct))
-          setActiveImage(localProduct.image_url)
-          setError(null)
-          return
-        }
-
+        setProduct(null)
         setError(
           loadError instanceof Error
             ? loadError.message
-            : 'Impossible de charger ce produit.',
+            : 'Impossible de charger ce produit depuis Supabase.',
         )
       } finally {
         setLoading(false)

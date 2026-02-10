@@ -171,23 +171,26 @@ create policy "products_public_read"
   using (true);
 
 drop policy if exists "products_admin_insert" on public.products;
-create policy "products_admin_insert"
+drop policy if exists "products_public_insert" on public.products;
+create policy "products_public_insert"
   on public.products
   for insert
-  with check (public.is_admin(auth.uid()));
+  with check (true);
 
 drop policy if exists "products_admin_update" on public.products;
-create policy "products_admin_update"
+drop policy if exists "products_public_update" on public.products;
+create policy "products_public_update"
   on public.products
   for update
-  using (public.is_admin(auth.uid()))
-  with check (public.is_admin(auth.uid()));
+  using (true)
+  with check (true);
 
 drop policy if exists "products_admin_delete" on public.products;
-create policy "products_admin_delete"
+drop policy if exists "products_public_delete" on public.products;
+create policy "products_public_delete"
   on public.products
   for delete
-  using (public.is_admin(auth.uid()));
+  using (true);
 
 drop policy if exists "orders_insert_public" on public.orders;
 create policy "orders_insert_public"
@@ -196,17 +199,19 @@ create policy "orders_insert_public"
   with check (true);
 
 drop policy if exists "orders_select_owner_or_admin" on public.orders;
-create policy "orders_select_owner_or_admin"
+drop policy if exists "orders_public_select" on public.orders;
+create policy "orders_public_select"
   on public.orders
   for select
-  using (public.is_admin(auth.uid()) or user_id = auth.uid());
+  using (true);
 
 drop policy if exists "orders_update_admin" on public.orders;
-create policy "orders_update_admin"
+drop policy if exists "orders_public_update" on public.orders;
+create policy "orders_public_update"
   on public.orders
   for update
-  using (public.is_admin(auth.uid()))
-  with check (public.is_admin(auth.uid()));
+  using (true)
+  with check (true);
 
 drop policy if exists "order_items_insert_public" on public.order_items;
 create policy "order_items_insert_public"
@@ -215,18 +220,11 @@ create policy "order_items_insert_public"
   with check (true);
 
 drop policy if exists "order_items_select_owner_or_admin" on public.order_items;
-create policy "order_items_select_owner_or_admin"
+drop policy if exists "order_items_public_select" on public.order_items;
+create policy "order_items_public_select"
   on public.order_items
   for select
-  using (
-    public.is_admin(auth.uid())
-    or exists (
-      select 1
-      from public.orders
-      where orders.id = order_items.order_id
-        and orders.user_id = auth.uid()
-    )
-  );
+  using (true);
 
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
@@ -240,38 +238,29 @@ create policy "product_images_public_read"
   using (bucket_id = 'product-images');
 
 drop policy if exists "product_images_admin_insert" on storage.objects;
-create policy "product_images_admin_insert"
+drop policy if exists "product_images_public_insert" on storage.objects;
+create policy "product_images_public_insert"
   on storage.objects
   for insert
-  to authenticated
-  with check (
-    bucket_id = 'product-images'
-    and public.is_admin(auth.uid())
-  );
+  to public
+  with check (bucket_id = 'product-images');
 
 drop policy if exists "product_images_admin_update" on storage.objects;
-create policy "product_images_admin_update"
+drop policy if exists "product_images_public_update" on storage.objects;
+create policy "product_images_public_update"
   on storage.objects
   for update
-  to authenticated
-  using (
-    bucket_id = 'product-images'
-    and public.is_admin(auth.uid())
-  )
-  with check (
-    bucket_id = 'product-images'
-    and public.is_admin(auth.uid())
-  );
+  to public
+  using (bucket_id = 'product-images')
+  with check (bucket_id = 'product-images');
 
 drop policy if exists "product_images_admin_delete" on storage.objects;
-create policy "product_images_admin_delete"
+drop policy if exists "product_images_public_delete" on storage.objects;
+create policy "product_images_public_delete"
   on storage.objects
   for delete
-  to authenticated
-  using (
-    bucket_id = 'product-images'
-    and public.is_admin(auth.uid())
-  );
+  to public
+  using (bucket_id = 'product-images');
 
 insert into public.products (
   name,

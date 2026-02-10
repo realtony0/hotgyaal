@@ -100,9 +100,31 @@ export const uploadProductImage = async (file: File): Promise<string> => {
     })
 
   if (uploadError) {
+    const loweredMessage = uploadError.message.toLowerCase()
+
+    if (loweredMessage.includes('bucket')) {
+      throw new Error(
+        'Bucket Supabase product-images introuvable. Lancez le SQL setup Supabase.',
+      )
+    }
+
+    if (
+      loweredMessage.includes('permission') ||
+      loweredMessage.includes('not allowed') ||
+      loweredMessage.includes('row-level')
+    ) {
+      throw new Error(
+        'Permission Storage insuffisante. Appliquez les policies Supabase du projet.',
+      )
+    }
+
     throw new Error(uploadError.message)
   }
 
   const { data } = client.storage.from(PRODUCT_BUCKET).getPublicUrl(filePath)
+  if (!data.publicUrl) {
+    throw new Error('Public image URL is missing.')
+  }
+
   return data.publicUrl
 }

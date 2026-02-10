@@ -2,6 +2,8 @@
 
 Site e-commerce moderne (storefront + panier + back-office admin) construit avec Next.js, React, TypeScript et Supabase.
 
+Supabase est obligatoire pour le fonctionnement du front, du checkout et du back-office (aucun fallback local).
+
 ## Fonctionnalités
 
 - Boutique responsive (mobile + desktop)
@@ -40,6 +42,7 @@ NEXT_PUBLIC_ORDER_CHAT_NUMBER=221774931474
 1. Ouvrir Supabase SQL Editor.
 2. Exécuter `/Users/admin/Desktop/Housegyaal/supabase/schema.sql`.
 3. (Optionnel) Exécuter `/Users/admin/Desktop/Housegyaal/supabase/seed.sql` pour des produits de démo.
+4. (Si base deja creee) Exécuter `/Users/admin/Desktop/Housegyaal/supabase/unlock_admin_policies.sql` pour retirer l'exigence `role='admin'`.
 
 ## Import d'images locales
 
@@ -59,6 +62,7 @@ node scripts/import-local-products.mjs
 
 - Ouvrir `/admin/login`
 - Code d'accès: `142022`
+- Aucun role Supabase admin n'est requis avec la configuration SQL actuelle.
 
 ## Lancer le projet
 

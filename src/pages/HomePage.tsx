@@ -5,7 +5,6 @@ import { ProductCard } from '../components/ProductCard'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
-import { LOCAL_PRODUCTS } from '../data/localProducts'
 import { groupProductsForStorefront } from '../utils/products'
 
 type CategoryVisual = {
@@ -73,26 +72,34 @@ export const HomePage = () => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setProducts(groupProductsForStorefront(LOCAL_PRODUCTS))
-      setLoading(false)
-      return
-    }
-
     const loadProducts = async () => {
+      if (!isSupabaseConfigured) {
+        setProducts([])
+        setError(
+          'Supabase n\'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.',
+        )
+        setLoading(false)
+        return
+      }
+
       try {
+        setLoading(true)
         const data = await listProducts()
         setProducts(groupProductsForStorefront(data))
         setError(null)
-      } catch {
-        setProducts(groupProductsForStorefront(LOCAL_PRODUCTS))
-        setError(null)
+      } catch (loadError) {
+        setProducts([])
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'Impossible de charger les produits depuis Supabase.',
+        )
       } finally {
         setLoading(false)
       }
     }
 
-    loadProducts()
+    void loadProducts()
   }, [])
 
   const sections = useMemo(() => {
@@ -331,14 +338,6 @@ export const HomePage = () => {
           </form>
         </div>
       </section>
-
-      {!isSupabaseConfigured ? (
-        <section className="section">
-          <div className="container banner-warning">
-            <p>Mode catalogue local activé. Connectez Supabase pour les commandes.</p>
-          </div>
-        </section>
-      ) : null}
     </div>
   )
 }

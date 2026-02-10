@@ -159,59 +159,50 @@ export const CartPage = () => {
       return
     }
 
+    if (!isSupabaseConfigured) {
+      setError(
+        'Supabase n\'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.',
+      )
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
       setSuccessMessage(null)
 
-      let orderNumber: string | null = null
-      let orderStorageError = false
+      const line2Parts = [
+        formState.line2.trim(),
+        `Transport: ${shippingOption.name} (${shippingOption.priceLabel}, ${shippingOption.timeline})`,
+      ].filter(Boolean)
 
-      if (isSupabaseConfigured) {
-        try {
-          const line2Parts = [
-            formState.line2.trim(),
-            `Transport: ${shippingOption.name} (${shippingOption.priceLabel}, ${shippingOption.timeline})`,
-          ].filter(Boolean)
-
-          const order = await createOrder({
-            userId: user?.id ?? null,
-            customerName: formState.customerName,
-            customerEmail: normalizedCustomerEmail,
-            customerPhone: formState.customerPhone,
-            shippingAddress: {
-              line1: formState.line1,
-              line2: line2Parts.join(' | '),
-              city: formState.city,
-              postal_code: '00000',
-              country: 'Senegal',
-            },
-            items,
-          })
-
-          orderNumber = order.order_number
-        } catch (saveError) {
-          orderStorageError = true
-          console.error('Enregistrement de commande impossible', saveError)
-        }
-      }
+      const order = await createOrder({
+        userId: user?.id ?? null,
+        customerName: formState.customerName,
+        customerEmail: normalizedCustomerEmail,
+        customerPhone: formState.customerPhone,
+        shippingAddress: {
+          line1: formState.line1,
+          line2: line2Parts.join(' | '),
+          city: formState.city,
+          postal_code: '00000',
+          country: 'Senegal',
+        },
+        items,
+      })
 
       const orderMessage = buildOrderMessage(
         formState,
         items,
         subtotal,
         shippingOption,
-        orderNumber,
+        order.order_number,
       )
 
       clearCart()
       setFormState(initialCheckoutState)
       setSelectedShippingId('')
-      setSuccessMessage(
-        orderStorageError
-          ? 'Commande envoyée. Une confirmation vous sera transmise.'
-          : 'Commande prête. Redirection en cours...',
-      )
+      setSuccessMessage('Commande prête. Redirection en cours...')
 
       if (typeof window !== 'undefined') {
         window.location.assign(
