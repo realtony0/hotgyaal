@@ -101,3 +101,20 @@ export type CheckoutPayload = {
   shippingAddress: ShippingAddress
   items: CartItem[]
 }
+
+export type StoreSettings = {
+  id: number
+  announcement_text: string
+  hero_eyebrow: string
+  hero_title: string
+  hero_description: string
+  contact_intro: string
+  contact_phone: string
+  contact_email: string
+  contact_hours: string
+  footer_blurb: string
+  order_chat_number: string
+  updated_at: string
+}
+
+export type StoreSettingsPayload = Omit<StoreSettings, 'id' | 'updated_at'>

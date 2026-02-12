@@ -3,6 +3,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
+import { useStoreSettings } from '../context/StoreSettingsContext'
 
 const storefrontLinks = [
   { href: '/', label: 'Accueil' },
@@ -101,6 +102,7 @@ type LayoutProps = {
 export const Layout = ({ children }: LayoutProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { totalItems } = useCart()
+  const { settings } = useStoreSettings()
   const router = useRouter()
 
   const seo = useMemo(() => {
@@ -129,7 +131,7 @@ export const Layout = ({ children }: LayoutProps) => {
       <header className="site-header">
         <div className="announcement-bar">
           <div className="container announcement-bar__content">
-            Mode femme & accessoires · Vente au Senegal · Importation directe Chine
+            {settings.announcement_text}
           </div>
         </div>
 
@@ -223,13 +225,10 @@ export const Layout = ({ children }: LayoutProps) => {
         <div className="container footer__content footer__content--grid">
           <div className="footer-brand">
             <strong>HOTGYAAL</strong>
-            <p>
-              Specialiste mode femme, accessoires et chaussures. Vente au
-              Senegal avec importation directe depuis la Chine.
-            </p>
+            <p>{settings.footer_blurb}</p>
             <div className="footer-contact-inline">
-              <span>+221 77 493 14 74</span>
-              <span>sophieniang344@gmail.com</span>
+              <span>{settings.contact_phone}</span>
+              <span>{settings.contact_email}</span>
             </div>
           </div>
 

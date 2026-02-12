@@ -129,6 +129,31 @@ create table if not exists public.order_items (
 alter table public.order_items
   add column if not exists selected_size text;
 
+create table if not exists public.store_settings (
+  id integer primary key check (id = 1),
+  announcement_text text not null default 'Mode femme & accessoires · Vente au Senegal · Importation directe Chine',
+  hero_eyebrow text not null default 'Mode Femme & Accessoires',
+  hero_title text not null default 'Vetements, accessoires et chaussures tendance au Senegal.',
+  hero_description text not null default 'HOTGYAAL met en avant la mode feminine: robes, tops, ensembles, sacs, bijoux et chaussures. Les produits sont selectionnes en Chine puis proposes au marche senegalais.',
+  contact_intro text not null default 'HOTGYAAL vend au Senegal et source ses collections en Chine via une activite d''import-export.',
+  contact_phone text not null default '+221 77 493 14 74',
+  contact_email text not null default 'sophieniang344@gmail.com',
+  contact_hours text not null default 'lundi a samedi, 9h - 19h',
+  footer_blurb text not null default 'Specialiste mode femme, accessoires et chaussures. Vente au Senegal avec importation directe depuis la Chine.',
+  order_chat_number text not null default '774931474',
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists store_settings_touch_updated_at on public.store_settings;
+create trigger store_settings_touch_updated_at
+  before update on public.store_settings
+  for each row
+  execute function public.touch_updated_at();
+
+insert into public.store_settings (id)
+values (1)
+on conflict (id) do nothing;
+
 create index if not exists idx_products_category
   on public.products (main_category, sub_category);
 
@@ -142,6 +167,7 @@ alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+alter table public.store_settings enable row level security;
 
 drop policy if exists "profiles_select_own_or_admin" on public.profiles;
 create policy "profiles_select_own_or_admin"
@@ -223,6 +249,25 @@ create policy "order_items_public_select"
   on public.order_items
   for select
   using (true);
+
+drop policy if exists "store_settings_public_select" on public.store_settings;
+create policy "store_settings_public_select"
+  on public.store_settings
+  for select
+  using (true);
+
+drop policy if exists "store_settings_public_insert" on public.store_settings;
+create policy "store_settings_public_insert"
+  on public.store_settings
+  for insert
+  with check (true);
+
+drop policy if exists "store_settings_public_update" on public.store_settings;
+create policy "store_settings_public_update"
+  on public.store_settings
+  for update
+  using (true)
+  with check (true);
 
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { Layout } from '../src/components/Layout'
 import { AuthProvider } from '../src/context/AuthContext'
 import { CartProvider } from '../src/context/CartContext'
+import { StoreSettingsProvider } from '../src/context/StoreSettingsContext'
 import '../src/index.css'
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -11,15 +12,17 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <AuthProvider>
-      <CartProvider>
-        {isAdminRoute ? (
-          <Component {...pageProps} />
-        ) : (
-          <Layout>
+      <StoreSettingsProvider>
+        <CartProvider>
+          {isAdminRoute ? (
             <Component {...pageProps} />
-          </Layout>
-        )}
-      </CartProvider>
+          ) : (
+            <Layout>
+              <Component {...pageProps} />
+            </Layout>
+          )}
+        </CartProvider>
+      </StoreSettingsProvider>
     </AuthProvider>
   )
 }

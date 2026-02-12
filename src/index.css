@@ -1294,6 +1294,50 @@ textarea:focus {
   gap: 0.45rem;
 }
 
+.admin-step-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.admin-step-card {
+  border: 1px solid #eadce3;
+  border-radius: 0.86rem;
+  background: linear-gradient(180deg, #fff 0%, #fff8fb 100%);
+  padding: 0.72rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.admin-step-card span {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #2a1a20;
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.admin-step-card h3 {
+  font-size: 1rem;
+}
+
+.admin-step-card p {
+  font-size: 0.8rem;
+}
+
+.admin-site-form label {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 0.79rem;
+  font-weight: 600;
+  color: #433039;
+}
+
 .admin-catalog-filters {
   margin-top: 0.8rem;
   display: grid;
@@ -1422,7 +1466,7 @@ textarea:focus {
 .admin-search {
   display: grid;
   gap: 0.35rem;
-  min-width: min(340px, 100%);
+  min-width: 0;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-size: 0.66rem;
@@ -1441,11 +1485,15 @@ textarea:focus {
   border: 1px solid var(--border);
   padding: 0.7rem;
   display: grid;
-  grid-template-columns: minmax(92px, auto) 84px minmax(0, 1fr) auto;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
   gap: 0.8rem;
   align-items: center;
   background: #fff;
   border-radius: 0.8rem;
+}
+
+.admin-product-item--advanced {
+  grid-template-columns: minmax(92px, auto) 84px minmax(0, 1fr) auto;
 }
 
 .admin-product-item img {
@@ -2291,6 +2339,15 @@ textarea:focus {
   .admin-toolbar-actions .button {
     flex: 1;
     justify-content: center;
+  }
+
+  .admin-toolbar-actions .inline-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-step-grid {
+    grid-template-columns: 1fr;
   }
 
   .admin-product-item {

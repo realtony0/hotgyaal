@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { CATEGORY_TREE } from '../constants/categories'
 import { ProductCard } from '../components/ProductCard'
+import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
@@ -67,6 +68,7 @@ const CATEGORY_VISUALS: Record<string, CategoryVisual> = {
 }
 
 export const HomePage = () => {
+  const { settings } = useStoreSettings()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -178,13 +180,9 @@ export const HomePage = () => {
       <section className="hero hero--shopliwa">
         <div className="container hero__grid">
           <div className="hero__text">
-            <p className="eyebrow">Mode Femme & Accessoires</p>
-            <h1>Vetements, accessoires et chaussures tendance au Senegal.</h1>
-            <p>
-              HOTGYAAL met en avant la mode feminine: robes, tops, ensembles,
-              sacs, bijoux et chaussures. Les produits sont selectionnes en
-              Chine puis proposes au marche senegalais.
-            </p>
+            <p className="eyebrow">{settings.hero_eyebrow}</p>
+            <h1>{settings.hero_title}</h1>
+            <p>{settings.hero_description}</p>
             <div className="hero__actions">
               <Link href="/boutique" className="button">
                 Decouvrir la boutique

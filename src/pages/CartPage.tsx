@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { createOrder } from '../services/orders'
 import type { CartItem } from '../types'
@@ -68,14 +69,6 @@ const normalizeChatNumber = (rawNumber: string) => {
   return digits
 }
 
-const ORDER_CHAT_NUMBER = normalizeChatNumber(
-  (
-    process.env.NEXT_PUBLIC_ORDER_CHAT_NUMBER ??
-    process.env.VITE_ORDER_CHAT_NUMBER ??
-    '221770000000'
-  ).toString(),
-)
-
 const getShippingOptionById = (shippingId: string) =>
   SHIPPING_OPTIONS.find((option) => option.id === shippingId) ?? null
 
@@ -127,6 +120,7 @@ const buildOrderMessage = (
 export const CartPage = () => {
   const { user } = useAuth()
   const { items, subtotal, removeFromCart, updateQuantity, clearCart } = useCart()
+  const { settings } = useStoreSettings()
 
   const [formState, setFormState] = useState<CheckoutFormState>(
     initialCheckoutState,
@@ -139,6 +133,14 @@ export const CartPage = () => {
   const productsTotal = subtotal
   const selectedShippingOption = getShippingOptionById(selectedShippingId)
   const normalizedCustomerEmail = getFallbackEmail(formState.customerPhone)
+  const orderChatNumber = normalizeChatNumber(
+    settings.order_chat_number ||
+      (
+        process.env.NEXT_PUBLIC_ORDER_CHAT_NUMBER ??
+        process.env.VITE_ORDER_CHAT_NUMBER ??
+        '221770000000'
+      ).toString(),
+  )
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -154,7 +156,7 @@ export const CartPage = () => {
       return
     }
 
-    if (!ORDER_CHAT_NUMBER) {
+    if (!orderChatNumber) {
       setError('Le numéro de confirmation n’est pas configuré.')
       return
     }
@@ -206,7 +208,7 @@ export const CartPage = () => {
 
       if (typeof window !== 'undefined') {
         window.location.assign(
-          `https://wa.me/${ORDER_CHAT_NUMBER}?text=${encodeURIComponent(orderMessage)}`,
+          `https://wa.me/${orderChatNumber}?text=${encodeURIComponent(orderMessage)}`,
         )
       }
     } catch (submitError) {

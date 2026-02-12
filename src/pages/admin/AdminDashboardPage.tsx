@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useStoreSettings } from '../../context/StoreSettingsContext'
 import {
   CATEGORY_TREE,
   MAIN_CATEGORY_NAMES,
@@ -13,7 +14,13 @@ import {
   upsertProduct,
   uploadProductImage,
 } from '../../services/products'
-import type { Order, OrderStatus, Product, ProductPayload } from '../../types'
+import type {
+  Order,
+  OrderStatus,
+  Product,
+  ProductPayload,
+  StoreSettingsPayload,
+} from '../../types'
 import { formatCurrency, formatDate } from '../../utils/format'
 import { toSlug } from '../../utils/slug'
 import { dedupeProductsBySlug } from '../../utils/products'
@@ -36,31 +43,6 @@ type BulkProductAction =
   | 'set_best'
   | 'unset_best'
   | 'delete'
-
-const escapeCsvValue = (value: string | number | null | undefined): string => {
-  const normalized = String(value ?? '')
-  if (/["\n,]/.test(normalized)) {
-    return `"${normalized.replace(/"/g, '""')}"`
-  }
-  return normalized
-}
-
-const downloadCsv = (filename: string, rows: string[][]) => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  const content = rows.map((row) => row.map(escapeCsvValue).join(',')).join('\n')
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
 
 type CategoryOption = {
   key: string
@@ -183,8 +165,11 @@ const buildUniqueSlug = (baseSlug: string, usedSlugs: Set<string>): string => {
 
 export const AdminDashboardPage = () => {
   const { signOut, profile } = useAuth()
+  const { settings, saveSettings, loading: loadingSettings } = useStoreSettings()
 
-  const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products')
+  const [activeTab, setActiveTab] = useState<'site' | 'products' | 'orders'>(
+    'site',
+  )
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
 
@@ -200,6 +185,7 @@ export const AdminDashboardPage = () => {
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('all')
   const [catalogStockFilter, setCatalogStockFilter] =
     useState<CatalogStockFilter>('all')
+  const [showAdvancedTools, setShowAdvancedTools] = useState(false)
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(
     () => new Set(),
   )
@@ -217,9 +203,11 @@ export const AdminDashboardPage = () => {
   const [loadingProducts, setLoadingProducts] = useState(true)
   const [loadingOrders, setLoadingOrders] = useState(true)
   const [savingProduct, setSavingProduct] = useState(false)
+  const [savingSiteSettings, setSavingSiteSettings] = useState(false)
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [siteForm, setSiteForm] = useState<StoreSettingsPayload>(settings)
 
   const selectedCategory = getCategoryFromKey(form.categoryKey)
 
@@ -315,6 +303,10 @@ export const AdminDashboardPage = () => {
   const areAllFilteredOrdersSelected =
     filteredOrders.length > 0 &&
     filteredOrders.every((order) => selectedOrderIds.has(order.id))
+
+  useEffect(() => {
+    setSiteForm(settings)
+  }, [settings])
 
   const loadProductsData = async () => {
     try {
@@ -881,38 +873,6 @@ export const AdminDashboardPage = () => {
     }
   }
 
-  const exportProductsCsv = () => {
-    const rows: string[][] = [
-      [
-        'Nom',
-        'Slug',
-        'Prix XOF',
-        'Categorie principale',
-        'Sous-categorie',
-        'Tailles',
-        'Statut',
-        'Nouveau',
-        'Best seller',
-      ],
-    ]
-
-    filteredProducts.forEach((product) => {
-      rows.push([
-        product.name,
-        product.slug,
-        String(product.price),
-        product.main_category,
-        product.sub_category,
-        (product.sizes.length ? product.sizes : DEFAULT_SIZES).join(' | '),
-        product.is_out_of_stock ? 'Rupture' : 'Disponible',
-        product.is_new ? 'Oui' : 'Non',
-        product.is_best_seller ? 'Oui' : 'Non',
-      ])
-    })
-
-    downloadCsv(`hotgyaal-catalogue-${Date.now()}.csv`, rows)
-  }
-
   const toggleOrderSelection = (orderId: string) => {
     setSelectedOrderIds((current) => {
       const next = new Set(current)
@@ -974,45 +934,24 @@ export const AdminDashboardPage = () => {
     }
   }
 
-  const exportOrdersCsv = () => {
-    const rows: string[][] = [
-      [
-        'Reference',
-        'Date',
-        'Client',
-        'Email',
-        'Telephone',
-        'Statut',
-        'Total XOF',
-        'Adresse',
-      ],
-    ]
+  const handleSaveSiteSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
 
-    filteredOrders.forEach((order) => {
-      const shipping = order.shipping_address
-      const address = [
-        shipping?.line1,
-        shipping?.line2,
-        shipping?.postal_code,
-        shipping?.city,
-        shipping?.country,
-      ]
-        .filter(Boolean)
-        .join(' ')
-
-      rows.push([
-        order.order_number,
-        formatDate(order.created_at),
-        order.customer_name,
-        order.customer_email,
-        order.customer_phone ?? '',
-        order.status,
-        String(order.total_amount),
-        address,
-      ])
-    })
-
-    downloadCsv(`hotgyaal-commandes-${Date.now()}.csv`, rows)
+    try {
+      setSavingSiteSettings(true)
+      setErrorMessage(null)
+      setStatusMessage(null)
+      await saveSettings(siteForm)
+      setStatusMessage('Pages du site mises a jour avec succes.')
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Impossible de sauvegarder les pages du site.',
+      )
+    } finally {
+      setSavingSiteSettings(false)
+    }
   }
 
   if (!isSupabaseConfigured) {
@@ -1081,6 +1020,13 @@ export const AdminDashboardPage = () => {
         <div className="admin-tabs">
           <button
             type="button"
+            className={activeTab === 'site' ? 'chip chip--active' : 'chip'}
+            onClick={() => setActiveTab('site')}
+          >
+            Pages du site
+          </button>
+          <button
+            type="button"
             className={activeTab === 'products' ? 'chip chip--active' : 'chip'}
             onClick={() => setActiveTab('products')}
           >
@@ -1097,8 +1043,228 @@ export const AdminDashboardPage = () => {
 
         {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
         {statusMessage ? <p className="success-text">{statusMessage}</p> : null}
+        {loadingSettings ? (
+          <p className="admin-help">Chargement des réglages du site...</p>
+        ) : null}
 
-        {activeTab === 'products' ? (
+        {activeTab === 'site' ? (
+          <>
+            <article className="admin-card">
+              <h2>Etapes simples</h2>
+              <p className="admin-help">
+                Utilisez cet ordre: 1) Pages du site, 2) Produits, 3) Commandes.
+              </p>
+              <div className="admin-step-grid">
+                <article className="admin-step-card">
+                  <span>1</span>
+                  <h3>Accueil</h3>
+                  <p>Modifiez le texte principal affiché sur la page d&apos;accueil.</p>
+                </article>
+                <article className="admin-step-card">
+                  <span>2</span>
+                  <h3>Contact</h3>
+                  <p>Mettez à jour téléphone, email et horaires.</p>
+                </article>
+                <article className="admin-step-card">
+                  <span>3</span>
+                  <h3>Catalogue</h3>
+                  <p>Contrôlez les catégories et la visibilité des articles.</p>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => setActiveTab('products')}
+                  >
+                    Ouvrir Produits
+                  </button>
+                </article>
+                <article className="admin-step-card">
+                  <span>4</span>
+                  <h3>Produits</h3>
+                  <p>Ajoutez les photos, tailles, prix et couleurs.</p>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => setActiveTab('products')}
+                  >
+                    Ajouter un produit
+                  </button>
+                </article>
+                <article className="admin-step-card">
+                  <span>5</span>
+                  <h3>Commandes</h3>
+                  <p>Mettez à jour le statut des commandes clientes.</p>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => setActiveTab('orders')}
+                  >
+                    Ouvrir Commandes
+                  </button>
+                </article>
+              </div>
+            </article>
+
+            <article className="admin-card">
+              <h2>Réglages pages du site</h2>
+              <p className="admin-help">
+                Ce formulaire contrôle Accueil, Contact, Footer et le numéro de
+                finalisation des commandes.
+              </p>
+              <form className="admin-form admin-site-form" onSubmit={handleSaveSiteSettings}>
+                <label className="full-width">
+                  Bandeau haut du site
+                  <input
+                    required
+                    value={siteForm.announcement_text}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        announcement_text: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Accueil - petit titre
+                  <input
+                    required
+                    value={siteForm.hero_eyebrow}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        hero_eyebrow: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Accueil - grand titre
+                  <input
+                    required
+                    value={siteForm.hero_title}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        hero_title: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="full-width">
+                  Accueil - texte
+                  <textarea
+                    rows={3}
+                    required
+                    value={siteForm.hero_description}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        hero_description: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="full-width">
+                  Contact - texte intro
+                  <textarea
+                    rows={2}
+                    required
+                    value={siteForm.contact_intro}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        contact_intro: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Contact - téléphone
+                  <input
+                    required
+                    value={siteForm.contact_phone}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        contact_phone: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Contact - email
+                  <input
+                    type="email"
+                    required
+                    value={siteForm.contact_email}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        contact_email: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="full-width">
+                  Contact - horaires
+                  <input
+                    required
+                    value={siteForm.contact_hours}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        contact_hours: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="full-width">
+                  Footer - texte présentation
+                  <textarea
+                    rows={2}
+                    required
+                    value={siteForm.footer_blurb}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        footer_blurb: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Numéro commandes (WhatsApp)
+                  <input
+                    required
+                    placeholder="Ex: 774931474"
+                    value={siteForm.order_chat_number}
+                    onChange={(event) =>
+                      setSiteForm((state) => ({
+                        ...state,
+                        order_chat_number: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <div className="admin-form-actions full-width">
+                  <button type="submit" className="button" disabled={savingSiteSettings}>
+                    {savingSiteSettings ? 'Enregistrement...' : 'Sauvegarder les pages'}
+                  </button>
+                </div>
+              </form>
+            </article>
+          </>
+        ) : activeTab === 'products' ? (
           <>
             <article className="admin-card">
               <div className="admin-toolbar">
@@ -1463,14 +1629,14 @@ export const AdminDashboardPage = () => {
                   >
                     Rafraîchir
                   </button>
-                  <button
-                    type="button"
-                    className="button button--ghost"
-                    onClick={exportProductsCsv}
-                    disabled={!filteredProducts.length}
-                  >
-                    Export CSV
-                  </button>
+                  <label className="inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={showAdvancedTools}
+                      onChange={(event) => setShowAdvancedTools(event.target.checked)}
+                    />
+                    Outils avancés
+                  </label>
                 </div>
               </div>
 
@@ -1515,77 +1681,79 @@ export const AdminDashboardPage = () => {
                 </label>
               </div>
 
-              <div className="admin-bulk-panel">
-                <label className="inline-toggle">
-                  <input
-                    type="checkbox"
-                    checked={areAllFilteredProductsSelected}
-                    onChange={toggleAllFilteredProducts}
-                  />
-                  Tout sélectionner
-                </label>
-                <p className="admin-help">
-                  {selectedProductIds.size} article(s) sélectionné(s)
-                </p>
-                <div className="admin-bulk-actions">
-                  <button
-                    type="button"
-                    className="chip"
-                    disabled={!selectedProductIds.size || bulkProductsBusy}
-                    onClick={() => void handleBulkProductAction('mark_out')}
-                  >
-                    Rupture
-                  </button>
-                  <button
-                    type="button"
-                    className="chip"
-                    disabled={!selectedProductIds.size || bulkProductsBusy}
-                    onClick={() => void handleBulkProductAction('mark_available')}
-                  >
-                    Remettre en vente
-                  </button>
-                  <button
-                    type="button"
-                    className="chip"
-                    disabled={!selectedProductIds.size || bulkProductsBusy}
-                    onClick={() => void handleBulkProductAction('set_new')}
-                  >
-                    Tag Nouveau
-                  </button>
-                  <button
-                    type="button"
-                    className="chip"
-                    disabled={!selectedProductIds.size || bulkProductsBusy}
-                    onClick={() => void handleBulkProductAction('set_best')}
-                  >
-                    Tag Best seller
-                  </button>
-                  <button
-                    type="button"
-                    className="chip chip--clear"
-                    disabled={!selectedProductIds.size || bulkProductsBusy}
-                    onClick={() => void handleBulkProductAction('unset_new')}
-                  >
-                    Retirer Nouveau
-                  </button>
-                  <button
-                    type="button"
-                    className="chip chip--clear"
-                    disabled={!selectedProductIds.size || bulkProductsBusy}
-                    onClick={() => void handleBulkProductAction('unset_best')}
-                  >
-                    Retirer Best seller
-                  </button>
-                  <button
-                    type="button"
-                    className="chip chip--clear danger"
-                    disabled={!selectedProductIds.size || bulkProductsBusy}
-                    onClick={() => void handleBulkProductAction('delete')}
-                  >
-                    Supprimer sélection
-                  </button>
+              {showAdvancedTools ? (
+                <div className="admin-bulk-panel">
+                  <label className="inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={areAllFilteredProductsSelected}
+                      onChange={toggleAllFilteredProducts}
+                    />
+                    Tout sélectionner
+                  </label>
+                  <p className="admin-help">
+                    {selectedProductIds.size} article(s) sélectionné(s)
+                  </p>
+                  <div className="admin-bulk-actions">
+                    <button
+                      type="button"
+                      className="chip"
+                      disabled={!selectedProductIds.size || bulkProductsBusy}
+                      onClick={() => void handleBulkProductAction('mark_out')}
+                    >
+                      Rupture
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      disabled={!selectedProductIds.size || bulkProductsBusy}
+                      onClick={() => void handleBulkProductAction('mark_available')}
+                    >
+                      Remettre en vente
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      disabled={!selectedProductIds.size || bulkProductsBusy}
+                      onClick={() => void handleBulkProductAction('set_new')}
+                    >
+                      Tag Nouveau
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      disabled={!selectedProductIds.size || bulkProductsBusy}
+                      onClick={() => void handleBulkProductAction('set_best')}
+                    >
+                      Tag Best seller
+                    </button>
+                    <button
+                      type="button"
+                      className="chip chip--clear"
+                      disabled={!selectedProductIds.size || bulkProductsBusy}
+                      onClick={() => void handleBulkProductAction('unset_new')}
+                    >
+                      Retirer Nouveau
+                    </button>
+                    <button
+                      type="button"
+                      className="chip chip--clear"
+                      disabled={!selectedProductIds.size || bulkProductsBusy}
+                      onClick={() => void handleBulkProductAction('unset_best')}
+                    >
+                      Retirer Best seller
+                    </button>
+                    <button
+                      type="button"
+                      className="chip chip--clear danger"
+                      disabled={!selectedProductIds.size || bulkProductsBusy}
+                      onClick={() => void handleBulkProductAction('delete')}
+                    >
+                      Supprimer sélection
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               {loadingProducts ? <p>Chargement...</p> : null}
               {!loadingProducts && !filteredProducts.length ? (
@@ -1594,15 +1762,24 @@ export const AdminDashboardPage = () => {
 
               <div className="admin-product-grid">
                 {filteredProducts.map((product) => (
-                  <article key={product.id} className="admin-product-item">
-                    <label className="admin-select">
-                      <input
-                        type="checkbox"
-                        checked={selectedProductIds.has(product.id)}
-                        onChange={() => toggleProductSelection(product.id)}
-                      />
-                      <span>Sélection</span>
-                    </label>
+                  <article
+                    key={product.id}
+                    className={
+                      showAdvancedTools
+                        ? 'admin-product-item admin-product-item--advanced'
+                        : 'admin-product-item'
+                    }
+                  >
+                    {showAdvancedTools ? (
+                      <label className="admin-select">
+                        <input
+                          type="checkbox"
+                          checked={selectedProductIds.has(product.id)}
+                          onChange={() => toggleProductSelection(product.id)}
+                        />
+                        <span>Sélection</span>
+                      </label>
+                    ) : null}
                     <img
                       src={
                         product.image_url ||
@@ -1634,13 +1811,15 @@ export const AdminDashboardPage = () => {
                       >
                         Modifier
                       </button>
-                      <button
-                        type="button"
-                        className="button button--ghost"
-                        onClick={() => void handleDuplicateProduct(product)}
-                      >
-                        Dupliquer
-                      </button>
+                      {showAdvancedTools ? (
+                        <button
+                          type="button"
+                          className="button button--ghost"
+                          onClick={() => void handleDuplicateProduct(product)}
+                        >
+                          Dupliquer
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="button button--ghost danger"
@@ -1674,14 +1853,14 @@ export const AdminDashboardPage = () => {
                 >
                   Rafraîchir
                 </button>
-                <button
-                  type="button"
-                  className="button button--ghost"
-                  onClick={exportOrdersCsv}
-                  disabled={!filteredOrders.length}
-                >
-                  Export CSV
-                </button>
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showAdvancedTools}
+                    onChange={(event) => setShowAdvancedTools(event.target.checked)}
+                  />
+                  Outils avancés
+                </label>
               </div>
             </div>
 
@@ -1714,41 +1893,43 @@ export const AdminDashboardPage = () => {
               </label>
             </div>
 
-            <div className="admin-bulk-panel">
-              <label className="inline-toggle">
-                <input
-                  type="checkbox"
-                  checked={areAllFilteredOrdersSelected}
-                  onChange={toggleAllFilteredOrders}
-                />
-                Tout sélectionner
-              </label>
+            {showAdvancedTools ? (
+              <div className="admin-bulk-panel">
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={areAllFilteredOrdersSelected}
+                    onChange={toggleAllFilteredOrders}
+                  />
+                  Tout sélectionner
+                </label>
 
-              <label className="admin-search">
-                <span>Statut groupé</span>
-                <select
-                  value={bulkOrderStatus}
-                  onChange={(event) =>
-                    setBulkOrderStatus(event.target.value as OrderStatus)
-                  }
+                <label className="admin-search">
+                  <span>Statut groupé</span>
+                  <select
+                    value={bulkOrderStatus}
+                    onChange={(event) =>
+                      setBulkOrderStatus(event.target.value as OrderStatus)
+                    }
+                  >
+                    {ORDER_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  className="button"
+                  disabled={!selectedOrderIds.size || bulkOrdersBusy}
+                  onClick={() => void handleBulkOrderStatusUpdate()}
                 >
-                  {ORDER_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <button
-                type="button"
-                className="button"
-                disabled={!selectedOrderIds.size || bulkOrdersBusy}
-                onClick={() => void handleBulkOrderStatusUpdate()}
-              >
-                Mettre à jour {selectedOrderIds.size} commande(s)
-              </button>
-            </div>
+                  Mettre à jour {selectedOrderIds.size} commande(s)
+                </button>
+              </div>
+            ) : null}
 
             {loadingOrders ? <p>Chargement...</p> : null}
             {!loadingOrders && !filteredOrders.length ? (
@@ -1760,14 +1941,16 @@ export const AdminDashboardPage = () => {
                 <article className="order-card" key={order.id}>
                   <div className="order-card__header">
                     <div>
-                      <label className="admin-select">
-                        <input
-                          type="checkbox"
-                          checked={selectedOrderIds.has(order.id)}
-                          onChange={() => toggleOrderSelection(order.id)}
-                        />
-                        <span>Sélection</span>
-                      </label>
+                      {showAdvancedTools ? (
+                        <label className="admin-select">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.has(order.id)}
+                            onChange={() => toggleOrderSelection(order.id)}
+                          />
+                          <span>Sélection</span>
+                        </label>
+                      ) : null}
                       <h3>{order.order_number}</h3>
                       <p>
                         {order.customer_name} · {order.customer_email}
