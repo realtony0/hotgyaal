@@ -228,7 +228,7 @@ export const AdminDashboardPage = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [selectedGalleryImages, setSelectedGalleryImages] = useState<File[]>([])
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
-  const [isColorMode, setIsColorMode] = useState(false)
+  const [isColorMode, setIsColorMode] = useState(true)
   const [colorVariants, setColorVariants] = useState<ColorVariantDraft[]>([
     createColorVariant(),
   ])
@@ -507,7 +507,7 @@ export const AdminDashboardPage = () => {
     setSelectedImage(null)
     setSelectedGalleryImages([])
     setIsAdvancedMode(false)
-    setIsColorMode(false)
+    setIsColorMode(true)
     setColorVariants([createColorVariant()])
   }
 
@@ -1921,12 +1921,12 @@ export const AdminDashboardPage = () => {
               <div className="admin-toolbar">
                 <div>
                   <h2>{editingProduct ? 'Modifier un produit' : 'Ajouter un produit'}</h2>
-                  <p className="admin-help">
-                    Mode simple pour aller vite. Activez le mode avancé pour tout
-                    modifier.
-                  </p>
-                </div>
-                <div className="admin-toggle-row">
+                    <p className="admin-help">
+                      Mode simple pour aller vite. Le mode multi-couleurs permet
+                      d'ajouter plusieurs photos par couleur.
+                    </p>
+                  </div>
+                  <div className="admin-toggle-row">
                   <label className="inline-toggle">
                     <input
                       type="checkbox"
@@ -1949,7 +1949,7 @@ export const AdminDashboardPage = () => {
                           }
                         }}
                       />
-                      Article multi-couleurs
+                      Plusieurs couleurs (photos)
                     </label>
                   ) : null}
                 </div>
@@ -2088,6 +2088,9 @@ export const AdminDashboardPage = () => {
                   </>
                 ) : (
                   <div className="full-width admin-variant-list">
+                    <p className="admin-help">
+                      Ajoutez une couleur, puis plusieurs photos pour cette couleur.
+                    </p>
                     {colorVariants.map((variant, index) => (
                       <article className="admin-variant-card" key={variant.id}>
                         <div className="admin-variant-head">
@@ -2127,6 +2130,11 @@ export const AdminDashboardPage = () => {
                             }
                           />
                         </label>
+                        <p className="admin-help">
+                          {variant.files.length
+                            ? `${variant.files.length} photo(s) selectionnee(s)`
+                            : 'Aucune photo selectionnee'}
+                        </p>
                       </article>
                     ))}
 
