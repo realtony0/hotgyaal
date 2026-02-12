@@ -5,6 +5,7 @@ import {
   MAIN_CATEGORY_NAMES,
   getSubcategoriesByMainCategory,
 } from '../../constants/categories'
+import { isSupabaseConfigured } from '../../lib/supabase'
 import { listOrders, updateOrderStatus } from '../../services/orders'
 import {
   listProducts,
@@ -577,6 +578,23 @@ export const AdminDashboardPage = () => {
     }
   }
 
+  if (!isSupabaseConfigured) {
+    return (
+      <section className="section admin-section">
+        <div className="container">
+          <article className="admin-card">
+            <h1>HOTGYAAL Back Office</h1>
+            <p className="error-text">
+              Supabase n&apos;est pas configuré. Ajoutez
+              {' '}NEXT_PUBLIC_SUPABASE_URL et
+              {' '}NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.
+            </p>
+          </article>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="section admin-section">
       <div className="container">
@@ -584,7 +602,11 @@ export const AdminDashboardPage = () => {
           <div>
             <p className="eyebrow">Admin Dashboard</p>
             <h1>HOTGYAAL Back Office</h1>
-            <p>Connecté en tant que {profile?.full_name || profile?.id}</p>
+            <p>
+              {profile?.full_name
+                ? `Connecté en tant que ${profile.full_name}`
+                : 'Session admin active'}
+            </p>
           </div>
 
           <button type="button" className="button button--ghost" onClick={signOut}>

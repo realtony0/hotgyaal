@@ -28,7 +28,8 @@ type AuthProviderProps = {
 }
 
 const PROFILE_NOT_FOUND_CODE = 'PGRST116'
-const ADMIN_ACCESS_CODE = '142022'
+const ADMIN_ACCESS_CODE =
+  process.env.NEXT_PUBLIC_ADMIN_ACCESS_CODE?.trim() || '142022'
 const ADMIN_ACCESS_STORAGE_KEY = 'hotgyaal_admin_access'
 
 const getProfile = async (userId: string): Promise<UserProfile | null> => {
@@ -63,7 +64,7 @@ const getProfile = async (userId: string): Promise<UserProfile | null> => {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [loading] = useState(false)
   const [isCodeAdmin, setIsCodeAdmin] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -91,23 +92,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let isMounted = true
 
     const initialize = async () => {
-      const { data } = await client.auth.getSession()
-      if (!isMounted) {
-        return
-      }
+      try {
+        const { data } = await client.auth.getSession()
+        if (!isMounted) {
+          return
+        }
 
-      setSession(data.session)
+        setSession(data.session)
 
-      if (data.session?.user) {
-        await syncProfile(data.session.user.id)
-      }
-
-      if (isMounted) {
-        setLoading(false)
+        if (data.session?.user) {
+          await syncProfile(data.session.user.id)
+        }
+      } catch (error) {
+        console.error('Impossible de restaurer la session Supabase', error)
+        if (isMounted) {
+          setSession(null)
+          setProfile(null)
+        }
       }
     }
 
-    initialize()
+    void initialize()
 
     const {
       data: { subscription },
@@ -142,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (supabase) {
       const { error } = await supabase.auth.signOut()
       if (error) {
-        throw new Error(error.message)
+        console.error('Déconnexion Supabase impossible', error.message)
       }
     }
 
@@ -160,7 +165,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       session,
       user: session?.user ?? null,
       profile,
-      isAdmin: isCodeAdmin || profile?.role === 'admin',
+      isAdmin: isCodeAdmin,
       loading,
       unlockAdminByCode,
       signOut,

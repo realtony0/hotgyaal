@@ -35,6 +35,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 NEXT_PUBLIC_SITE_URL=https://hotgyaal.com
 NEXT_PUBLIC_ORDER_CHAT_NUMBER=221774931474
+NEXT_PUBLIC_ADMIN_ACCESS_CODE=142022
 ```
 
 ## Configuration Supabase
@@ -61,7 +62,7 @@ node scripts/import-local-products.mjs
 ### Accès admin
 
 - Ouvrir `/admin/login`
-- Code d'accès: `142022`
+- Code d'accès: `NEXT_PUBLIC_ADMIN_ACCESS_CODE` (fallback `142022`)
 - Aucun role Supabase admin n'est requis avec la configuration SQL actuelle.
 
 ## Lancer le projet
