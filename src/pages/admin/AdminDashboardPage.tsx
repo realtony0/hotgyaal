@@ -70,11 +70,13 @@ const FALLBACK_CATEGORY: CategoryOption = {
   main: 'Vêtements Femmes',
   sub: 'Robes',
 }
+const WOMEN_CATEGORY_NAME = 'Vêtements Femmes'
+const WOMEN_CATEGORY_SLUG = 'vetements-femmes'
 
 const DEFAULT_CATEGORY_KEY =
   FALLBACK_CATEGORY_OPTIONS.find(
     (option) =>
-      option.main === 'Vêtements Femmes' && option.sub === 'Robes',
+      option.main === WOMEN_CATEGORY_NAME && option.sub === 'Robes',
   )?.key ?? FALLBACK_CATEGORY_OPTIONS[0]?.key ?? FALLBACK_CATEGORY.key
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Taille unique']
@@ -238,6 +240,7 @@ export const AdminDashboardPage = () => {
     null,
   )
   const [savingCategory, setSavingCategory] = useState(false)
+  const [savingClothingTypes, setSavingClothingTypes] = useState(false)
   const [catalogSearch, setCatalogSearch] = useState('')
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('all')
   const [catalogStockFilter, setCatalogStockFilter] =
@@ -265,9 +268,37 @@ export const AdminDashboardPage = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [siteForm, setSiteForm] = useState<StoreSettingsPayload>(settings)
+  const [clothingTypesInput, setClothingTypesInput] = useState('')
   const categoryOptions = useMemo(
     () => buildCategoryOptions(categories),
     [categories],
+  )
+  const womenCategory = useMemo(
+    () =>
+      categories.find((category) => category.slug === WOMEN_CATEGORY_SLUG) ??
+      categories.find((category) => category.name === WOMEN_CATEGORY_NAME) ??
+      null,
+    [categories],
+  )
+  const clothingTypeOptions = useMemo(
+    () => womenCategory?.subcategories ?? [],
+    [womenCategory],
+  )
+  const simpleCategoryOptions = useMemo(() => {
+    const womenOptions = categoryOptions.filter(
+      (option) => option.main === WOMEN_CATEGORY_NAME,
+    )
+    return womenOptions.length ? womenOptions : categoryOptions
+  }, [categoryOptions])
+  const isSimpleModeWomenOnly = useMemo(
+    () =>
+      simpleCategoryOptions.length > 0 &&
+      simpleCategoryOptions.every((option) => option.main === WOMEN_CATEGORY_NAME),
+    [simpleCategoryOptions],
+  )
+  const isWomenCategoryForm = useMemo(
+    () => toSlug(categoryForm.name.trim()) === WOMEN_CATEGORY_SLUG,
+    [categoryForm.name],
   )
   const mainCategoryNames = useMemo(
     () =>
@@ -379,20 +410,23 @@ export const AdminDashboardPage = () => {
   }, [settings])
 
   useEffect(() => {
+    setClothingTypesInput((womenCategory?.subcategories ?? []).join(', '))
+  }, [womenCategory])
+
+  useEffect(() => {
+    const source = isAdvancedMode ? categoryOptions : simpleCategoryOptions
     setForm((current) => {
-      const hasOption = categoryOptions.some(
-        (option) => option.key === current.categoryKey,
-      )
+      const hasOption = source.some((option) => option.key === current.categoryKey)
       if (hasOption) {
         return current
       }
 
       return {
         ...current,
-        categoryKey: categoryOptions[0]?.key ?? DEFAULT_CATEGORY_KEY,
+        categoryKey: source[0]?.key ?? DEFAULT_CATEGORY_KEY,
       }
     })
-  }, [categoryOptions])
+  }, [categoryOptions, isAdvancedMode, simpleCategoryOptions])
 
   const loadProductsData = async () => {
     try {
@@ -893,6 +927,69 @@ export const AdminDashboardPage = () => {
       )
     } finally {
       setSavingCategory(false)
+    }
+  }
+
+  const handleSaveClothingTypes = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    try {
+      setSavingClothingTypes(true)
+      setErrorMessage(null)
+      setStatusMessage(null)
+
+      const subcategories = parseSubcategories(clothingTypesInput)
+      if (!subcategories.length) {
+        throw new Error('Ajoutez au moins un type de vetement.')
+      }
+
+      if (womenCategory) {
+        await upsertCategory(
+          buildCategoryPayloadFromCategory(womenCategory, {
+            subcategories,
+          }),
+          womenCategory.id,
+        )
+
+        const impactedProducts = products.filter(
+          (product) =>
+            product.main_category === womenCategory.name &&
+            !subcategories.includes(product.sub_category),
+        )
+
+        for (const product of impactedProducts) {
+          await upsertProduct(
+            buildPayloadFromProduct(product, {
+              sub_category: subcategories[0],
+            }),
+            product.id,
+          )
+        }
+      } else {
+        const usedSlugs = new Set(categories.map((category) => category.slug))
+        const payload: StoreCategoryPayload = {
+          slug: buildUniqueSlug(WOMEN_CATEGORY_SLUG, usedSlugs),
+          name: WOMEN_CATEGORY_NAME,
+          description: 'Selection mode femme HOTGYAAL.',
+          image_url: null,
+          subcategories,
+          is_active: true,
+          display_order: 0,
+        }
+        await upsertCategory(payload)
+      }
+
+      await refreshCategories()
+      await loadProductsData()
+      setStatusMessage('Types de vetements enregistres.')
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Impossible de sauvegarder les types de vetements.',
+      )
+    } finally {
+      setSavingClothingTypes(false)
     }
   }
 
@@ -1568,6 +1665,46 @@ export const AdminDashboardPage = () => {
           </>
         ) : activeTab === 'categories' ? (
           <>
+            <article className="admin-card admin-types-card">
+              <div className="admin-toolbar">
+                <div>
+                  <h2>Types de vetements</h2>
+                  <p className="admin-help">
+                    Cette zone gere uniquement Vêtements Femmes (Robes, Tops, etc.).
+                  </p>
+                </div>
+              </div>
+
+              <form className="admin-form admin-form--single" onSubmit={handleSaveClothingTypes}>
+                <label className="full-width">
+                  Liste des types (separes par virgules)
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Ex: Robes, Tops, T-shirts, Pantalons"
+                    value={clothingTypesInput}
+                    onChange={(event) => setClothingTypesInput(event.target.value)}
+                  />
+                </label>
+                {clothingTypeOptions.length ? (
+                  <p className="admin-help full-width">
+                    Actuels: {clothingTypeOptions.join(', ')}
+                  </p>
+                ) : null}
+                <div className="admin-form-actions full-width">
+                  <button
+                    type="submit"
+                    className="button"
+                    disabled={savingClothingTypes}
+                  >
+                    {savingClothingTypes
+                      ? 'Enregistrement...'
+                      : 'Sauvegarder les types de vetements'}
+                  </button>
+                </div>
+              </form>
+            </article>
+
             <article className="admin-card">
               <div className="admin-toolbar">
                 <div>
@@ -1635,10 +1772,16 @@ export const AdminDashboardPage = () => {
                 </label>
 
                 <label className="full-width">
-                  Sous-categories (separees par virgules)
+                  {isWomenCategoryForm
+                    ? 'Types de vetements (separes par virgules)'
+                    : 'Sous-categories (separees par virgules)'}
                   <input
                     required
-                    placeholder="Ex: Robes, Tops, T-shirts"
+                    placeholder={
+                      isWomenCategoryForm
+                        ? 'Ex: Robes, Tops, T-shirts'
+                        : 'Ex: Colliers, Bracelets, Montres'
+                    }
                     value={categoryForm.subcategories}
                     onChange={(event) =>
                       setCategoryForm((state) => ({
@@ -1734,7 +1877,10 @@ export const AdminDashboardPage = () => {
                       <h3>{category.name}</h3>
                       <p className="admin-product-meta">{category.description}</p>
                       <p className="admin-product-meta">
-                        Sous-categories: {category.subcategories.join(', ')}
+                        {category.name === WOMEN_CATEGORY_NAME
+                          ? 'Types de vetements'
+                          : 'Sous-categories'}
+                        : {category.subcategories.join(', ')}
                       </p>
                       <p className="admin-product-meta">Slug: {category.slug}</p>
                       <p className="admin-product-meta">
@@ -1863,16 +2009,16 @@ export const AdminDashboardPage = () => {
 
                 {!isAdvancedMode ? (
                   <label className="full-width">
-                    Catégorie
+                    Type de vetement
                     <select
                       value={form.categoryKey}
                       onChange={(event) =>
                         setForm((state) => ({ ...state, categoryKey: event.target.value }))
                       }
                     >
-                      {categoryOptions.map((option) => (
+                      {simpleCategoryOptions.map((option) => (
                         <option key={option.key} value={option.key}>
-                          {option.label}
+                          {isSimpleModeWomenOnly ? option.sub : option.label}
                         </option>
                       ))}
                     </select>

@@ -1280,6 +1280,11 @@ textarea:focus {
   box-shadow: 0 10px 24px rgba(59, 33, 43, 0.08);
 }
 
+.admin-types-card {
+  border: 1px solid #e8d4dc;
+  background: linear-gradient(145deg, #fff9fb 0%, #fff 48%, #fef8fa 100%);
+}
+
 .admin-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1408,6 +1413,14 @@ textarea:focus {
 
 .admin-form {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-form--single {
+  grid-template-columns: 1fr;
+}
+
+.admin-form--single textarea {
+  min-height: 96px;
 }
 
 .admin-form .full-width {
