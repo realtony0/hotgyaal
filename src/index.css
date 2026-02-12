@@ -1225,29 +1225,41 @@ textarea:focus {
 }
 
 .admin-section {
-  padding-top: 1.4rem;
+  padding-top: 1.2rem;
+  padding-bottom: 1.8rem;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(231, 197, 210, 0.22), transparent 34%),
+    radial-gradient(circle at 88% 12%, rgba(236, 214, 185, 0.16), transparent 30%);
 }
 
 .admin-header {
-  display: flex;
-  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #ead8e0;
+  border-radius: var(--radius-card);
+  background: linear-gradient(140deg, #fff8fb 0%, #fff 48%, #fdf7f9 100%);
+  box-shadow: 0 14px 30px rgba(44, 21, 31, 0.07);
 }
 
 .admin-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.8rem;
 }
 
 .admin-kpi-card {
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid #ead9e0;
+  background: linear-gradient(180deg, #ffffff 0%, #fff8fb 100%);
   padding: 0.85rem;
   display: grid;
   gap: 0.25rem;
+  border-radius: 0.9rem;
+  box-shadow: 0 8px 20px rgba(71, 36, 49, 0.08);
 }
 
 .admin-kpi-card p {
@@ -1262,9 +1274,10 @@ textarea:focus {
 }
 
 .admin-card {
-  padding: 1rem;
+  padding: 1rem 1.05rem;
   margin-top: 0.9rem;
   border-radius: var(--radius-card);
+  box-shadow: 0 10px 24px rgba(59, 33, 43, 0.08);
 }
 
 .admin-toolbar {
@@ -1275,9 +1288,23 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.admin-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.admin-catalog-filters {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
 .admin-help {
   margin-top: 0.35rem;
   font-size: 0.82rem;
+  color: #6d505c;
 }
 
 .inline-toggle {
@@ -1300,6 +1327,39 @@ textarea:focus {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.admin-bulk-panel {
+  margin-top: 0.75rem;
+  border: 1px solid #e9d9e0;
+  background: #fff9fb;
+  border-radius: 0.86rem;
+  padding: 0.72rem;
+  display: grid;
+  gap: 0.62rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+}
+
+.admin-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  align-items: center;
+}
+
+.admin-select {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6c525d;
+}
+
+.admin-select input {
+  width: auto;
 }
 
 .admin-form {
@@ -1381,9 +1441,11 @@ textarea:focus {
   border: 1px solid var(--border);
   padding: 0.7rem;
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(92px, auto) 84px minmax(0, 1fr) auto;
   gap: 0.8rem;
   align-items: center;
+  background: #fff;
+  border-radius: 0.8rem;
 }
 
 .admin-product-item img {
@@ -1694,6 +1756,10 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .admin-header {
+    grid-template-columns: 1fr;
+  }
+
   .hero__media {
     min-height: 340px;
   }
@@ -1721,6 +1787,10 @@ textarea:focus {
   }
 
   .admin-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-bulk-panel {
     grid-template-columns: 1fr;
   }
 
@@ -2210,9 +2280,38 @@ textarea:focus {
     min-height: 40px;
   }
 
+  .admin-catalog-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-toolbar-actions {
+    width: 100%;
+  }
+
+  .admin-toolbar-actions .button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .admin-product-item {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 0.62rem;
+  }
+
   .admin-product-item img {
     width: 100%;
     height: 220px;
+  }
+
+  .admin-product-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .order-card__header,
+  .order-card__items div {
+    flex-direction: column;
+    align-items: start;
   }
 
   .checkout-card {
@@ -2358,6 +2457,15 @@ textarea:focus {
   }
 
   .quantity-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-product-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-bulk-actions {
+    display: grid;
     grid-template-columns: 1fr;
   }
 

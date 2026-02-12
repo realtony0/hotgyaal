@@ -27,6 +27,41 @@ const ORDER_STATUSES: OrderStatus[] = [
   'cancelled',
 ]
 
+type CatalogStockFilter = 'all' | 'available' | 'out_of_stock'
+type BulkProductAction =
+  | 'mark_out'
+  | 'mark_available'
+  | 'set_new'
+  | 'unset_new'
+  | 'set_best'
+  | 'unset_best'
+  | 'delete'
+
+const escapeCsvValue = (value: string | number | null | undefined): string => {
+  const normalized = String(value ?? '')
+  if (/["\n,]/.test(normalized)) {
+    return `"${normalized.replace(/"/g, '""')}"`
+  }
+  return normalized
+}
+
+const downloadCsv = (filename: string, rows: string[][]) => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const content = rows.map((row) => row.map(escapeCsvValue).join(',')).join('\n')
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 type CategoryOption = {
   key: string
   label: string
@@ -162,6 +197,22 @@ export const AdminDashboardPage = () => {
     createColorVariant(),
   ])
   const [catalogSearch, setCatalogSearch] = useState('')
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('all')
+  const [catalogStockFilter, setCatalogStockFilter] =
+    useState<CatalogStockFilter>('all')
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [bulkProductsBusy, setBulkProductsBusy] = useState(false)
+  const [ordersSearch, setOrdersSearch] = useState('')
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState<
+    OrderStatus | 'all'
+  >('all')
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [bulkOrdersBusy, setBulkOrdersBusy] = useState(false)
+  const [bulkOrderStatus, setBulkOrderStatus] = useState<OrderStatus>('processing')
 
   const [loadingProducts, setLoadingProducts] = useState(true)
   const [loadingOrders, setLoadingOrders] = useState(true)
@@ -182,22 +233,56 @@ export const AdminDashboardPage = () => {
   const filteredProducts = useMemo(() => {
     const normalizedSearch = catalogSearch.trim().toLowerCase()
 
-    if (!normalizedSearch) {
-      return products
-    }
-
     return products.filter((product) =>
-      [
-        product.name,
-        product.main_category,
-        product.sub_category,
-        product.slug,
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(normalizedSearch),
+      {
+        const matchesSearch =
+          !normalizedSearch ||
+          [
+            product.name,
+            product.main_category,
+            product.sub_category,
+            product.slug,
+          ]
+            .join(' ')
+            .toLowerCase()
+            .includes(normalizedSearch)
+
+        const matchesCategory =
+          catalogCategoryFilter === 'all' ||
+          product.main_category === catalogCategoryFilter
+
+        const matchesStock =
+          catalogStockFilter === 'all' ||
+          (catalogStockFilter === 'available' && !product.is_out_of_stock) ||
+          (catalogStockFilter === 'out_of_stock' && product.is_out_of_stock)
+
+        return matchesSearch && matchesCategory && matchesStock
+      },
     )
-  }, [catalogSearch, products])
+  }, [catalogCategoryFilter, catalogSearch, catalogStockFilter, products])
+
+  const filteredOrders = useMemo(() => {
+    const normalizedSearch = ordersSearch.trim().toLowerCase()
+
+    return orders.filter((order) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        [
+          order.order_number,
+          order.customer_name,
+          order.customer_email,
+          order.customer_phone,
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedSearch)
+
+      const matchesStatus =
+        ordersStatusFilter === 'all' || order.status === ordersStatusFilter
+
+      return matchesSearch && matchesStatus
+    })
+  }, [orders, ordersSearch, ordersStatusFilter])
 
   const productStats = useMemo(() => {
     const availableCount = products.filter((product) => !product.is_out_of_stock).length
@@ -209,6 +294,27 @@ export const AdminDashboardPage = () => {
       outOfStockCount,
     }
   }, [products])
+
+  const orderStats = useMemo(() => {
+    const pending = orders.filter((order) => order.status === 'pending').length
+    const processing = orders.filter((order) => order.status === 'processing').length
+    const delivered = orders.filter((order) => order.status === 'delivered').length
+
+    return {
+      total: orders.length,
+      pending,
+      processing,
+      delivered,
+    }
+  }, [orders])
+
+  const areAllFilteredProductsSelected =
+    filteredProducts.length > 0 &&
+    filteredProducts.every((product) => selectedProductIds.has(product.id))
+
+  const areAllFilteredOrdersSelected =
+    filteredOrders.length > 0 &&
+    filteredOrders.every((order) => selectedOrderIds.has(order.id))
 
   const loadProductsData = async () => {
     try {
@@ -244,6 +350,32 @@ export const AdminDashboardPage = () => {
     void loadProductsData()
     void loadOrdersData()
   }, [])
+
+  useEffect(() => {
+    setSelectedProductIds((current) => {
+      const allowed = new Set(filteredProducts.map((product) => product.id))
+      const next = new Set<string>()
+      current.forEach((id) => {
+        if (allowed.has(id)) {
+          next.add(id)
+        }
+      })
+      return next
+    })
+  }, [filteredProducts])
+
+  useEffect(() => {
+    setSelectedOrderIds((current) => {
+      const allowed = new Set(filteredOrders.map((order) => order.id))
+      const next = new Set<string>()
+      current.forEach((id) => {
+        if (allowed.has(id)) {
+          next.add(id)
+        }
+      })
+      return next
+    })
+  }, [filteredOrders])
 
   const resetForm = () => {
     setForm(INITIAL_FORM)
@@ -522,31 +654,48 @@ export const AdminDashboardPage = () => {
     }
   }
 
+  const buildPayloadFromProduct = (
+    product: Product,
+    patch: Partial<ProductPayload> = {},
+  ): ProductPayload => {
+    const sizes = product.sizes.length ? product.sizes : DEFAULT_SIZES
+    return {
+      name: patch.name ?? product.name,
+      slug: patch.slug ?? product.slug,
+      description: patch.description ?? product.description,
+      price: patch.price ?? product.price,
+      compare_price:
+        patch.compare_price === undefined
+          ? product.compare_price
+          : patch.compare_price,
+      stock: patch.stock ?? product.stock,
+      main_category: patch.main_category ?? product.main_category,
+      sub_category: patch.sub_category ?? product.sub_category,
+      image_url: patch.image_url === undefined ? product.image_url : patch.image_url,
+      gallery_urls: patch.gallery_urls ?? product.gallery_urls,
+      sizes: patch.sizes ?? sizes,
+      is_out_of_stock:
+        patch.is_out_of_stock === undefined
+          ? product.is_out_of_stock
+          : patch.is_out_of_stock,
+      is_new: patch.is_new === undefined ? product.is_new : patch.is_new,
+      is_best_seller:
+        patch.is_best_seller === undefined
+          ? product.is_best_seller
+          : patch.is_best_seller,
+    }
+  }
+
   const handleToggleOutOfStock = async (product: Product) => {
     try {
       setErrorMessage(null)
       setStatusMessage(null)
 
-      const sizes = product.sizes.length ? product.sizes : DEFAULT_SIZES
       const nextOutOfStock = !product.is_out_of_stock
-
-      const payload: ProductPayload = {
-        name: product.name,
-        slug: product.slug,
-        description: product.description,
-        price: product.price,
-        compare_price: product.compare_price,
+      const payload = buildPayloadFromProduct(product, {
         stock: nextOutOfStock ? 0 : Math.max(product.stock, 1),
-        main_category: product.main_category,
-        sub_category: product.sub_category,
-        image_url: product.image_url,
-        gallery_urls: product.gallery_urls,
-        sizes,
         is_out_of_stock: nextOutOfStock,
-        is_new: product.is_new,
-        is_best_seller: product.is_best_seller,
-      }
-
+      })
       await upsertProduct(payload, product.id)
       setStatusMessage(
         nextOutOfStock
@@ -576,6 +725,294 @@ export const AdminDashboardPage = () => {
         error instanceof Error ? error.message : 'Mise à jour impossible.',
       )
     }
+  }
+
+  const toggleProductSelection = (productId: string) => {
+    setSelectedProductIds((current) => {
+      const next = new Set(current)
+      if (next.has(productId)) {
+        next.delete(productId)
+      } else {
+        next.add(productId)
+      }
+      return next
+    })
+  }
+
+  const toggleAllFilteredProducts = () => {
+    setSelectedProductIds((current) => {
+      if (areAllFilteredProductsSelected) {
+        return new Set()
+      }
+
+      const next = new Set(current)
+      filteredProducts.forEach((product) => next.add(product.id))
+      return next
+    })
+  }
+
+  const handleBulkProductAction = async (action: BulkProductAction) => {
+    const targets = products.filter((product) => selectedProductIds.has(product.id))
+
+    if (!targets.length) {
+      setErrorMessage('Sélectionnez au moins un produit.')
+      return
+    }
+
+    if (action === 'delete') {
+      const shouldDelete = window.confirm(
+        `Supprimer définitivement ${targets.length} produit(s) ?`,
+      )
+      if (!shouldDelete) {
+        return
+      }
+    }
+
+    try {
+      setBulkProductsBusy(true)
+      setErrorMessage(null)
+      setStatusMessage(null)
+
+      if (action === 'delete') {
+        for (const product of targets) {
+          await removeProduct(product.id)
+        }
+      } else {
+        for (const product of targets) {
+          if (action === 'mark_out') {
+            await upsertProduct(
+              buildPayloadFromProduct(product, {
+                is_out_of_stock: true,
+                stock: 0,
+              }),
+              product.id,
+            )
+            continue
+          }
+
+          if (action === 'mark_available') {
+            await upsertProduct(
+              buildPayloadFromProduct(product, {
+                is_out_of_stock: false,
+                stock: Math.max(product.stock, 1),
+              }),
+              product.id,
+            )
+            continue
+          }
+
+          if (action === 'set_new') {
+            await upsertProduct(
+              buildPayloadFromProduct(product, { is_new: true }),
+              product.id,
+            )
+            continue
+          }
+
+          if (action === 'unset_new') {
+            await upsertProduct(
+              buildPayloadFromProduct(product, { is_new: false }),
+              product.id,
+            )
+            continue
+          }
+
+          if (action === 'set_best') {
+            await upsertProduct(
+              buildPayloadFromProduct(product, { is_best_seller: true }),
+              product.id,
+            )
+            continue
+          }
+
+          if (action === 'unset_best') {
+            await upsertProduct(
+              buildPayloadFromProduct(product, { is_best_seller: false }),
+              product.id,
+            )
+          }
+        }
+      }
+
+      setSelectedProductIds(new Set())
+      await loadProductsData()
+
+      const labels: Record<BulkProductAction, string> = {
+        mark_out: 'marqué(s) en rupture',
+        mark_available: 'remis en vente',
+        set_new: 'marqué(s) comme nouveaux',
+        unset_new: 'retiré(s) des nouveautés',
+        set_best: 'marqué(s) best seller',
+        unset_best: 'retiré(s) des best sellers',
+        delete: 'supprimé(s)',
+      }
+      setStatusMessage(`${targets.length} produit(s) ${labels[action]}.`)
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Action groupée impossible.',
+      )
+    } finally {
+      setBulkProductsBusy(false)
+    }
+  }
+
+  const handleDuplicateProduct = async (product: Product) => {
+    try {
+      setErrorMessage(null)
+      setStatusMessage(null)
+
+      const usedSlugs = new Set(products.map((entry) => entry.slug))
+      const baseSlug = toSlug(`${product.slug}-copie`) || `copie-${Date.now()}`
+      const duplicateSlug = buildUniqueSlug(baseSlug, usedSlugs)
+
+      const payload = buildPayloadFromProduct(product, {
+        name: `${product.name} (Copie)`,
+        slug: duplicateSlug,
+        is_new: true,
+      })
+
+      await upsertProduct(payload)
+      setStatusMessage('Produit dupliqué avec succès.')
+      await loadProductsData()
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Duplication impossible.',
+      )
+    }
+  }
+
+  const exportProductsCsv = () => {
+    const rows: string[][] = [
+      [
+        'Nom',
+        'Slug',
+        'Prix XOF',
+        'Categorie principale',
+        'Sous-categorie',
+        'Tailles',
+        'Statut',
+        'Nouveau',
+        'Best seller',
+      ],
+    ]
+
+    filteredProducts.forEach((product) => {
+      rows.push([
+        product.name,
+        product.slug,
+        String(product.price),
+        product.main_category,
+        product.sub_category,
+        (product.sizes.length ? product.sizes : DEFAULT_SIZES).join(' | '),
+        product.is_out_of_stock ? 'Rupture' : 'Disponible',
+        product.is_new ? 'Oui' : 'Non',
+        product.is_best_seller ? 'Oui' : 'Non',
+      ])
+    })
+
+    downloadCsv(`hotgyaal-catalogue-${Date.now()}.csv`, rows)
+  }
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds((current) => {
+      const next = new Set(current)
+      if (next.has(orderId)) {
+        next.delete(orderId)
+      } else {
+        next.add(orderId)
+      }
+      return next
+    })
+  }
+
+  const toggleAllFilteredOrders = () => {
+    setSelectedOrderIds((current) => {
+      if (areAllFilteredOrdersSelected) {
+        return new Set()
+      }
+
+      const next = new Set(current)
+      filteredOrders.forEach((order) => next.add(order.id))
+      return next
+    })
+  }
+
+  const handleBulkOrderStatusUpdate = async () => {
+    const targets = orders.filter((order) => selectedOrderIds.has(order.id))
+
+    if (!targets.length) {
+      setErrorMessage('Sélectionnez au moins une commande.')
+      return
+    }
+
+    try {
+      setBulkOrdersBusy(true)
+      setErrorMessage(null)
+      setStatusMessage(null)
+
+      for (const order of targets) {
+        await updateOrderStatus(order.id, bulkOrderStatus)
+      }
+
+      setOrders((currentOrders) =>
+        currentOrders.map((order) =>
+          selectedOrderIds.has(order.id)
+            ? { ...order, status: bulkOrderStatus }
+            : order,
+        ),
+      )
+      setSelectedOrderIds(new Set())
+      setStatusMessage(
+        `${targets.length} commande(s) passées en ${bulkOrderStatus}.`,
+      )
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Mise à jour groupée impossible.',
+      )
+    } finally {
+      setBulkOrdersBusy(false)
+    }
+  }
+
+  const exportOrdersCsv = () => {
+    const rows: string[][] = [
+      [
+        'Reference',
+        'Date',
+        'Client',
+        'Email',
+        'Telephone',
+        'Statut',
+        'Total XOF',
+        'Adresse',
+      ],
+    ]
+
+    filteredOrders.forEach((order) => {
+      const shipping = order.shipping_address
+      const address = [
+        shipping?.line1,
+        shipping?.line2,
+        shipping?.postal_code,
+        shipping?.city,
+        shipping?.country,
+      ]
+        .filter(Boolean)
+        .join(' ')
+
+      rows.push([
+        order.order_number,
+        formatDate(order.created_at),
+        order.customer_name,
+        order.customer_email,
+        order.customer_phone ?? '',
+        order.status,
+        String(order.total_amount),
+        address,
+      ])
+    })
+
+    downloadCsv(`hotgyaal-commandes-${Date.now()}.csv`, rows)
   }
 
   if (!isSupabaseConfigured) {
@@ -626,6 +1063,18 @@ export const AdminDashboardPage = () => {
           <article className="admin-kpi-card">
             <p>Rupture</p>
             <strong>{productStats.outOfStockCount}</strong>
+          </article>
+          <article className="admin-kpi-card">
+            <p>Commandes</p>
+            <strong>{orderStats.total}</strong>
+          </article>
+          <article className="admin-kpi-card">
+            <p>A traiter</p>
+            <strong>{orderStats.pending}</strong>
+          </article>
+          <article className="admin-kpi-card">
+            <p>Livrées</p>
+            <strong>{orderStats.delivered}</strong>
           </article>
         </div>
 
@@ -1005,6 +1454,27 @@ export const AdminDashboardPage = () => {
             <article className="admin-card">
               <div className="admin-toolbar">
                 <h2>Catalogue ({filteredProducts.length})</h2>
+                <div className="admin-toolbar-actions">
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => void loadProductsData()}
+                    disabled={loadingProducts}
+                  >
+                    Rafraîchir
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={exportProductsCsv}
+                    disabled={!filteredProducts.length}
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              <div className="admin-catalog-filters">
                 <label className="admin-search">
                   <span>Recherche</span>
                   <input
@@ -1014,13 +1484,125 @@ export const AdminDashboardPage = () => {
                     onChange={(event) => setCatalogSearch(event.target.value)}
                   />
                 </label>
+
+                <label className="admin-search">
+                  <span>Catégorie principale</span>
+                  <select
+                    value={catalogCategoryFilter}
+                    onChange={(event) => setCatalogCategoryFilter(event.target.value)}
+                  >
+                    <option value="all">Toutes</option>
+                    {MAIN_CATEGORY_NAMES.map((mainCategory) => (
+                      <option key={mainCategory} value={mainCategory}>
+                        {mainCategory}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="admin-search">
+                  <span>Disponibilité</span>
+                  <select
+                    value={catalogStockFilter}
+                    onChange={(event) =>
+                      setCatalogStockFilter(event.target.value as CatalogStockFilter)
+                    }
+                  >
+                    <option value="all">Tous statuts</option>
+                    <option value="available">Disponibles</option>
+                    <option value="out_of_stock">Rupture</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="admin-bulk-panel">
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={areAllFilteredProductsSelected}
+                    onChange={toggleAllFilteredProducts}
+                  />
+                  Tout sélectionner
+                </label>
+                <p className="admin-help">
+                  {selectedProductIds.size} article(s) sélectionné(s)
+                </p>
+                <div className="admin-bulk-actions">
+                  <button
+                    type="button"
+                    className="chip"
+                    disabled={!selectedProductIds.size || bulkProductsBusy}
+                    onClick={() => void handleBulkProductAction('mark_out')}
+                  >
+                    Rupture
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    disabled={!selectedProductIds.size || bulkProductsBusy}
+                    onClick={() => void handleBulkProductAction('mark_available')}
+                  >
+                    Remettre en vente
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    disabled={!selectedProductIds.size || bulkProductsBusy}
+                    onClick={() => void handleBulkProductAction('set_new')}
+                  >
+                    Tag Nouveau
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    disabled={!selectedProductIds.size || bulkProductsBusy}
+                    onClick={() => void handleBulkProductAction('set_best')}
+                  >
+                    Tag Best seller
+                  </button>
+                  <button
+                    type="button"
+                    className="chip chip--clear"
+                    disabled={!selectedProductIds.size || bulkProductsBusy}
+                    onClick={() => void handleBulkProductAction('unset_new')}
+                  >
+                    Retirer Nouveau
+                  </button>
+                  <button
+                    type="button"
+                    className="chip chip--clear"
+                    disabled={!selectedProductIds.size || bulkProductsBusy}
+                    onClick={() => void handleBulkProductAction('unset_best')}
+                  >
+                    Retirer Best seller
+                  </button>
+                  <button
+                    type="button"
+                    className="chip chip--clear danger"
+                    disabled={!selectedProductIds.size || bulkProductsBusy}
+                    onClick={() => void handleBulkProductAction('delete')}
+                  >
+                    Supprimer sélection
+                  </button>
+                </div>
               </div>
 
               {loadingProducts ? <p>Chargement...</p> : null}
+              {!loadingProducts && !filteredProducts.length ? (
+                <p className="admin-help">Aucun produit ne correspond aux filtres.</p>
+              ) : null}
 
               <div className="admin-product-grid">
                 {filteredProducts.map((product) => (
                   <article key={product.id} className="admin-product-item">
+                    <label className="admin-select">
+                      <input
+                        type="checkbox"
+                        checked={selectedProductIds.has(product.id)}
+                        onChange={() => toggleProductSelection(product.id)}
+                      />
+                      <span>Sélection</span>
+                    </label>
                     <img
                       src={
                         product.image_url ||
@@ -1054,6 +1636,13 @@ export const AdminDashboardPage = () => {
                       </button>
                       <button
                         type="button"
+                        className="button button--ghost"
+                        onClick={() => void handleDuplicateProduct(product)}
+                      >
+                        Dupliquer
+                      </button>
+                      <button
+                        type="button"
                         className="button button--ghost danger"
                         onClick={() => handleToggleOutOfStock(product)}
                       >
@@ -1074,14 +1663,111 @@ export const AdminDashboardPage = () => {
           </>
         ) : (
           <article className="admin-card">
-            <h2>Commandes clients ({orders.length})</h2>
+            <div className="admin-toolbar">
+              <h2>Commandes clients ({filteredOrders.length})</h2>
+              <div className="admin-toolbar-actions">
+                <button
+                  type="button"
+                  className="button button--ghost"
+                  onClick={() => void loadOrdersData()}
+                  disabled={loadingOrders}
+                >
+                  Rafraîchir
+                </button>
+                <button
+                  type="button"
+                  className="button button--ghost"
+                  onClick={exportOrdersCsv}
+                  disabled={!filteredOrders.length}
+                >
+                  Export CSV
+                </button>
+              </div>
+            </div>
+
+            <div className="admin-catalog-filters">
+              <label className="admin-search">
+                <span>Recherche commande</span>
+                <input
+                  type="search"
+                  placeholder="Référence, client, email, téléphone"
+                  value={ordersSearch}
+                  onChange={(event) => setOrdersSearch(event.target.value)}
+                />
+              </label>
+
+              <label className="admin-search">
+                <span>Statut</span>
+                <select
+                  value={ordersStatusFilter}
+                  onChange={(event) =>
+                    setOrdersStatusFilter(event.target.value as OrderStatus | 'all')
+                  }
+                >
+                  <option value="all">Tous les statuts</option>
+                  {ORDER_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="admin-bulk-panel">
+              <label className="inline-toggle">
+                <input
+                  type="checkbox"
+                  checked={areAllFilteredOrdersSelected}
+                  onChange={toggleAllFilteredOrders}
+                />
+                Tout sélectionner
+              </label>
+
+              <label className="admin-search">
+                <span>Statut groupé</span>
+                <select
+                  value={bulkOrderStatus}
+                  onChange={(event) =>
+                    setBulkOrderStatus(event.target.value as OrderStatus)
+                  }
+                >
+                  {ORDER_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="button"
+                disabled={!selectedOrderIds.size || bulkOrdersBusy}
+                onClick={() => void handleBulkOrderStatusUpdate()}
+              >
+                Mettre à jour {selectedOrderIds.size} commande(s)
+              </button>
+            </div>
+
             {loadingOrders ? <p>Chargement...</p> : null}
+            {!loadingOrders && !filteredOrders.length ? (
+              <p className="admin-help">Aucune commande ne correspond aux filtres.</p>
+            ) : null}
 
             <div className="orders-list">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <article className="order-card" key={order.id}>
                   <div className="order-card__header">
                     <div>
+                      <label className="admin-select">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrderIds.has(order.id)}
+                          onChange={() => toggleOrderSelection(order.id)}
+                        />
+                        <span>Sélection</span>
+                      </label>
                       <h3>{order.order_number}</h3>
                       <p>
                         {order.customer_name} · {order.customer_email}
