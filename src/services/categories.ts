@@ -4,6 +4,12 @@ import type { StoreCategory, StoreCategoryPayload } from '../types'
 
 const CATEGORY_BUCKET = 'product-images'
 const MISSING_TABLE_CODE = '42P01'
+const createFileToken = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
 
 const normalizeCategory = (raw: StoreCategory): StoreCategory => {
   const subcategories = Array.from(
@@ -104,7 +110,7 @@ export const removeCategory = async (categoryId: string): Promise<void> => {
 export const uploadCategoryImage = async (file: File): Promise<string> => {
   const client = getSupabase()
   const extension = file.name.split('.').pop() ?? 'jpg'
-  const filePath = `categories/${crypto.randomUUID()}.${extension}`
+  const filePath = `categories/${createFileToken()}.${extension}`
 
   const { error: uploadError } = await client.storage
     .from(CATEGORY_BUCKET)

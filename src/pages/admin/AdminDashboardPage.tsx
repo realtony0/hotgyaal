@@ -622,9 +622,10 @@ export const AdminDashboardPage = () => {
 
       if (isColorMode && !editingProduct) {
         const preparedVariants = colorVariants
-          .map((variant) => ({
+          .map((variant, index) => ({
             ...variant,
             color: variant.color.trim(),
+            fallbackColor: `Couleur ${index + 1}`,
           }))
           .filter(
             (variant) => variant.color || variant.files.length > 0,
@@ -643,29 +644,29 @@ export const AdminDashboardPage = () => {
         let createdCount = 0
 
         for (const variant of preparedVariants) {
-          if (!variant.color) {
-            throw new Error('Chaque variante doit avoir un nom de couleur.')
-          }
-
           if (!variant.files.length) {
-            throw new Error(`Ajoutez au moins une photo pour ${variant.color}.`)
+            const variantLabel = variant.color || variant.fallbackColor
+            throw new Error(`Ajoutez au moins une photo pour ${variantLabel}.`)
           }
 
           const uploadedFiles = await uploadFiles(variant.files)
           const images = Array.from(new Set(uploadedFiles))
 
-          const colorSlug = toSlug(variant.color)
-          const variantSlug = buildUniqueSlug(
-            `${baseSlug}-${colorSlug || 'couleur'}`,
-            usedSlugs,
-          )
+          const effectiveColor =
+            variant.color || (preparedVariants.length > 1 ? variant.fallbackColor : '')
+          const colorSlug = toSlug(effectiveColor)
+          const variantSlug = effectiveColor
+            ? buildUniqueSlug(`${baseSlug}-${colorSlug || 'couleur'}`, usedSlugs)
+            : buildUniqueSlug(baseSlug, usedSlugs)
 
           const variantPayload: ProductPayload = {
-            name: `${baseName} - ${variant.color}`,
+            name: effectiveColor ? `${baseName} - ${effectiveColor}` : baseName,
             slug: variantSlug,
             description:
               form.description.trim() ||
-              `Article premium HOTGYAAL. Couleur: ${variant.color}.`,
+              (effectiveColor
+                ? `Article premium HOTGYAAL. Couleur: ${effectiveColor}.`
+                : 'Article premium HOTGYAAL.'),
             price,
             compare_price: comparePrice,
             stock: internalStock,
@@ -2107,7 +2108,7 @@ export const AdminDashboardPage = () => {
                         </div>
 
                         <label>
-                          Nom couleur
+                          Nom couleur (optionnel si 1 seule couleur)
                           <input
                             placeholder="Ex: Rouge"
                             value={variant.color}

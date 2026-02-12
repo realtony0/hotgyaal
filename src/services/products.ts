@@ -3,6 +3,12 @@ import type { Product, ProductPayload } from '../types'
 
 const PRODUCT_BUCKET = 'product-images'
 const DEFAULT_SIZE = 'Taille unique'
+const createFileToken = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
 
 const normalizeProduct = (raw: Product): Product => {
   const sizes = Array.from(
@@ -90,7 +96,7 @@ export const removeProduct = async (productId: string): Promise<void> => {
 export const uploadProductImage = async (file: File): Promise<string> => {
   const client = getSupabase()
   const extension = file.name.split('.').pop() ?? 'jpg'
-  const filePath = `products/${crypto.randomUUID()}.${extension}`
+  const filePath = `products/${createFileToken()}.${extension}`
 
   const { error: uploadError } = await client.storage
     .from(PRODUCT_BUCKET)
