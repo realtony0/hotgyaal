@@ -1,74 +1,22 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { CATEGORY_TREE } from '../constants/categories'
 import { ProductCard } from '../components/ProductCard'
+import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
 
-type CategoryVisual = {
-  note: string
-  image?: string
-  tone?: string
-  textColor?: string
-  highlights?: string[]
-}
-
-const CATEGORY_VISUALS: Record<string, CategoryVisual> = {
-  'Vêtements Femmes': {
-    image: '/categories/women-fashion.webp',
-    note: 'Mode et tenues tendance',
-    textColor: '#ffffff',
-    highlights: ['Robes', 'Tops', 'Vestes', 'Sport'],
-  },
-  'Bijoux & Accessoires': {
-    image: '/categories/jewelry-accessories.webp',
-    note: 'Bijoux, lunettes et accessoires',
-    textColor: '#ffffff',
-    highlights: ['Colliers', 'Boucles d’oreilles', 'Sacs'],
-  },
-  Chaussures: {
-    image: '/categories/shoes.webp',
-    note: 'Baskets, bottes, sandales et plus',
-    textColor: '#ffffff',
-    highlights: ['Baskets', 'Talons', 'Sandales & Crocs'],
-  },
-  'Téléphone & Accessoires': {
-    image: '/categories/phone-accessories.webp',
-    note: 'Coques, chargeurs, ecouteurs, iPad',
-    textColor: '#ffffff',
-    highlights: ['Coques', 'Chargeurs', 'Power banks'],
-  },
-  'Sacs & Bagages': {
-    image: '/categories/bags-luggage.webp',
-    note: 'Sacs a main, valises et voyage',
-    textColor: '#ffffff',
-    highlights: ['Sacs a main', 'Valises', 'Bandouliere'],
-  },
-  'Sous-vêtements & Pyjamas': {
-    image: '/categories/sleepwear.webp',
-    note: 'Sous-vetements et pyjamas confort',
-    textColor: '#ffffff',
-    highlights: ['Lingerie', 'Nuisettes', 'Pyjamas'],
-  },
-  'Home & Living': {
-    image: '/categories/home-living.webp',
-    note: 'Decoration et maison',
-    textColor: '#ffffff',
-    highlights: ['Decoration murale', 'Mobilier', 'Cuisine'],
-  },
-  Beauté: {
-    note: 'Make-up, soins et parfums',
-    tone: 'linear-gradient(130deg, #3a2630 0%, #8f4e68 52%, #d39ab0 100%)',
-    textColor: '#ffffff',
-    highlights: ['Maquillage', 'Soins visage', 'Parfums'],
-  },
-}
+const CATEGORY_FALLBACK_TONES = [
+  'linear-gradient(130deg, #2b1c23 0%, #734558 52%, #c0849c 100%)',
+  'linear-gradient(130deg, #1e2732 0%, #3e5f7a 52%, #86a9c6 100%)',
+  'linear-gradient(130deg, #2b2a20 0%, #6f653a 52%, #c1a96f 100%)',
+]
 
 export const HomePage = () => {
   const { settings } = useStoreSettings()
+  const { categories, loading: loadingCategories } = useStoreCategories()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -174,6 +122,11 @@ export const HomePage = () => {
     return counts
   }, [products])
 
+  const activeCategories = useMemo(
+    () => categories.filter((category) => category.is_active),
+    [categories],
+  )
+
   const heroImage = products[0]?.image_url ?? '/products/chrysalide-nocturne-01.webp'
   return (
     <div>
@@ -251,20 +204,17 @@ export const HomePage = () => {
           </div>
 
           <div className="category-grid category-grid--media">
-            {CATEGORY_TREE.map((category) => {
-              const visual = CATEGORY_VISUALS[category.name]
+            {activeCategories.map((category, index) => {
               const categoryCount = categoryCounts.get(category.name) ?? 0
-              const style = visual?.image
+              const style = category.image_url
                 ? {
-                    backgroundImage: `url(${visual.image})`,
-                    color: visual.textColor ?? '#ffffff',
+                    backgroundImage: `url(${category.image_url})`,
+                    color: '#ffffff',
                   }
-                : visual?.tone
-                  ? {
-                      background: visual.tone,
-                      color: visual.textColor ?? 'white',
-                    }
-                  : undefined
+                : {
+                    background: CATEGORY_FALLBACK_TONES[index % CATEGORY_FALLBACK_TONES.length],
+                    color: 'white',
+                  }
 
               return (
                 <Link
@@ -273,18 +223,16 @@ export const HomePage = () => {
                   className="category-card category-card--media"
                   style={style}
                 >
-                  {visual?.image ? <div className="category-card__overlay" /> : null}
+                  {category.image_url ? <div className="category-card__overlay" /> : null}
                   <div className="category-card__content">
                     <h3>{category.name}</h3>
-                    <p>{visual?.note ?? category.description}</p>
+                    <p>{category.description}</p>
                     <div className="category-card__tags">
-                      {(visual?.highlights ?? category.subcategories.slice(0, 3)).map(
-                        (subCategory) => (
-                          <span key={subCategory} className="category-tag">
-                            {subCategory}
-                          </span>
-                        ),
-                      )}
+                      {category.subcategories.slice(0, 3).map((subCategory) => (
+                        <span key={subCategory} className="category-tag">
+                          {subCategory}
+                        </span>
+                      ))}
                     </div>
                     <div className="category-card__meta">
                       <span>
@@ -292,7 +240,7 @@ export const HomePage = () => {
                           ? `${categoryCount} article${categoryCount > 1 ? 's' : ''}`
                           : 'Arrivages en cours'}
                       </span>
-                      <span>{category.subcategories.length} sous-catégories</span>
+                      <span>{category.subcategories.length} sous-categories</span>
                     </div>
                     <span className="category-card__link">Voir la categorie</span>
                   </div>
@@ -300,6 +248,10 @@ export const HomePage = () => {
               )
             })}
           </div>
+
+          {loadingCategories ? (
+            <p>Chargement des categories...</p>
+          ) : null}
         </div>
       </section>
 

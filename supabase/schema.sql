@@ -129,6 +129,25 @@ create table if not exists public.order_items (
 alter table public.order_items
   add column if not exists selected_size text;
 
+create table if not exists public.store_categories (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null unique,
+  description text not null default 'Categorie HOTGYAAL',
+  image_url text,
+  subcategories text[] not null default '{}',
+  is_active boolean not null default true,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists store_categories_touch_updated_at on public.store_categories;
+create trigger store_categories_touch_updated_at
+  before update on public.store_categories
+  for each row
+  execute function public.touch_updated_at();
+
 create table if not exists public.store_settings (
   id integer primary key check (id = 1),
   announcement_text text not null default 'Mode femme & accessoires · Vente au Senegal · Importation directe Chine',
@@ -154,6 +173,90 @@ insert into public.store_settings (id)
 values (1)
 on conflict (id) do nothing;
 
+insert into public.store_categories (
+  slug,
+  name,
+  description,
+  image_url,
+  subcategories,
+  is_active,
+  display_order
+)
+values
+  (
+    'vetements-femmes',
+    'Vêtements Femmes',
+    'Silhouettes chic du quotidien au soir.',
+    '/categories/women-fashion.webp',
+    array['Robes', 'Tops', 'T-shirts', 'Pantalons', 'Jupes', 'Shorts', 'Vestes', 'Pulls', 'Tenues de sport'],
+    true,
+    0
+  ),
+  (
+    'bijoux-accessoires',
+    'Bijoux & Accessoires',
+    'Touches premium qui signent un look.',
+    '/categories/jewelry-accessories.webp',
+    array['Colliers', 'Bracelets', 'Boucles d''oreilles', 'Bagues', 'Montres', 'Chapeaux', 'Echarpes', 'Ceintures', 'Lunettes', 'Sacs'],
+    true,
+    1
+  ),
+  (
+    'chaussures',
+    'Chaussures',
+    'Du confort sport aux pieces statement.',
+    '/categories/shoes.webp',
+    array['Baskets', 'Bottes', 'Sandales & Crocs', 'Talons', 'Plates', 'Sport', 'Mocassins', 'Interieur', 'Enfants'],
+    true,
+    2
+  ),
+  (
+    'telephone-accessoires',
+    'Téléphone & Accessoires',
+    'Style et utilite pour vos appareils.',
+    '/categories/phone-accessories.webp',
+    array['iPad', 'Coques', 'Chargeurs', 'Ecouteurs', 'Supports', 'Power banks', 'Protections ecran'],
+    true,
+    3
+  ),
+  (
+    'sacs-bagages',
+    'Sacs & Bagages',
+    'Capsules pratiques pour ville et voyage.',
+    '/categories/bags-luggage.webp',
+    array['Sacs a main', 'Sacs a dos', 'Valises', 'Voyage', 'Sport', 'Bandouliere', 'Trousse', 'Ordinateur'],
+    true,
+    4
+  ),
+  (
+    'sous-vetements-pyjamas',
+    'Sous-vêtements & Pyjamas',
+    'Confort premium, coupe et douceur.',
+    '/categories/sleepwear.webp',
+    array['Femme', 'Enfant', 'Lingerie', 'Nuisettes'],
+    true,
+    5
+  ),
+  (
+    'home-living',
+    'Home & Living',
+    'Un interieur raffine et vivant.',
+    '/categories/home-living.webp',
+    array['Decoration murale', 'Textiles', 'Mobilier', 'Luminaires', 'Cuisine', 'Salle de bain', 'Objets deco', 'Rangement', 'Plantes'],
+    true,
+    6
+  ),
+  (
+    'beaute',
+    'Beauté',
+    'Soins, maquillage et essentials premium.',
+    '/categories/women-fashion.webp',
+    array['Maquillage', 'Soins visage', 'Soins corps', 'Cheveux', 'Parfums', 'Accessoires beaute'],
+    true,
+    7
+  )
+on conflict (slug) do nothing;
+
 create index if not exists idx_products_category
   on public.products (main_category, sub_category);
 
@@ -167,6 +270,7 @@ alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+alter table public.store_categories enable row level security;
 alter table public.store_settings enable row level security;
 
 drop policy if exists "profiles_select_own_or_admin" on public.profiles;
@@ -213,6 +317,31 @@ drop policy if exists "products_admin_delete" on public.products;
 drop policy if exists "products_public_delete" on public.products;
 create policy "products_public_delete"
   on public.products
+  for delete
+  using (true);
+
+drop policy if exists "store_categories_public_select" on public.store_categories;
+create policy "store_categories_public_select"
+  on public.store_categories
+  for select
+  using (true);
+
+drop policy if exists "store_categories_public_insert" on public.store_categories;
+create policy "store_categories_public_insert"
+  on public.store_categories
+  for insert
+  with check (true);
+
+drop policy if exists "store_categories_public_update" on public.store_categories;
+create policy "store_categories_public_update"
+  on public.store_categories
+  for update
+  using (true)
+  with check (true);
+
+drop policy if exists "store_categories_public_delete" on public.store_categories;
+create policy "store_categories_public_delete"
+  on public.store_categories
   for delete
   using (true);
 

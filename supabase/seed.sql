@@ -1,3 +1,87 @@
+insert into public.store_categories (
+  slug,
+  name,
+  description,
+  image_url,
+  subcategories,
+  is_active,
+  display_order
+)
+values
+  (
+    'vetements-femmes',
+    'Vêtements Femmes',
+    'Silhouettes chic du quotidien au soir.',
+    '/categories/women-fashion.webp',
+    array['Robes', 'Tops', 'T-shirts', 'Pantalons', 'Jupes', 'Shorts', 'Vestes', 'Pulls', 'Tenues de sport'],
+    true,
+    0
+  ),
+  (
+    'bijoux-accessoires',
+    'Bijoux & Accessoires',
+    'Touches premium qui signent un look.',
+    '/categories/jewelry-accessories.webp',
+    array['Colliers', 'Bracelets', 'Boucles d''oreilles', 'Bagues', 'Montres', 'Chapeaux', 'Echarpes', 'Ceintures', 'Lunettes', 'Sacs'],
+    true,
+    1
+  ),
+  (
+    'chaussures',
+    'Chaussures',
+    'Du confort sport aux pieces statement.',
+    '/categories/shoes.webp',
+    array['Baskets', 'Bottes', 'Sandales & Crocs', 'Talons', 'Plates', 'Sport', 'Mocassins', 'Interieur', 'Enfants'],
+    true,
+    2
+  ),
+  (
+    'telephone-accessoires',
+    'Téléphone & Accessoires',
+    'Style et utilite pour vos appareils.',
+    '/categories/phone-accessories.webp',
+    array['iPad', 'Coques', 'Chargeurs', 'Ecouteurs', 'Supports', 'Power banks', 'Protections ecran'],
+    true,
+    3
+  ),
+  (
+    'sacs-bagages',
+    'Sacs & Bagages',
+    'Capsules pratiques pour ville et voyage.',
+    '/categories/bags-luggage.webp',
+    array['Sacs a main', 'Sacs a dos', 'Valises', 'Voyage', 'Sport', 'Bandouliere', 'Trousse', 'Ordinateur'],
+    true,
+    4
+  ),
+  (
+    'sous-vetements-pyjamas',
+    'Sous-vêtements & Pyjamas',
+    'Confort premium, coupe et douceur.',
+    '/categories/sleepwear.webp',
+    array['Femme', 'Enfant', 'Lingerie', 'Nuisettes'],
+    true,
+    5
+  ),
+  (
+    'home-living',
+    'Home & Living',
+    'Un interieur raffine et vivant.',
+    '/categories/home-living.webp',
+    array['Decoration murale', 'Textiles', 'Mobilier', 'Luminaires', 'Cuisine', 'Salle de bain', 'Objets deco', 'Rangement', 'Plantes'],
+    true,
+    6
+  ),
+  (
+    'beaute',
+    'Beauté',
+    'Soins, maquillage et essentials premium.',
+    '/categories/women-fashion.webp',
+    array['Maquillage', 'Soins visage', 'Soins corps', 'Cheveux', 'Parfums', 'Accessoires beaute'],
+    true,
+    7
+  )
+on conflict (slug) do nothing;
+
 insert into public.products (
   name,
   slug,

@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import { ProductCard } from '../components/ProductCard'
-import {
-  CATEGORY_TREE,
-  getSubcategoriesByMainCategory,
-} from '../constants/categories'
+import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
@@ -12,49 +9,16 @@ import { groupProductsForStorefront } from '../utils/products'
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc'
 
-type ShopCategoryVisual = {
-  image?: string
-  tone?: string
-  note: string
-}
-
-const SHOP_CATEGORY_VISUALS: Record<string, ShopCategoryVisual> = {
-  'Vêtements Femmes': {
-    image: '/categories/women-fashion.webp',
-    note: 'Mode feminine',
-  },
-  'Bijoux & Accessoires': {
-    image: '/categories/jewelry-accessories.webp',
-    note: 'Accessoires premium',
-  },
-  Chaussures: {
-    image: '/categories/shoes.webp',
-    note: 'Chaussures tendance',
-  },
-  'Téléphone & Accessoires': {
-    image: '/categories/phone-accessories.webp',
-    note: 'Univers tech',
-  },
-  'Sacs & Bagages': {
-    image: '/categories/bags-luggage.webp',
-    note: 'Sacs et voyage',
-  },
-  'Sous-vêtements & Pyjamas': {
-    image: '/categories/sleepwear.webp',
-    note: 'Confort quotidien',
-  },
-  'Home & Living': {
-    image: '/categories/home-living.webp',
-    note: 'Maison et deco',
-  },
-  Beauté: {
-    note: 'Make-up et soins',
-    tone: 'linear-gradient(130deg, #2f1e27 0%, #854d64 52%, #c98ea5 100%)',
-  },
-}
+const CATEGORY_FALLBACK_TONES = [
+  'linear-gradient(130deg, #2b1c23 0%, #734558 52%, #c0849c 100%)',
+  'linear-gradient(130deg, #1e2732 0%, #3e5f7a 52%, #86a9c6 100%)',
+  'linear-gradient(130deg, #2b2a20 0%, #6f653a 52%, #c1a96f 100%)',
+]
 
 export const ShopPage = () => {
   const router = useRouter()
+  const { categories, loading: loadingCategories, error: categoriesError } =
+    useStoreCategories()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -115,10 +79,38 @@ export const ShopPage = () => {
     void loadProducts()
   }, [])
 
-  const availableSubcategories = useMemo(
-    () => getSubcategoriesByMainCategory(selectedCategory),
-    [selectedCategory],
+  const activeCategories = useMemo(
+    () => categories.filter((category) => category.is_active),
+    [categories],
   )
+
+  useEffect(() => {
+    if (!selectedCategory) {
+      return
+    }
+
+    const exists = activeCategories.some(
+      (category) => category.name === selectedCategory,
+    )
+
+    if (exists) {
+      return
+    }
+
+    setSelectedCategory('')
+    setSelectedSubCategory('')
+
+    if (router.isReady) {
+      void router.replace('/boutique', undefined, { shallow: true, scroll: false })
+    }
+  }, [activeCategories, router, selectedCategory])
+
+  const availableSubcategories = useMemo(() => {
+    const category = activeCategories.find(
+      (entry) => entry.name === selectedCategory,
+    )
+    return category?.subcategories ?? []
+  }, [activeCategories, selectedCategory])
 
   const categoryStats = useMemo(() => {
     const stats = new Map<
@@ -136,7 +128,7 @@ export const ShopPage = () => {
       stats.set(category, current)
     })
 
-    return CATEGORY_TREE.map((category) => {
+    return activeCategories.map((category) => {
       const current = stats.get(category.name)
       const topSubcategories = category.subcategories
         .map((subCategory) => ({
@@ -154,7 +146,7 @@ export const ShopPage = () => {
         topSubcategories,
       }
     })
-  }, [products])
+  }, [activeCategories, products])
 
   const selectedCategoryStats = useMemo(
     () => categoryStats.find((category) => category.name === selectedCategory),
@@ -301,15 +293,15 @@ export const ShopPage = () => {
             </div>
           </button>
 
-          {categoryStats.map((category) => {
-            const visual = SHOP_CATEGORY_VISUALS[category.name]
+          {categoryStats.map((category, index) => {
             const isActive = selectedCategory === category.name
             const hasProducts = category.total > 0
-            const mediaStyle = visual?.image
-              ? { backgroundImage: `url(${visual.image})` }
-              : visual?.tone
-                ? { background: visual.tone }
-                : { backgroundImage: 'url(/categories/women-fashion.webp)' }
+            const mediaStyle = category.image_url
+              ? { backgroundImage: `url(${category.image_url})` }
+              : {
+                  background:
+                    CATEGORY_FALLBACK_TONES[index % CATEGORY_FALLBACK_TONES.length],
+                }
 
             return (
               <button
@@ -336,7 +328,7 @@ export const ShopPage = () => {
 
                 <div className="shop-category-card__body">
                   <h3>{category.name}</h3>
-                  <p>{visual?.note ?? category.description}</p>
+                  <p>{category.description}</p>
                   <div className="shop-category-card__subs">
                     {(category.topSubcategories.length
                       ? category.topSubcategories.map((sub) => `${sub.name} (${sub.count})`)
@@ -355,6 +347,9 @@ export const ShopPage = () => {
             )
           })}
         </div>
+
+        {loadingCategories ? <p>Chargement des categories...</p> : null}
+        {categoriesError ? <p className="error-text">{categoriesError}</p> : null}
 
         <div className="shop-mobile-actions">
           <button

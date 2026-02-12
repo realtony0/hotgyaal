@@ -44,6 +44,29 @@ export type ProductPayload = {
   is_best_seller: boolean
 }
 
+export type StoreCategory = {
+  id: string
+  slug: string
+  name: string
+  description: string
+  image_url: string | null
+  subcategories: string[]
+  is_active: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type StoreCategoryPayload = {
+  slug: string
+  name: string
+  description: string
+  image_url: string | null
+  subcategories: string[]
+  is_active: boolean
+  display_order: number
+}
+
 export type CartItem = {
   line_id: string
   product: Product

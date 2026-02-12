@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useStoreCategories } from '../../context/StoreCategoriesContext'
 import { useStoreSettings } from '../../context/StoreSettingsContext'
-import {
-  CATEGORY_TREE,
-  MAIN_CATEGORY_NAMES,
-  getSubcategoriesByMainCategory,
-} from '../../constants/categories'
+import { CATEGORY_TREE } from '../../constants/categories'
 import { isSupabaseConfigured } from '../../lib/supabase'
+import {
+  removeCategory,
+  upsertCategory,
+  uploadCategoryImage,
+} from '../../services/categories'
 import { listOrders, updateOrderStatus } from '../../services/orders'
 import {
   listProducts,
@@ -19,6 +21,8 @@ import type {
   OrderStatus,
   Product,
   ProductPayload,
+  StoreCategory,
+  StoreCategoryPayload,
   StoreSettingsPayload,
 } from '../../types'
 import { formatCurrency, formatDate } from '../../utils/format'
@@ -51,7 +55,7 @@ type CategoryOption = {
   sub: string
 }
 
-const CATEGORY_OPTIONS: CategoryOption[] = CATEGORY_TREE.flatMap((category) =>
+const FALLBACK_CATEGORY_OPTIONS: CategoryOption[] = CATEGORY_TREE.flatMap((category) =>
   category.subcategories.map((subCategory) => ({
     key: `${category.name}|||${subCategory}`,
     label: `${category.name} > ${subCategory}`,
@@ -68,10 +72,10 @@ const FALLBACK_CATEGORY: CategoryOption = {
 }
 
 const DEFAULT_CATEGORY_KEY =
-  CATEGORY_OPTIONS.find(
+  FALLBACK_CATEGORY_OPTIONS.find(
     (option) =>
       option.main === 'Vêtements Femmes' && option.sub === 'Robes',
-  )?.key ?? CATEGORY_OPTIONS[0]?.key ?? FALLBACK_CATEGORY.key
+  )?.key ?? FALLBACK_CATEGORY_OPTIONS[0]?.key ?? FALLBACK_CATEGORY.key
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Taille unique']
 const DEFAULT_SIZES = ['S', 'M', 'L', 'XL']
@@ -84,17 +88,23 @@ type ProductForm = {
   compare_price: string
   sizes: string
   categoryKey: string
-  image_url: string
-  gallery_urls: string
   is_out_of_stock: boolean
   is_new: boolean
   is_best_seller: boolean
 }
 
+type CategoryForm = {
+  name: string
+  slug: string
+  description: string
+  subcategories: string
+  is_active: boolean
+  display_order: string
+}
+
 type ColorVariantDraft = {
   id: string
   color: string
-  image_urls: string
   files: File[]
 }
 
@@ -105,26 +115,26 @@ const INITIAL_FORM: ProductForm = {
   price: '',
   compare_price: '',
   sizes: DEFAULT_SIZES.join(', '),
-  categoryKey: DEFAULT_CATEGORY_KEY,
-  image_url: '',
-  gallery_urls: '',
+  categoryKey: '',
   is_out_of_stock: false,
   is_new: true,
   is_best_seller: false,
 }
 
+const INITIAL_CATEGORY_FORM: CategoryForm = {
+  name: '',
+  slug: '',
+  description: '',
+  subcategories: '',
+  is_active: true,
+  display_order: '0',
+}
+
 const createColorVariant = (): ColorVariantDraft => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   color: '',
-  image_urls: '',
   files: [],
 })
-
-const parseGalleryUrls = (raw: string): string[] =>
-  raw
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
 
 const parseSizes = (raw: string): string[] =>
   Array.from(
@@ -138,18 +148,51 @@ const parseSizes = (raw: string): string[] =>
 
 const formatSizes = (sizes: string[]): string => sizes.join(', ')
 
-const getCategoryFromKey = (categoryKey: string): CategoryOption =>
-  CATEGORY_OPTIONS.find((option) => option.key === categoryKey) ??
-  CATEGORY_OPTIONS[0] ??
+const parseSubcategories = (raw: string): string[] =>
+  Array.from(
+    new Set(
+      raw
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  )
+
+const buildCategoryOptions = (categories: StoreCategory[]): CategoryOption[] => {
+  const source = categories.length
+    ? categories.filter((category) => category.is_active)
+    : []
+
+  const options = source.flatMap((category) =>
+    category.subcategories.map((subCategory) => ({
+      key: `${category.name}|||${subCategory}`,
+      label: `${category.name} > ${subCategory}`,
+      main: category.name,
+      sub: subCategory,
+    })),
+  )
+
+  return options.length ? options : FALLBACK_CATEGORY_OPTIONS
+}
+
+const getCategoryFromKey = (
+  categoryKey: string,
+  categoryOptions: CategoryOption[],
+): CategoryOption =>
+  categoryOptions.find((option) => option.key === categoryKey) ??
+  categoryOptions[0] ??
   FALLBACK_CATEGORY
 
-const getCategoryKeyFromProduct = (product: Product): string => {
-  const option = CATEGORY_OPTIONS.find(
+const getCategoryKeyFromProduct = (
+  product: Product,
+  categoryOptions: CategoryOption[],
+): string => {
+  const option = categoryOptions.find(
     (entry) =>
       entry.main === product.main_category && entry.sub === product.sub_category,
   )
 
-  return option?.key ?? DEFAULT_CATEGORY_KEY
+  return option?.key ?? categoryOptions[0]?.key ?? DEFAULT_CATEGORY_KEY
 }
 
 const buildUniqueSlug = (baseSlug: string, usedSlugs: Set<string>): string => {
@@ -165,22 +208,36 @@ const buildUniqueSlug = (baseSlug: string, usedSlugs: Set<string>): string => {
 
 export const AdminDashboardPage = () => {
   const { signOut, profile } = useAuth()
+  const {
+    categories,
+    loading: loadingCategories,
+    refreshCategories,
+  } = useStoreCategories()
   const { settings, saveSettings, loading: loadingSettings } = useStoreSettings()
 
-  const [activeTab, setActiveTab] = useState<'site' | 'products' | 'orders'>(
-    'site',
-  )
+  const [activeTab, setActiveTab] = useState<
+    'site' | 'categories' | 'products' | 'orders'
+  >('site')
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
 
   const [form, setForm] = useState<ProductForm>(INITIAL_FORM)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [selectedGalleryImages, setSelectedGalleryImages] = useState<File[]>([])
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
   const [isColorMode, setIsColorMode] = useState(false)
   const [colorVariants, setColorVariants] = useState<ColorVariantDraft[]>([
     createColorVariant(),
   ])
+  const [categoryForm, setCategoryForm] = useState<CategoryForm>(
+    INITIAL_CATEGORY_FORM,
+  )
+  const [editingCategory, setEditingCategory] = useState<StoreCategory | null>(null)
+  const [selectedCategoryImage, setSelectedCategoryImage] = useState<File | null>(
+    null,
+  )
+  const [savingCategory, setSavingCategory] = useState(false)
   const [catalogSearch, setCatalogSearch] = useState('')
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('all')
   const [catalogStockFilter, setCatalogStockFilter] =
@@ -208,12 +265,25 @@ export const AdminDashboardPage = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [siteForm, setSiteForm] = useState<StoreSettingsPayload>(settings)
-
-  const selectedCategory = getCategoryFromKey(form.categoryKey)
-
+  const categoryOptions = useMemo(
+    () => buildCategoryOptions(categories),
+    [categories],
+  )
+  const mainCategoryNames = useMemo(
+    () =>
+      Array.from(new Set(categoryOptions.map((option) => option.main))),
+    [categoryOptions],
+  )
+  const selectedCategory = useMemo(
+    () => getCategoryFromKey(form.categoryKey, categoryOptions),
+    [form.categoryKey, categoryOptions],
+  )
   const availableSubcategories = useMemo(
-    () => getSubcategoriesByMainCategory(selectedCategory.main),
-    [selectedCategory.main],
+    () =>
+      categoryOptions
+        .filter((option) => option.main === selectedCategory.main)
+        .map((option) => option.sub),
+    [categoryOptions, selectedCategory.main],
   )
 
   const selectedSizes = useMemo(() => parseSizes(form.sizes), [form.sizes])
@@ -308,6 +378,22 @@ export const AdminDashboardPage = () => {
     setSiteForm(settings)
   }, [settings])
 
+  useEffect(() => {
+    setForm((current) => {
+      const hasOption = categoryOptions.some(
+        (option) => option.key === current.categoryKey,
+      )
+      if (hasOption) {
+        return current
+      }
+
+      return {
+        ...current,
+        categoryKey: categoryOptions[0]?.key ?? DEFAULT_CATEGORY_KEY,
+      }
+    })
+  }, [categoryOptions])
+
   const loadProductsData = async () => {
     try {
       setLoadingProducts(true)
@@ -369,17 +455,41 @@ export const AdminDashboardPage = () => {
     })
   }, [filteredOrders])
 
+  useEffect(() => {
+    if (
+      catalogCategoryFilter !== 'all' &&
+      !mainCategoryNames.includes(catalogCategoryFilter)
+    ) {
+      setCatalogCategoryFilter('all')
+    }
+  }, [catalogCategoryFilter, mainCategoryNames])
+
   const resetForm = () => {
-    setForm(INITIAL_FORM)
+    setForm({
+      ...INITIAL_FORM,
+      categoryKey: categoryOptions[0]?.key ?? DEFAULT_CATEGORY_KEY,
+    })
     setEditingProduct(null)
     setSelectedImage(null)
+    setSelectedGalleryImages([])
     setIsAdvancedMode(false)
     setIsColorMode(false)
     setColorVariants([createColorVariant()])
   }
 
+  const resetCategoryForm = () => {
+    setCategoryForm({
+      ...INITIAL_CATEGORY_FORM,
+      display_order: String(categories.length),
+    })
+    setEditingCategory(null)
+    setSelectedCategoryImage(null)
+  }
+
   const handleMainCategoryChange = (mainCategory: string) => {
-    const firstSubCategory = getSubcategoriesByMainCategory(mainCategory)[0] ?? 'Robes'
+    const firstSubCategory =
+      categoryOptions.find((option) => option.main === mainCategory)?.sub ??
+      'General'
 
     setForm((current) => ({
       ...current,
@@ -470,7 +580,7 @@ export const AdminDashboardPage = () => {
         throw new Error('Prix barré invalide.')
       }
 
-      const category = getCategoryFromKey(form.categoryKey)
+      const category = getCategoryFromKey(form.categoryKey, categoryOptions)
       const usedSlugs = new Set(products.map((product) => product.slug))
       if (editingProduct?.slug) {
         usedSlugs.delete(editingProduct.slug)
@@ -481,11 +591,9 @@ export const AdminDashboardPage = () => {
           .map((variant) => ({
             ...variant,
             color: variant.color.trim(),
-            parsedUrls: parseGalleryUrls(variant.image_urls),
           }))
           .filter(
-            (variant) =>
-              variant.color || variant.parsedUrls.length > 0 || variant.files.length > 0,
+            (variant) => variant.color || variant.files.length > 0,
           )
 
         if (!preparedVariants.length) {
@@ -505,14 +613,12 @@ export const AdminDashboardPage = () => {
             throw new Error('Chaque variante doit avoir un nom de couleur.')
           }
 
-          const uploadedFiles = await uploadFiles(variant.files)
-          const images = Array.from(
-            new Set([...variant.parsedUrls, ...uploadedFiles]),
-          )
-
-          if (!images.length) {
+          if (!variant.files.length) {
             throw new Error(`Ajoutez au moins une photo pour ${variant.color}.`)
           }
+
+          const uploadedFiles = await uploadFiles(variant.files)
+          const images = Array.from(new Set(uploadedFiles))
 
           const colorSlug = toSlug(variant.color)
           const variantSlug = buildUniqueSlug(
@@ -551,15 +657,17 @@ export const AdminDashboardPage = () => {
         return
       }
 
-      let imageUrl = form.image_url.trim() || null
-
+      let imageUrl = editingProduct?.image_url ?? null
       if (selectedImage) {
         imageUrl = await uploadProductImage(selectedImage)
+      } else if (!editingProduct) {
+        throw new Error('Ajoutez une photo principale du produit.')
       }
 
-      if (!imageUrl && editingProduct?.image_url) {
-        imageUrl = editingProduct.image_url
-      }
+      const uploadedGallery =
+        selectedGalleryImages.length > 0
+          ? await uploadFiles(selectedGalleryImages)
+          : null
 
       const generatedSlug = toSlug(form.slug.trim() || form.name)
       if (!generatedSlug) {
@@ -578,7 +686,7 @@ export const AdminDashboardPage = () => {
         main_category: category.main,
         sub_category: category.sub,
         image_url: imageUrl,
-        gallery_urls: parseGalleryUrls(form.gallery_urls),
+        gallery_urls: uploadedGallery ?? (editingProduct?.gallery_urls ?? []),
         sizes,
         is_out_of_stock: form.is_out_of_stock,
         is_new: form.is_new,
@@ -605,6 +713,7 @@ export const AdminDashboardPage = () => {
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product)
     setSelectedImage(null)
+    setSelectedGalleryImages([])
     setIsAdvancedMode(true)
     setIsColorMode(false)
     setColorVariants([createColorVariant()])
@@ -615,9 +724,7 @@ export const AdminDashboardPage = () => {
       price: String(product.price),
       compare_price: product.compare_price ? String(product.compare_price) : '',
       sizes: formatSizes(product.sizes.length ? product.sizes : DEFAULT_SIZES),
-      categoryKey: getCategoryKeyFromProduct(product),
-      image_url: product.image_url ?? '',
-      gallery_urls: (product.gallery_urls ?? []).join(', '),
+      categoryKey: getCategoryKeyFromProduct(product, categoryOptions),
       is_out_of_stock: product.is_out_of_stock,
       is_new: product.is_new,
       is_best_seller: product.is_best_seller,
@@ -675,6 +782,190 @@ export const AdminDashboardPage = () => {
         patch.is_best_seller === undefined
           ? product.is_best_seller
           : patch.is_best_seller,
+    }
+  }
+
+  const buildCategoryPayloadFromCategory = (
+    category: StoreCategory,
+    patch: Partial<StoreCategoryPayload> = {},
+  ): StoreCategoryPayload => ({
+    slug: patch.slug ?? category.slug,
+    name: patch.name ?? category.name,
+    description: patch.description ?? category.description,
+    image_url:
+      patch.image_url === undefined ? category.image_url : patch.image_url,
+    subcategories: patch.subcategories ?? category.subcategories,
+    is_active:
+      patch.is_active === undefined ? category.is_active : patch.is_active,
+    display_order:
+      patch.display_order === undefined
+        ? category.display_order
+        : patch.display_order,
+  })
+
+  const handleSaveCategory = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    try {
+      setSavingCategory(true)
+      setErrorMessage(null)
+      setStatusMessage(null)
+
+      const name = categoryForm.name.trim()
+      const description =
+        categoryForm.description.trim() || 'Categorie HOTGYAAL'
+      const subcategories = parseSubcategories(categoryForm.subcategories)
+      const displayOrder = Number(categoryForm.display_order)
+
+      if (!name) {
+        throw new Error('Nom de categorie requis.')
+      }
+
+      if (!subcategories.length) {
+        throw new Error('Ajoutez au moins une sous-categorie.')
+      }
+
+      if (!Number.isFinite(displayOrder) || displayOrder < 0) {
+        throw new Error('Ordre d affichage invalide.')
+      }
+
+      const usedSlugs = new Set(categories.map((category) => category.slug))
+      if (editingCategory?.slug) {
+        usedSlugs.delete(editingCategory.slug)
+      }
+
+      const generatedSlug = toSlug(categoryForm.slug.trim() || name)
+      if (!generatedSlug) {
+        throw new Error('Slug categorie invalide.')
+      }
+      const finalSlug = buildUniqueSlug(generatedSlug, usedSlugs)
+
+      let imageUrl = editingCategory?.image_url ?? null
+      if (selectedCategoryImage) {
+        imageUrl = await uploadCategoryImage(selectedCategoryImage)
+      } else if (!editingCategory) {
+        throw new Error('Ajoutez une image pour la categorie.')
+      }
+
+      const payload: StoreCategoryPayload = {
+        slug: finalSlug,
+        name,
+        description,
+        image_url: imageUrl,
+        subcategories,
+        is_active: categoryForm.is_active,
+        display_order: Math.trunc(displayOrder),
+      }
+
+      await upsertCategory(payload, editingCategory?.id)
+
+      if (editingCategory && editingCategory.name !== name) {
+        const impactedProducts = products.filter(
+          (product) => product.main_category === editingCategory.name,
+        )
+        for (const product of impactedProducts) {
+          const nextSubCategory = subcategories.includes(product.sub_category)
+            ? product.sub_category
+            : subcategories[0]
+          await upsertProduct(
+            buildPayloadFromProduct(product, {
+              main_category: name,
+              sub_category: nextSubCategory,
+            }),
+            product.id,
+          )
+        }
+      }
+
+      await refreshCategories()
+      await loadProductsData()
+      setStatusMessage(
+        editingCategory
+          ? 'Categorie mise a jour avec succes.'
+          : 'Categorie ajoutee avec succes.',
+      )
+      resetCategoryForm()
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Impossible de sauvegarder la categorie.',
+      )
+    } finally {
+      setSavingCategory(false)
+    }
+  }
+
+  const handleEditCategory = (category: StoreCategory) => {
+    setEditingCategory(category)
+    setSelectedCategoryImage(null)
+    setCategoryForm({
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      subcategories: category.subcategories.join(', '),
+      is_active: category.is_active,
+      display_order: String(category.display_order),
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDeleteCategory = async (category: StoreCategory) => {
+    const usedByProducts = products.some(
+      (product) => product.main_category === category.name,
+    )
+    if (usedByProducts) {
+      setErrorMessage(
+        'Cette categorie est utilisee par des produits. Passez-la en inactive ou reclasser les produits avant suppression.',
+      )
+      return
+    }
+
+    const shouldDelete = window.confirm(`Supprimer la categorie ${category.name} ?`)
+    if (!shouldDelete) {
+      return
+    }
+
+    try {
+      setErrorMessage(null)
+      setStatusMessage(null)
+      await removeCategory(category.id)
+      await refreshCategories()
+      setStatusMessage('Categorie supprimee.')
+      if (editingCategory?.id === category.id) {
+        resetCategoryForm()
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Suppression categorie impossible.',
+      )
+    }
+  }
+
+  const handleToggleCategoryActive = async (category: StoreCategory) => {
+    try {
+      setErrorMessage(null)
+      setStatusMessage(null)
+      await upsertCategory(
+        buildCategoryPayloadFromCategory(category, {
+          is_active: !category.is_active,
+        }),
+        category.id,
+      )
+      await refreshCategories()
+      setStatusMessage(
+        category.is_active
+          ? 'Categorie desactivee.'
+          : 'Categorie reactivee.',
+      )
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Mise a jour categorie impossible.',
+      )
     }
   }
 
@@ -1027,6 +1318,13 @@ export const AdminDashboardPage = () => {
           </button>
           <button
             type="button"
+            className={activeTab === 'categories' ? 'chip chip--active' : 'chip'}
+            onClick={() => setActiveTab('categories')}
+          >
+            Categories
+          </button>
+          <button
+            type="button"
             className={activeTab === 'products' ? 'chip chip--active' : 'chip'}
             onClick={() => setActiveTab('products')}
           >
@@ -1046,13 +1344,17 @@ export const AdminDashboardPage = () => {
         {loadingSettings ? (
           <p className="admin-help">Chargement des réglages du site...</p>
         ) : null}
+        {loadingCategories ? (
+          <p className="admin-help">Chargement des categories...</p>
+        ) : null}
 
         {activeTab === 'site' ? (
           <>
             <article className="admin-card">
               <h2>Etapes simples</h2>
               <p className="admin-help">
-                Utilisez cet ordre: 1) Pages du site, 2) Produits, 3) Commandes.
+                Utilisez cet ordre: 1) Pages du site, 2) Categories, 3) Produits,
+                4) Commandes.
               </p>
               <div className="admin-step-grid">
                 <article className="admin-step-card">
@@ -1068,13 +1370,13 @@ export const AdminDashboardPage = () => {
                 <article className="admin-step-card">
                   <span>3</span>
                   <h3>Catalogue</h3>
-                  <p>Contrôlez les catégories et la visibilité des articles.</p>
+                  <p>Gérez les categories, sous-categories et images.</p>
                   <button
                     type="button"
                     className="button button--ghost"
-                    onClick={() => setActiveTab('products')}
+                    onClick={() => setActiveTab('categories')}
                   >
-                    Ouvrir Produits
+                    Ouvrir Categories
                   </button>
                 </article>
                 <article className="admin-step-card">
@@ -1264,6 +1566,209 @@ export const AdminDashboardPage = () => {
               </form>
             </article>
           </>
+        ) : activeTab === 'categories' ? (
+          <>
+            <article className="admin-card">
+              <div className="admin-toolbar">
+                <div>
+                  <h2>
+                    {editingCategory ? 'Modifier une categorie' : 'Ajouter une categorie'}
+                  </h2>
+                  <p className="admin-help">
+                    Tout se fait par upload d image. Pas de lien URL.
+                  </p>
+                </div>
+                <div className="admin-toolbar-actions">
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => void refreshCategories()}
+                    disabled={loadingCategories}
+                  >
+                    Rafraichir
+                  </button>
+                </div>
+              </div>
+
+              <form className="admin-form" onSubmit={handleSaveCategory}>
+                <label>
+                  Nom categorie
+                  <input
+                    required
+                    value={categoryForm.name}
+                    onChange={(event) =>
+                      setCategoryForm((state) => ({
+                        ...state,
+                        name: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Slug (optionnel)
+                  <input
+                    placeholder="auto depuis le nom"
+                    value={categoryForm.slug}
+                    onChange={(event) =>
+                      setCategoryForm((state) => ({
+                        ...state,
+                        slug: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="full-width">
+                  Description categorie
+                  <textarea
+                    rows={2}
+                    required
+                    value={categoryForm.description}
+                    onChange={(event) =>
+                      setCategoryForm((state) => ({
+                        ...state,
+                        description: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="full-width">
+                  Sous-categories (separees par virgules)
+                  <input
+                    required
+                    placeholder="Ex: Robes, Tops, T-shirts"
+                    value={categoryForm.subcategories}
+                    onChange={(event) =>
+                      setCategoryForm((state) => ({
+                        ...state,
+                        subcategories: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Ordre affichage
+                  <input
+                    type="number"
+                    min="0"
+                    value={categoryForm.display_order}
+                    onChange={(event) =>
+                      setCategoryForm((state) => ({
+                        ...state,
+                        display_order: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Image categorie
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) =>
+                      setSelectedCategoryImage(event.target.files?.[0] ?? null)
+                    }
+                  />
+                </label>
+
+                {editingCategory?.image_url ? (
+                  <p className="admin-help full-width">
+                    Image actuelle conservee si aucun nouveau fichier n est choisi.
+                  </p>
+                ) : null}
+
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={categoryForm.is_active}
+                    onChange={(event) =>
+                      setCategoryForm((state) => ({
+                        ...state,
+                        is_active: event.target.checked,
+                      }))
+                    }
+                  />
+                  Categorie active
+                </label>
+
+                <div className="admin-form-actions full-width">
+                  <button type="submit" className="button" disabled={savingCategory}>
+                    {savingCategory
+                      ? 'Enregistrement...'
+                      : editingCategory
+                        ? 'Mettre a jour categorie'
+                        : 'Ajouter categorie'}
+                  </button>
+                  {editingCategory ? (
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      onClick={resetCategoryForm}
+                    >
+                      Annuler
+                    </button>
+                  ) : null}
+                </div>
+              </form>
+            </article>
+
+            <article className="admin-card">
+              <h2>Liste des categories ({categories.length})</h2>
+              <div className="admin-product-grid">
+                {categories.map((category) => (
+                  <article key={category.id} className="admin-product-item">
+                    <img
+                      src={
+                        category.image_url ||
+                        'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=600&q=80'
+                      }
+                      alt={category.name}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <div>
+                      <h3>{category.name}</h3>
+                      <p className="admin-product-meta">{category.description}</p>
+                      <p className="admin-product-meta">
+                        Sous-categories: {category.subcategories.join(', ')}
+                      </p>
+                      <p className="admin-product-meta">Slug: {category.slug}</p>
+                      <p className="admin-product-meta">
+                        Statut: {category.is_active ? 'Active' : 'Inactive'}
+                      </p>
+                    </div>
+                    <div className="admin-product-actions">
+                      <button
+                        type="button"
+                        className="button button--ghost"
+                        onClick={() => handleEditCategory(category)}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--ghost"
+                        onClick={() => void handleToggleCategoryActive(category)}
+                      >
+                        {category.is_active ? 'Desactiver' : 'Activer'}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--ghost danger"
+                        onClick={() => void handleDeleteCategory(category)}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </article>
+          </>
         ) : activeTab === 'products' ? (
           <>
             <article className="admin-card">
@@ -1365,7 +1870,7 @@ export const AdminDashboardPage = () => {
                         setForm((state) => ({ ...state, categoryKey: event.target.value }))
                       }
                     >
-                      {CATEGORY_OPTIONS.map((option) => (
+                      {categoryOptions.map((option) => (
                         <option key={option.key} value={option.key}>
                           {option.label}
                         </option>
@@ -1380,7 +1885,7 @@ export const AdminDashboardPage = () => {
                         value={selectedCategory.main}
                         onChange={(event) => handleMainCategoryChange(event.target.value)}
                       >
-                        {MAIN_CATEGORY_NAMES.map((mainCategory) => (
+                        {mainCategoryNames.map((mainCategory) => (
                           <option key={mainCategory} value={mainCategory}>
                             {mainCategory}
                           </option>
@@ -1407,7 +1912,7 @@ export const AdminDashboardPage = () => {
                 {!isColorMode ? (
                   <>
                     <label className="full-width">
-                      Photo produit (fichier)
+                      Photo principale (obligatoire pour un nouveau produit)
                       <input
                         type="file"
                         accept="image/*"
@@ -1418,16 +1923,22 @@ export const AdminDashboardPage = () => {
                     </label>
 
                     <label className="full-width">
-                      URL photo (optionnel)
+                      Photos supplementaires
                       <input
-                        type="url"
-                        placeholder="https://..."
-                        value={form.image_url}
+                        type="file"
+                        accept="image/*"
+                        multiple
                         onChange={(event) =>
-                          setForm((state) => ({ ...state, image_url: event.target.value }))
+                          setSelectedGalleryImages(Array.from(event.target.files ?? []))
                         }
                       />
                     </label>
+                    {editingProduct ? (
+                      <p className="admin-help full-width">
+                        Galerie actuelle: {editingProduct.gallery_urls.length} photo(s).
+                        Ajoutez de nouveaux fichiers pour remplacer cette galerie.
+                      </p>
+                    ) : null}
                   </>
                 ) : (
                   <div className="full-width admin-variant-list">
@@ -1466,19 +1977,6 @@ export const AdminDashboardPage = () => {
                             onChange={(event) =>
                               updateColorVariant(variant.id, {
                                 files: Array.from(event.target.files ?? []),
-                              })
-                            }
-                          />
-                        </label>
-
-                        <label>
-                          URLs photos (optionnel)
-                          <input
-                            placeholder="https://... , https://..."
-                            value={variant.image_urls}
-                            onChange={(event) =>
-                              updateColorVariant(variant.id, {
-                                image_urls: event.target.value,
                               })
                             }
                           />
@@ -1537,22 +2035,6 @@ export const AdminDashboardPage = () => {
                         }
                       />
                     </label>
-
-                    {!isColorMode ? (
-                      <label className="full-width">
-                        Galerie (URLs séparées par virgules)
-                        <input
-                          placeholder="https://... , https://..."
-                          value={form.gallery_urls}
-                          onChange={(event) =>
-                            setForm((state) => ({
-                              ...state,
-                              gallery_urls: event.target.value,
-                            }))
-                          }
-                        />
-                      </label>
-                    ) : null}
                   </>
                 ) : null}
 
@@ -1658,7 +2140,7 @@ export const AdminDashboardPage = () => {
                     onChange={(event) => setCatalogCategoryFilter(event.target.value)}
                   >
                     <option value="all">Toutes</option>
-                    {MAIN_CATEGORY_NAMES.map((mainCategory) => (
+                    {mainCategoryNames.map((mainCategory) => (
                       <option key={mainCategory} value={mainCategory}>
                         {mainCategory}
                       </option>
