@@ -76,6 +76,9 @@ const ORDER_STATUSES: OrderStatus[] = [
 
 const WOMEN_CATEGORY_NAME = 'Vêtements Femmes'
 const WOMEN_CATEGORY_SLUG = 'vetements-femmes'
+const WOMEN_DEFAULT_TYPES =
+  CATEGORY_TREE.find((category) => category.slug === WOMEN_CATEGORY_SLUG)
+    ?.subcategories ?? ['Robes', 'Tops', 'T-shirts']
 
 const FALLBACK_CATEGORY_OPTIONS: CategoryOption[] = CATEGORY_TREE.flatMap((category) =>
   category.subcategories.map((subCategory) => ({
@@ -132,6 +135,12 @@ const createVariantDraft = (): ColorVariantDraft => ({
   color: '',
   files: [],
 })
+
+const normalizeClothingType = (value: string) =>
+  value.replace(/\s+/g, ' ').trim()
+
+const includesClothingType = (values: string[], candidate: string) =>
+  values.some((value) => value.toLowerCase() === candidate.toLowerCase())
 
 const buildUniqueSlug = (baseSlug: string, usedSlugs: Set<string>) => {
   let candidate = baseSlug
@@ -228,7 +237,8 @@ export const AdminDashboardPage = () => {
   const [ordersStatusFilter, setOrdersStatusFilter] = useState<OrderStatus | 'all'>('all')
   const [updatingOrderIds, setUpdatingOrderIds] = useState<Set<string>>(new Set())
 
-  const [clothingTypesInput, setClothingTypesInput] = useState('')
+  const [clothingTypesDraft, setClothingTypesDraft] = useState<string[]>([])
+  const [clothingTypeInput, setClothingTypeInput] = useState('')
   const [savingClothingTypes, setSavingClothingTypes] = useState(false)
 
   const categoryOptions = useMemo(
@@ -336,7 +346,11 @@ export const AdminDashboardPage = () => {
   }, [settings])
 
   useEffect(() => {
-    setClothingTypesInput((womenCategory?.subcategories ?? []).join(', '))
+    const source = womenCategory?.subcategories?.length
+      ? womenCategory.subcategories
+      : WOMEN_DEFAULT_TYPES
+    setClothingTypesDraft(source)
+    setClothingTypeInput('')
   }, [womenCategory])
 
   useEffect(() => {
@@ -502,6 +516,39 @@ export const AdminDashboardPage = () => {
     }
   }
 
+  const addClothingType = (rawValue: string) => {
+    const normalized = normalizeClothingType(rawValue)
+    if (!normalized) {
+      return
+    }
+
+    setClothingTypesDraft((current) => {
+      if (includesClothingType(current, normalized)) {
+        return current
+      }
+      return [...current, normalized]
+    })
+    setClothingTypeInput('')
+  }
+
+  const removeClothingType = (value: string) => {
+    setClothingTypesDraft((current) => current.filter((entry) => entry !== value))
+  }
+
+  const moveClothingType = (index: number, direction: -1 | 1) => {
+    setClothingTypesDraft((current) => {
+      const nextIndex = index + direction
+      if (nextIndex < 0 || nextIndex >= current.length) {
+        return current
+      }
+
+      const next = [...current]
+      const [picked] = next.splice(index, 1)
+      next.splice(nextIndex, 0, picked)
+      return next
+    })
+  }
+
   const handleSaveClothingTypes = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -509,7 +556,13 @@ export const AdminDashboardPage = () => {
       resetMessages()
       setSavingClothingTypes(true)
 
-      const subcategories = parseCsv(clothingTypesInput)
+      const pendingType = normalizeClothingType(clothingTypeInput)
+      const subcategories = pendingType
+        ? includesClothingType(clothingTypesDraft, pendingType)
+          ? clothingTypesDraft
+          : [...clothingTypesDraft, pendingType]
+        : clothingTypesDraft
+
       if (!subcategories.length) {
         throw new Error('Ajoutez au moins un type de vetement.')
       }
@@ -553,6 +606,7 @@ export const AdminDashboardPage = () => {
       await refreshCategories()
       await refreshProducts()
       setStatusMessage('Types de vetements mis a jour.')
+      setClothingTypeInput('')
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -1222,26 +1276,100 @@ export const AdminDashboardPage = () => {
               <article className="admin-card">
                 <h2>Types de vetements (Vêtements Femmes)</h2>
                 <p className="admin-help">
-                  Mettez les types de vetements separes par virgules. Exemple: Robes,
-                  Tops, T-shirts.
+                  Gestion simplifiee: ajoutez, retirez ou reordonnez les types en un clic.
                 </p>
 
                 <form className="admin-form admin-form--single" onSubmit={handleSaveClothingTypes}>
-                  <label className="full-width">
-                    Types de vetements
-                    <textarea
-                      rows={3}
-                      required
-                      value={clothingTypesInput}
-                      onChange={(event) => setClothingTypesInput(event.target.value)}
-                    />
-                  </label>
+                  <div className="admin-clothing-manager full-width">
+                    <div className="admin-clothing-manager__head">
+                      <p>Types de vetements</p>
+                      <strong>{clothingTypesDraft.length}</strong>
+                    </div>
 
-                  {clothingTypeOptions.length ? (
-                    <p className="admin-help full-width">
-                      Actuels: {clothingTypeOptions.join(', ')}
-                    </p>
-                  ) : null}
+                    <label className="admin-clothing-input">
+                      Ajouter un type
+                      <div className="admin-clothing-input__row">
+                        <input
+                          value={clothingTypeInput}
+                          onChange={(event) => setClothingTypeInput(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ',') {
+                              event.preventDefault()
+                              addClothingType(clothingTypeInput)
+                            }
+                          }}
+                          placeholder="Ex: Robes"
+                        />
+                        <button
+                          type="button"
+                          className="button button--ghost"
+                          onClick={() => addClothingType(clothingTypeInput)}
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                    </label>
+
+                    <div className="admin-clothing-suggestions">
+                      {WOMEN_DEFAULT_TYPES.map((type) => {
+                        const isAdded = includesClothingType(clothingTypesDraft, type)
+                        return (
+                          <button
+                            key={type}
+                            type="button"
+                            className={isAdded ? 'chip chip--active' : 'chip'}
+                            disabled={isAdded}
+                            onClick={() => addClothingType(type)}
+                          >
+                            {isAdded ? `${type} ✓` : type}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="admin-clothing-list">
+                      {clothingTypesDraft.length ? (
+                        clothingTypesDraft.map((type, index) => (
+                          <article key={`${type}-${index}`} className="admin-clothing-item">
+                            <span>{type}</span>
+                            <div className="admin-clothing-item__actions">
+                              <button
+                                type="button"
+                                className="button button--ghost"
+                                onClick={() => moveClothingType(index, -1)}
+                                disabled={index === 0}
+                              >
+                                Monter
+                              </button>
+                              <button
+                                type="button"
+                                className="button button--ghost"
+                                onClick={() => moveClothingType(index, 1)}
+                                disabled={index === clothingTypesDraft.length - 1}
+                              >
+                                Descendre
+                              </button>
+                              <button
+                                type="button"
+                                className="button button--ghost danger"
+                                onClick={() => removeClothingType(type)}
+                              >
+                                Retirer
+                              </button>
+                            </div>
+                          </article>
+                        ))
+                      ) : (
+                        <p className="admin-help">Aucun type defini.</p>
+                      )}
+                    </div>
+
+                    {clothingTypeOptions.length ? (
+                      <p className="admin-help">
+                        Actuels sur le site: {clothingTypeOptions.join(', ')}
+                      </p>
+                    ) : null}
+                  </div>
 
                   <div className="admin-form-actions full-width">
                     <button
@@ -1252,6 +1380,19 @@ export const AdminDashboardPage = () => {
                       {savingClothingTypes
                         ? 'Enregistrement...'
                         : 'Sauvegarder les types'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      onClick={() => {
+                        const source = womenCategory?.subcategories?.length
+                          ? womenCategory.subcategories
+                          : WOMEN_DEFAULT_TYPES
+                        setClothingTypesDraft(source)
+                        setClothingTypeInput('')
+                      }}
+                    >
+                      Reinitialiser
                     </button>
                   </div>
                 </form>
