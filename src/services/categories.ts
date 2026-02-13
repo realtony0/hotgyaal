@@ -4,6 +4,7 @@ import type { StoreCategory, StoreCategoryPayload } from '../types'
 
 const CATEGORY_BUCKET = 'product-images'
 const MISSING_TABLE_CODE = '42P01'
+const MISSING_TABLE_SCHEMA_CACHE_CODE = 'PGRST205'
 const createFileToken = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -49,6 +50,18 @@ const createFallbackCategories = (): StoreCategory[] => {
   )
 }
 
+const isMissingCategoriesTableError = (error: { code?: string; message?: string }) => {
+  const code = error.code || ''
+  const message = (error.message || '').toLowerCase()
+
+  return (
+    code === MISSING_TABLE_CODE ||
+    code === MISSING_TABLE_SCHEMA_CACHE_CODE ||
+    (message.includes('could not find the table') &&
+      message.includes('store_categories'))
+  )
+}
+
 export const listCategories = async (): Promise<StoreCategory[]> => {
   const client = getSupabase()
   const { data, error } = await client
@@ -58,7 +71,7 @@ export const listCategories = async (): Promise<StoreCategory[]> => {
     .order('created_at', { ascending: true })
 
   if (error) {
-    if (error.code === MISSING_TABLE_CODE) {
+    if (isMissingCategoriesTableError(error)) {
       return createFallbackCategories()
     }
     throw new Error(error.message)
@@ -80,7 +93,7 @@ export const upsertCategory = async (
   const { data, error } = await query.select('*').single()
 
   if (error) {
-    if (error.code === MISSING_TABLE_CODE) {
+    if (isMissingCategoriesTableError(error)) {
       throw new Error(
         'Table store_categories manquante. Lancez le SQL full_setup.sql mis a jour.',
       )
@@ -97,7 +110,7 @@ export const removeCategory = async (categoryId: string): Promise<void> => {
   const { error } = await client.from('store_categories').delete().eq('id', categoryId)
 
   if (error) {
-    if (error.code === MISSING_TABLE_CODE) {
+    if (isMissingCategoriesTableError(error)) {
       throw new Error(
         'Table store_categories manquante. Lancez le SQL full_setup.sql mis a jour.',
       )

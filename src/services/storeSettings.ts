@@ -3,6 +3,7 @@ import type { StoreSettingsPayload } from '../types'
 
 const SETTINGS_ROW_ID = 1
 const MISSING_TABLE_CODE = '42P01'
+const MISSING_TABLE_SCHEMA_CACHE_CODE = 'PGRST205'
 
 export const DEFAULT_STORE_SETTINGS: StoreSettingsPayload = {
   announcement_text:
@@ -43,6 +44,18 @@ const normalizeStoreSettings = (
     value?.order_chat_number?.trim() || DEFAULT_STORE_SETTINGS.order_chat_number,
 })
 
+const isMissingSettingsTableError = (error: { code?: string; message?: string }) => {
+  const code = error.code || ''
+  const message = (error.message || '').toLowerCase()
+
+  return (
+    code === MISSING_TABLE_CODE ||
+    code === MISSING_TABLE_SCHEMA_CACHE_CODE ||
+    (message.includes('could not find the table') &&
+      message.includes('store_settings'))
+  )
+}
+
 export const getStoreSettings = async (): Promise<StoreSettingsPayload> => {
   const client = getSupabase()
   const { data, error } = await client
@@ -52,7 +65,7 @@ export const getStoreSettings = async (): Promise<StoreSettingsPayload> => {
     .maybeSingle()
 
   if (error) {
-    if (error.code === MISSING_TABLE_CODE) {
+    if (isMissingSettingsTableError(error)) {
       return DEFAULT_STORE_SETTINGS
     }
     throw new Error(error.message)
@@ -82,7 +95,7 @@ export const upsertStoreSettings = async (
     .single()
 
   if (error) {
-    if (error.code === MISSING_TABLE_CODE) {
+    if (isMissingSettingsTableError(error)) {
       throw new Error(
         'Table store_settings manquante dans Supabase. Lancez le SQL full_setup.sql mis a jour.',
       )
