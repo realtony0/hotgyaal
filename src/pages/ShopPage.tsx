@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/router'
 import { ProductCard } from '../components/ProductCard'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
@@ -171,6 +171,11 @@ export const ShopPage = () => {
     pushQuery({ q: search.trim() || null })
   }
 
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    handleApplySearch()
+  }
+
   const handlePickCategory = (name: string) => {
     setSelectedCategory(name)
     setSelectedSubCategory('')
@@ -218,8 +223,8 @@ export const ShopPage = () => {
           </div>
         </div>
 
-        <div className="shop-search-v2">
-          <label>
+        <form className="shop-search-v2" onSubmit={handleSearchSubmit}>
+          <label className="shop-search-v2__search">
             Recherche produit
             <input
               type="search"
@@ -228,13 +233,28 @@ export const ShopPage = () => {
               placeholder="Nom, categorie, sous-categorie"
             />
           </label>
-          <button type="button" className="button" onClick={handleApplySearch}>
-            Rechercher
-          </button>
-          <button type="button" className="button button--ghost" onClick={clearFilters}>
-            Reinitialiser
-          </button>
-        </div>
+
+          <label className="shop-search-v2__sort">
+            Tri
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as SortOption)}
+            >
+              <option value="newest">Plus recents</option>
+              <option value="price-asc">Prix croissant</option>
+              <option value="price-desc">Prix decroissant</option>
+            </select>
+          </label>
+
+          <div className="shop-search-v2__actions">
+            <button type="submit" className="button">
+              Rechercher
+            </button>
+            <button type="button" className="button button--ghost" onClick={clearFilters}>
+              Reinitialiser
+            </button>
+          </div>
+        </form>
 
         <div className="shop-category-grid-v2">
           <button
@@ -303,20 +323,6 @@ export const ShopPage = () => {
             ) : null}
           </div>
 
-          <div className="shop-filters-v2__controls">
-            <label>
-              Tri
-              <select
-                value={sort}
-                onChange={(event) => setSort(event.target.value as SortOption)}
-              >
-                <option value="newest">Plus recents</option>
-                <option value="price-asc">Prix croissant</option>
-                <option value="price-desc">Prix decroissant</option>
-              </select>
-            </label>
-          </div>
-
           {availableSubcategories.length ? (
             <div className="shop-sub-pills-v2">
               {availableSubcategories.map((subCategory) => {
@@ -364,6 +370,17 @@ export const ShopPage = () => {
         {!loadingProducts && !errorProducts && filteredProducts.length === 0 ? (
           <p>Aucun produit ne correspond à vos filtres.</p>
         ) : null}
+
+        <div className="shop-results-head">
+          <p>
+            <strong>{filteredProducts.length}</strong> article(s) affiche(s)
+          </p>
+          {hasActiveFilters ? (
+            <button type="button" className="button button--ghost" onClick={clearFilters}>
+              Effacer les filtres
+            </button>
+          ) : null}
+        </div>
 
         <div className="product-grid stagger-grid">
           {filteredProducts.map((product) => (

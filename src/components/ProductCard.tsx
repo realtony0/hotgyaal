@@ -10,6 +10,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
   const savings = product.compare_price
     ? Math.max(0, product.compare_price - product.price)
     : 0
+  const imageCount = (product.gallery_urls?.length ?? 0) + (product.image_url ? 1 : 0)
 
   return (
     <article className="product-card-v2">
@@ -53,6 +54,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
 
         <div className="product-card-v2__foot">
           <span>{product.sizes.length ? `${product.sizes.length} tailles` : 'Taille unique'}</span>
+          {imageCount > 1 ? <span>{imageCount} photos</span> : null}
           <Link href={`/produit/${product.slug}`}>
             Voir
           </Link>

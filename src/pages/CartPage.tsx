@@ -20,7 +20,7 @@ const initialCheckoutState: CheckoutFormState = {
   customerName: '',
   customerPhone: '',
   line1: '',
-  city: '',
+  city: 'Dakar',
   note: '',
 }
 
@@ -103,10 +103,8 @@ const buildOrderMessage = (
 
   lines.push('')
   lines.push(`Sous-total produits: ${formatCurrency(subtotal)}`)
-  lines.push(
-    `Option transit: ${shippingOption.name} - ${shippingOption.priceLabel} (${shippingOption.timeline})`,
-  )
-  lines.push('Frais exacts confirms apres verification poids/volume.')
+  lines.push(`Option transit choisie: ${shippingOption.name} (${shippingOption.timeline})`)
+  lines.push('Tarif transit confirme apres verification poids/volume.')
   lines.push('')
   lines.push(`Adresse: ${formState.line1}, ${formState.city}`)
   if (formState.note.trim()) {
@@ -172,7 +170,7 @@ export const CartPage = () => {
       const customerEmail = getFallbackEmail(formState.customerPhone)
       const line2 = [
         formState.note.trim(),
-        `Transit: ${selectedShippingOption.name} (${selectedShippingOption.priceLabel}, ${selectedShippingOption.timeline})`,
+        `Transit: ${selectedShippingOption.name} (${selectedShippingOption.timeline})`,
       ]
         .filter(Boolean)
         .join(' | ')
@@ -185,7 +183,7 @@ export const CartPage = () => {
         shippingAddress: {
           line1: formState.line1,
           line2,
-          city: formState.city,
+          city: formState.city.trim() || 'Dakar',
           postal_code: '00000',
           country: 'Senegal',
         },
@@ -381,25 +379,13 @@ export const CartPage = () => {
             </label>
 
             <label>
-              Ville
-              <input
-                required
-                value={formState.city}
-                onChange={(event) =>
-                  setFormState((state) => ({ ...state, city: event.target.value }))
-                }
-                placeholder="Ex: Dakar"
-              />
-            </label>
-
-            <label>
               Note (optionnel)
               <input
                 value={formState.note}
                 onChange={(event) =>
                   setFormState((state) => ({ ...state, note: event.target.value }))
                 }
-                placeholder="Ex: Appeler avant livraison"
+                placeholder="Ex: Appeler avant livraison (optionnel)"
               />
             </label>
 

@@ -944,10 +944,22 @@ export const AdminDashboardPage = () => {
   }
 
   const quickSteps = [
-    '1. Renseigner Accueil/Contact/Footer dans l onglet Pages.',
-    '2. Definir categories et types de vetements dans l onglet Categories.',
-    '3. Ajouter les produits avec photos et couleurs dans l onglet Produits.',
-    '4. Suivre les commandes et statuts dans l onglet Commandes.',
+    {
+      title: 'Etape 1 · Pages',
+      description: 'Renseigner les textes Accueil, Contact et Footer.',
+    },
+    {
+      title: 'Etape 2 · Categories',
+      description: 'Definir les categories et les types de vetements.',
+    },
+    {
+      title: 'Etape 3 · Produits',
+      description: 'Ajouter les articles, tailles, couleurs et photos.',
+    },
+    {
+      title: 'Etape 4 · Commandes',
+      description: 'Suivre les commandes puis mettre le statut a jour.',
+    },
   ]
 
   return (
@@ -1038,8 +1050,9 @@ export const AdminDashboardPage = () => {
                 <h2>Guide rapide</h2>
                 <div className="admin-step-grid">
                   {quickSteps.map((step) => (
-                    <article key={step} className="admin-step-card">
-                      <p>{step}</p>
+                    <article key={step.title} className="admin-step-card">
+                      <h3 className="admin-step-card__title">{step.title}</h3>
+                      <p>{step.description}</p>
                     </article>
                   ))}
                 </div>
@@ -1469,6 +1482,12 @@ export const AdminDashboardPage = () => {
                 </div>
 
                 <form className="admin-form" onSubmit={handleSaveProduct}>
+                  {!isAdvancedMode ? (
+                    <p className="admin-help full-width">
+                      Mode simple: choisissez un type, ajoutez les photos, puis validez.
+                    </p>
+                  ) : null}
+
                   <label className="full-width">
                     Nom produit
                     <input
@@ -1826,11 +1845,6 @@ export const AdminDashboardPage = () => {
                 <div className="admin-product-grid">
                   {filteredProducts.map((product) => (
                     <article key={product.id} className="admin-product-item admin-product-item--advanced">
-                      <label className="admin-select">
-                        <input type="checkbox" checked={false} disabled />
-                        Selection
-                      </label>
-
                       <img
                         src={
                           product.image_url ||

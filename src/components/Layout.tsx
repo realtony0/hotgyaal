@@ -279,6 +279,11 @@ export const Layout = ({ children }: LayoutProps) => {
               <span>{settings.contact_phone}</span>
               <span>{settings.contact_email}</span>
             </div>
+            <div className="footer-trust-list">
+              <span>Nouveautes quotidiennes</span>
+              <span>Commande via panier</span>
+              <span>Service client rapide</span>
+            </div>
           </div>
 
           <div className="footer-columns">
@@ -295,10 +300,10 @@ export const Layout = ({ children }: LayoutProps) => {
             </div>
 
             <div className="footer-column">
-              <p className="footer-title">HOTGYAAL</p>
-              <p className="footer-note">Sourcing produits en Chine</p>
-              <p className="footer-note">Distribution au Sénégal</p>
-              <p className="footer-note">Commandes et tarifs en XOF</p>
+              <p className="footer-title">Infos boutique</p>
+              <p className="footer-note">Selection mode, beaute et accessoires</p>
+              <p className="footer-note">Produits importes depuis la Chine</p>
+              <p className="footer-note">Disponibles pour le marche senegalais</p>
             </div>
           </div>
         </div>
