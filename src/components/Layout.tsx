@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -100,10 +100,15 @@ type LayoutProps = {
 }
 
 export const Layout = ({ children }: LayoutProps) => {
+  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [quickSearch, setQuickSearch] = useState(() => {
+    const query = (router.asPath || '').split('?')[1] ?? ''
+    const params = new URLSearchParams(query)
+    return (params.get('q') || params.get('recherche') || '').trim()
+  })
   const { totalItems } = useCart()
   const { settings } = useStoreSettings()
-  const router = useRouter()
 
   const seo = useMemo(() => {
     const currentPath = stripQuery(router.asPath || '/')
@@ -114,6 +119,16 @@ export const Layout = ({ children }: LayoutProps) => {
     () => `${SITE_URL}${router.asPath || '/'}`,
     [router.asPath],
   )
+
+  const handleHeaderSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const term = quickSearch.trim()
+    setIsMenuOpen(false)
+    void router.push({
+      pathname: '/boutique',
+      query: term ? { q: term } : {},
+    })
+  }
 
   return (
     <div className="app-shell">
@@ -148,6 +163,15 @@ export const Layout = ({ children }: LayoutProps) => {
               </button>
 
               <nav className={`nav ${isMenuOpen ? 'is-open' : ''}`}>
+                <form className="nav-search" onSubmit={handleHeaderSearch}>
+                  <input
+                    type="search"
+                    placeholder="Rechercher un produit..."
+                    value={quickSearch}
+                    onChange={(event) => setQuickSearch(event.target.value)}
+                  />
+                  <button type="submit">OK</button>
+                </form>
                 {storefrontLinks.map((link) => (
                   <Link
                     key={link.href}
@@ -170,6 +194,17 @@ export const Layout = ({ children }: LayoutProps) => {
             </Link>
 
             <div className="header__actions">
+              <form className="header-search" onSubmit={handleHeaderSearch}>
+                <input
+                  type="search"
+                  placeholder="Rechercher..."
+                  value={quickSearch}
+                  onChange={(event) => setQuickSearch(event.target.value)}
+                  aria-label="Rechercher un produit"
+                />
+                <button type="submit">Chercher</button>
+              </form>
+
               <Link
                 href="/contact"
                 className={isPathActive('/contact', router.asPath || '/') ? 'nav-link is-active' : 'nav-link'}

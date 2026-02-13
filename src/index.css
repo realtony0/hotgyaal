@@ -123,6 +123,50 @@ main {
   gap: 0.6rem;
 }
 
+.header-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border: 1px solid #e5d8df;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbf6f9 100%);
+  box-shadow: 0 10px 22px -20px rgba(25, 14, 19, 0.45);
+}
+
+.header-search input {
+  width: min(30vw, 230px);
+  min-width: 150px;
+  border: none;
+  background: transparent;
+  padding: 0 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: #3b2a32;
+}
+
+.header-search input:focus {
+  outline: none;
+}
+
+.header-search button {
+  border: none;
+  border-radius: 999px;
+  min-height: 30px;
+  padding: 0.35rem 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #332127 0%, #9f6279 100%);
+  cursor: pointer;
+}
+
+.nav-search {
+  display: none;
+}
+
 .brand {
   font-family: 'Playfair Display', serif;
   font-size: clamp(1.6rem, 2.5vw, 2.4rem);
@@ -1809,6 +1853,11 @@ textarea:focus {
     padding: 0.42rem 0;
   }
 
+  .header-search input {
+    width: 150px;
+    min-width: 120px;
+  }
+
   .hero__grid,
   .product-detail,
   .cart-layout,
@@ -1935,8 +1984,46 @@ textarea:focus {
     gap: 0.15rem;
   }
 
+  .header-search {
+    display: none;
+  }
+
   .header__actions .nav-link:first-child {
     display: none;
+  }
+
+  .nav-search {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.45rem;
+    align-items: center;
+    width: 100%;
+    padding: 0.45rem 0.4rem 0.25rem;
+    border-bottom: 1px solid #eee3e8;
+  }
+
+  .nav-search input {
+    width: 100%;
+    min-height: 36px;
+    border: 1px solid #e5d8df;
+    border-radius: 999px;
+    padding: 0 0.75rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    background: #fff;
+  }
+
+  .nav-search button {
+    min-height: 36px;
+    border: none;
+    border-radius: 999px;
+    padding: 0 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #332127 0%, #9f6279 100%);
   }
 
   .mobile-bottom-nav {

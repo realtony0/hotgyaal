@@ -32,8 +32,12 @@ export const ShopPage = () => {
     const queryValue = router.query.sous_categorie
     return Array.isArray(queryValue) ? queryValue[0] ?? '' : queryValue ?? ''
   }, [router.query.sous_categorie])
+  const initialSearch = useMemo(() => {
+    const queryValue = router.query.q ?? router.query.recherche
+    return Array.isArray(queryValue) ? queryValue[0] ?? '' : queryValue ?? ''
+  }, [router.query.q, router.query.recherche])
 
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [selectedCategory, setSelectedCategory] = useState(initialCategory)
   const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory)
   const [sort, setSort] = useState<SortOption>('newest')
@@ -47,6 +51,14 @@ export const ShopPage = () => {
     setSelectedCategory(initialCategory)
     setSelectedSubCategory(initialSubCategory)
   }, [router.isReady, initialCategory, initialSubCategory])
+
+  useEffect(() => {
+    if (!router.isReady || !initialSearch.trim()) {
+      return
+    }
+
+    setSearch(initialSearch)
+  }, [initialSearch, router.isReady])
 
   useEffect(() => {
     const loadProducts = async () => {
