@@ -1,9 +1,10 @@
-const numberFormatter = new Intl.NumberFormat('fr-FR', {
+const currencyFormatter = new Intl.NumberFormat('fr-SN', {
+  style: 'currency',
+  currency: 'XOF',
   maximumFractionDigits: 0,
 })
 
-export const formatCurrency = (value: number) =>
-  `CFA${numberFormatter.format(value)} XOF`
+export const formatCurrency = (value: number) => currencyFormatter.format(value)
 
 export const formatDate = (value: string) =>
   new Intl.DateTimeFormat('fr-FR', {

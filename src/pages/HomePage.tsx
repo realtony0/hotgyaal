@@ -8,10 +8,9 @@ import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
 
-const CATEGORY_FALLBACK_TONES = [
-  'linear-gradient(130deg, #2b1c23 0%, #734558 52%, #c0849c 100%)',
-  'linear-gradient(130deg, #1e2732 0%, #3e5f7a 52%, #86a9c6 100%)',
-  'linear-gradient(130deg, #2b2a20 0%, #6f653a 52%, #c1a96f 100%)',
+const FALLBACK_HERO_MEDIA = [
+  '/products/chrysalide-nocturne-01.webp',
+  '/products/cape-celeste-01.webp',
 ]
 
 export const HomePage = () => {
@@ -26,7 +25,7 @@ export const HomePage = () => {
       if (!isSupabaseConfigured) {
         setProducts([])
         setError(
-          'Supabase n\'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.',
+          "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
         )
         setLoading(false)
         return
@@ -52,240 +51,210 @@ export const HomePage = () => {
     void loadProducts()
   }, [])
 
-  const sections = useMemo(() => {
-    const sortedProducts = [...products].sort(
-      (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
-    )
-    const used = new Set<string>()
-    const sectionSize = Math.max(
-      1,
-      Math.min(8, Math.ceil(Math.max(sortedProducts.length, 1) / 3)),
-    )
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)),
+    [products],
+  )
 
-    const pickUnique = (
-      source: Product[],
-      count: number,
-      withFallback = true,
-    ): Product[] => {
-      const selected: Product[] = []
-      for (const product of source) {
-        const key = product.slug || product.id
-        if (used.has(key)) {
-          continue
-        }
+  const newDrops = useMemo(
+    () => sortedProducts.filter((product) => product.is_new).slice(0, 8),
+    [sortedProducts],
+  )
 
-        used.add(key)
-        selected.push(product)
+  const bestSellers = useMemo(
+    () => sortedProducts.filter((product) => product.is_best_seller).slice(0, 8),
+    [sortedProducts],
+  )
 
-        if (selected.length === count) {
-          break
-        }
-      }
+  const editorChoice = useMemo(
+    () => (newDrops.length ? newDrops : sortedProducts).slice(0, 4),
+    [newDrops, sortedProducts],
+  )
 
-      if (withFallback && selected.length < count) {
-        for (const product of sortedProducts) {
-          const key = product.slug || product.id
-          if (used.has(key)) {
-            continue
-          }
+  const heroImages = useMemo(() => {
+    const fromCatalog = sortedProducts
+      .map((product) => product.image_url)
+      .filter((value): value is string => Boolean(value))
+      .slice(0, 2)
 
-          used.add(key)
-          selected.push(product)
-
-          if (selected.length === count) {
-            break
-          }
-        }
-      }
-
-      return selected
+    if (fromCatalog.length === 2) {
+      return fromCatalog
     }
 
-    const softCollection = pickUnique(sortedProducts, sectionSize, false)
-    const newIn = pickUnique(
-      sortedProducts.filter((product) => product.is_new),
-      sectionSize,
-    )
-    const favorites = pickUnique(
-      sortedProducts.filter((product) => product.is_best_seller),
-      sectionSize,
-    )
-
-    return { softCollection, newIn, favorites }
-  }, [products])
-
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    products.forEach((product) => {
-      counts.set(product.main_category, (counts.get(product.main_category) ?? 0) + 1)
-    })
-    return counts
-  }, [products])
+    return FALLBACK_HERO_MEDIA
+  }, [sortedProducts])
 
   const activeCategories = useMemo(
-    () => categories.filter((category) => category.is_active),
+    () => categories.filter((category) => category.is_active).slice(0, 6),
     [categories],
   )
 
-  const heroImage = products[0]?.image_url ?? '/products/chrysalide-nocturne-01.webp'
   return (
-    <div>
-      <section className="hero hero--shopliwa">
-        <div className="container hero__grid">
-          <div className="hero__text">
-            <p className="eyebrow">{settings.hero_eyebrow}</p>
+    <div className="home-v2">
+      <section className="hero-v2">
+        <div className="container hero-v2__grid">
+          <div className="hero-v2__content">
+            <p className="hero-v2__eyebrow">{settings.hero_eyebrow}</p>
             <h1>{settings.hero_title}</h1>
             <p>{settings.hero_description}</p>
-            <div className="hero__actions">
+            <div className="hero-v2__actions">
               <Link href="/boutique" className="button">
-                Decouvrir la boutique
+                Explorer le catalogue
               </Link>
-              <a href="#new-in" className="button button--ghost">
-                Nouveautés
-              </a>
+              <Link href="/boutique?categorie=V%C3%AAtements%20Femmes" className="button button--ghost">
+                Focus mode femme
+              </Link>
             </div>
           </div>
-          <div className="hero__media">
-            <img src={heroImage} alt="HOTGYAAL collection" fetchPriority="high" />
+
+          <div className="hero-v2__visual">
+            <div className="hero-v2__tile hero-v2__tile--large">
+              <img src={heroImages[0]} alt="Collection HOTGYAAL" fetchPriority="high" />
+            </div>
+            <div className="hero-v2__tile hero-v2__tile--small">
+              <img src={heroImages[1]} alt="Nouveautes HOTGYAAL" fetchPriority="high" />
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="section" id="soft-collection">
+      <section className="section section-v2">
         <div className="container">
-          <div className="section__header">
+          <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Collection Signature</p>
-              <h2>Collection signature</h2>
+              <p className="eyebrow">Nouveautes</p>
+              <h2>Les dernieres arrives</h2>
             </div>
             <Link href="/boutique">Tout voir</Link>
           </div>
 
-          <div className="product-grid stagger-grid">
-            {sections.softCollection.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section" id="new-in">
-        <div className="container">
-          <div className="section__header">
-            <div>
-              <p className="eyebrow">Nouveautés</p>
-              <h2>Les nouveautés</h2>
-            </div>
-            <Link href="/boutique">Voir tout</Link>
-          </div>
-
           {loading ? <p>Chargement des nouveautés...</p> : null}
           {!loading && error ? <p className="error-text">{error}</p> : null}
-          {!loading && !error && sections.newIn.length === 0 ? (
+          {!loading && !error && newDrops.length === 0 ? (
             <p>Aucun produit disponible pour le moment.</p>
           ) : null}
 
           <div className="product-grid stagger-grid">
-            {sections.newIn.map((product) => (
+            {newDrops.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="section" id="categories">
+      <section className="section section-v2 section-v2--soft">
         <div className="container">
-          <div className="section__header">
+          <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Shoppez par catégorie</p>
-              <h2>Nos univers</h2>
+              <p className="eyebrow">Selection HOTGYAAL</p>
+              <h2>Best sellers</h2>
             </div>
-            <Link href="/boutique">Voir tout</Link>
-          </div>
-
-          <div className="category-grid category-grid--media">
-            {activeCategories.map((category, index) => {
-              const categoryCount = categoryCounts.get(category.name) ?? 0
-              const style = category.image_url
-                ? {
-                    backgroundImage: `url(${category.image_url})`,
-                    color: '#ffffff',
-                  }
-                : {
-                    background: CATEGORY_FALLBACK_TONES[index % CATEGORY_FALLBACK_TONES.length],
-                    color: 'white',
-                  }
-
-              return (
-                <Link
-                  key={category.slug}
-                  href={`/boutique?categorie=${encodeURIComponent(category.name)}`}
-                  className="category-card category-card--media"
-                  style={style}
-                >
-                  {category.image_url ? <div className="category-card__overlay" /> : null}
-                  <div className="category-card__content">
-                    <h3>{category.name}</h3>
-                    <p>{category.description}</p>
-                    <div className="category-card__tags">
-                      {category.subcategories.slice(0, 3).map((subCategory) => (
-                        <span key={subCategory} className="category-tag">
-                          {subCategory}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="category-card__meta">
-                      <span>
-                        {categoryCount > 0
-                          ? `${categoryCount} article${categoryCount > 1 ? 's' : ''}`
-                          : 'Arrivages en cours'}
-                      </span>
-                      <span>{category.subcategories.length} sous-categories</span>
-                    </div>
-                    <span className="category-card__link">Voir la categorie</span>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-
-          {loadingCategories ? (
-            <p>Chargement des categories...</p>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="section" id="favorites">
-        <div className="container">
-          <div className="section__header">
-            <div>
-              <p className="eyebrow">Favoris</p>
-              <h2>Les incontournables</h2>
-            </div>
-            <Link href="/boutique">Découvrir</Link>
+            <Link href="/boutique">Voir toute la boutique</Link>
           </div>
 
           <div className="product-grid stagger-grid">
-            {sections.favorites.map((product) => (
+            {bestSellers.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="section newsletter">
-        <div className="container newsletter__content">
-          <div>
-            <p className="eyebrow">Restez proche</p>
-            <h2>Abonnez-vous pour recevoir les nouveautés</h2>
-            <p>News, drops exclusifs et offres HOTGYAAL.</p>
+      <section className="section section-v2">
+        <div className="container">
+          <div className="section__header section__header--v2">
+            <div>
+              <p className="eyebrow">Univers</p>
+              <h2>Shoppez par categorie</h2>
+            </div>
+            <Link href="/boutique">Acceder au catalogue</Link>
           </div>
-          <form className="newsletter__form">
-            <input type="email" placeholder="Votre email" required />
-            <button className="button" type="submit">
-              S'inscrire
-            </button>
-          </form>
+
+          <div className="category-grid-v2">
+            {activeCategories.map((category) => (
+              <Link
+                key={category.id}
+                href={`/boutique?categorie=${encodeURIComponent(category.name)}`}
+                className="category-card-v2"
+              >
+                <div className="category-card-v2__media">
+                  <img
+                    src={
+                      category.image_url ||
+                      'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80'
+                    }
+                    alt={category.name}
+                    loading="lazy"
+                  />
+                </div>
+                <div className="category-card-v2__body">
+                  <h3>{category.name}</h3>
+                  <p>{category.description}</p>
+                  <span>{category.subcategories.slice(0, 2).join(' · ')}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {loadingCategories ? <p>Chargement des categories...</p> : null}
+        </div>
+      </section>
+
+      <section className="section section-v2 section-v2--import">
+        <div className="container import-band">
+          <div>
+            <p className="eyebrow">Import Export</p>
+            <h2>Une selection pensee pour le Senegal</h2>
+            <p>
+              HOTGYAAL source ses produits en Chine puis organise la distribution locale
+              avec un suivi commande clair.
+            </p>
+          </div>
+          <div className="import-band__grid">
+            <article>
+              <strong>01</strong>
+              <p>Sourcing des tendances et verification qualite.</p>
+            </article>
+            <article>
+              <strong>02</strong>
+              <p>Mise en catalogue avec photos, tailles et couleurs.</p>
+            </article>
+            <article>
+              <strong>03</strong>
+              <p>Validation panier puis confirmation de commande.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="section section-v2">
+        <div className="container">
+          <div className="section__header section__header--v2">
+            <div>
+              <p className="eyebrow">Lookbook</p>
+              <h2>Selection editoriale</h2>
+            </div>
+            <Link href="/boutique">Acheter maintenant</Link>
+          </div>
+
+          <div className="editor-grid">
+            {editorChoice.map((product) => (
+              <Link key={product.id} href={`/produit/${product.slug}`} className="editor-card">
+                <img
+                  src={
+                    product.image_url ||
+                    'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=900&q=80'
+                  }
+                  alt={product.name}
+                  loading="lazy"
+                />
+                <div className="editor-card__overlay">
+                  <p>{product.main_category}</p>
+                  <h3>{product.name}</h3>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
     </div>

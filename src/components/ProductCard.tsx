@@ -12,50 +12,51 @@ export const ProductCard = ({ product }: ProductCardProps) => {
     : 0
 
   return (
-    <article className="product-card">
-      <Link href={`/produit/${product.slug}`} className="product-card__media">
+    <article className="product-card-v2">
+      <Link href={`/produit/${product.slug}`} className="product-card-v2__media">
         <img
-          src={product.image_url || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80'}
+          src={
+            product.image_url ||
+            'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80'
+          }
           alt={product.name}
           loading="lazy"
           decoding="async"
         />
-        <div className="product-card__badges">
-          {product.is_new ? <span className="badge">Nouveau</span> : null}
-          {product.is_out_of_stock ? (
-            <span className="badge badge--dark">Épuisé</span>
-          ) : null}
-          {product.compare_price ? (
-            <span className="badge badge--contrast">Promotion</span>
-          ) : null}
-          {product.is_best_seller ? <span className="badge">Best Seller</span> : null}
+
+        <div className="product-card-v2__badges">
+          {product.is_new ? <span>Nouveau</span> : null}
+          {product.is_best_seller ? <span>Best seller</span> : null}
+          {product.is_out_of_stock ? <span className="is-dark">Rupture</span> : null}
         </div>
       </Link>
 
-      <div className="product-card__body">
-        <div className="product-card__meta">
-          <p>{product.main_category}</p>
-          <span>{product.sub_category}</span>
-        </div>
+      <div className="product-card-v2__body">
+        <p className="product-card-v2__category">
+          {product.main_category} · {product.sub_category}
+        </p>
 
-        <Link href={`/produit/${product.slug}`} className="product-card__title">
+        <Link href={`/produit/${product.slug}`} className="product-card-v2__title">
           {product.name}
         </Link>
 
-        <div className="product-card__price">
+        <div className="product-card-v2__price">
           <strong>{formatCurrency(product.price)}</strong>
-          {product.compare_price ? (
-            <span>{formatCurrency(product.compare_price)}</span>
-          ) : null}
+          {product.compare_price ? <span>{formatCurrency(product.compare_price)}</span> : null}
         </div>
 
         {savings > 0 ? (
-          <p className="product-card__saving">Vous économisez {formatCurrency(savings)}</p>
-        ) : null}
+          <p className="product-card-v2__save">Economie {formatCurrency(savings)}</p>
+        ) : (
+          <p className="product-card-v2__save">Prix catalogue HOTGYAAL</p>
+        )}
 
-        <Link href={`/produit/${product.slug}`} className="product-card__cta">
-          Voir la fiche
-        </Link>
+        <div className="product-card-v2__foot">
+          <span>{product.sizes.length ? `${product.sizes.length} tailles` : 'Taille unique'}</span>
+          <Link href={`/produit/${product.slug}`}>
+            Voir
+          </Link>
+        </div>
       </div>
     </article>
   )

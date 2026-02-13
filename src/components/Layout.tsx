@@ -3,82 +3,17 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
+import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 
-const storefrontLinks = [
+const primaryLinks = [
   { href: '/', label: 'Accueil' },
-  { href: '/boutique', label: 'Boutique' },
-  { href: '/boutique?categorie=V%C3%AAtements%20Femmes&sous_categorie=Robes', label: 'Robes' },
-  { href: '/boutique?categorie=Beaut%C3%A9', label: 'Beauté' },
-  { href: '/boutique?categorie=Bijoux%20%26%20Accessoires', label: 'Accessoires' },
-  { href: '/boutique?categorie=Chaussures', label: 'Chaussures' },
+  { href: '/boutique', label: 'Catalogue' },
+  { href: '/contact', label: 'Contact' },
+  { href: '/faq', label: 'FAQ' },
 ]
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://hotgyaal.com'
-
-const getSeoContent = (pathname: string) => {
-  if (pathname.startsWith('/boutique')) {
-    return {
-      title: 'Boutique Multi-Categories',
-      description:
-        'Decouvrez les categories HOTGYAAL: mode, accessoires, chaussures, tech, sacs et maison en XOF.',
-    }
-  }
-
-  if (pathname.startsWith('/produit/')) {
-    return {
-      title: 'Fiche Produit HOTGYAAL',
-      description:
-        'Consultez les details produit, couleurs disponibles et photos avant ajout au panier.',
-    }
-  }
-
-  if (pathname.startsWith('/panier')) {
-    return {
-      title: 'Panier et Finalisation',
-      description:
-        'Finalisez votre commande HOTGYAAL avec choix transport et confirmation rapide.',
-    }
-  }
-
-  if (pathname.startsWith('/contact')) {
-    return {
-      title: 'Contact HOTGYAAL',
-      description:
-        'Service client HOTGYAAL au Senegal. Vente locale avec sourcing en Chine.',
-    }
-  }
-
-  if (pathname.startsWith('/faq')) {
-    return {
-      title: 'FAQ HOTGYAAL',
-      description:
-        'Reponses sur la commande, les options transport et la disponibilite des articles.',
-    }
-  }
-
-  if (pathname.startsWith('/cgv-retours')) {
-    return {
-      title: 'Conditions de Vente',
-      description:
-        'Conditions commerciales HOTGYAAL: validation de commande, transport et reclamations.',
-    }
-  }
-
-  if (pathname.startsWith('/confidentialite')) {
-    return {
-      title: 'Confidentialite HOTGYAAL',
-      description:
-        'Politique de confidentialite HOTGYAAL sur la collecte et la protection des donnees clients.',
-    }
-  }
-
-  return {
-    title: 'HOTGYAAL - Boutique Multi-Categories',
-    description:
-      'HOTGYAAL: boutique multi-categories au Senegal avec importation depuis la Chine et panier complet en XOF.',
-  }
-}
 
 const stripQuery = (path: string) => path.split('?')[0] || '/'
 
@@ -95,20 +30,61 @@ const isPathActive = (href: string, asPath: string) => {
   return currentPath === href || currentPath.startsWith(`${href}/`)
 }
 
+const getSeoContent = (pathname: string) => {
+  if (pathname.startsWith('/boutique')) {
+    return {
+      title: 'HOTGYAAL | Boutique',
+      description:
+        'Catalogue HOTGYAAL: mode, accessoires, beauté et plus, en XOF pour le marché sénégalais.',
+    }
+  }
+
+  if (pathname.startsWith('/produit/')) {
+    return {
+      title: 'HOTGYAAL | Produit',
+      description:
+        'Fiche produit HOTGYAAL avec photos, couleurs, tailles et ajout rapide au panier.',
+    }
+  }
+
+  if (pathname.startsWith('/panier')) {
+    return {
+      title: 'HOTGYAAL | Panier',
+      description:
+        'Finalisez votre panier HOTGYAAL puis validez la commande via confirmation directe.',
+    }
+  }
+
+  if (pathname.startsWith('/contact')) {
+    return {
+      title: 'HOTGYAAL | Contact',
+      description: 'Contact HOTGYAAL, vente au Sénégal, sourcing depuis la Chine.',
+    }
+  }
+
+  return {
+    title: 'HOTGYAAL | Fashion & Lifestyle',
+    description:
+      'HOTGYAAL propose mode, accessoires, beauté et lifestyle pour le marché sénégalais, avec sourcing direct en Chine.',
+  }
+}
+
 type LayoutProps = {
   children: ReactNode
 }
 
 export const Layout = ({ children }: LayoutProps) => {
   const router = useRouter()
+  const { settings } = useStoreSettings()
+  const { categories } = useStoreCategories()
+  const { totalItems } = useCart()
+
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [quickSearch, setQuickSearch] = useState(() => {
+  const [searchInput, setSearchInput] = useState(() => {
     const query = (router.asPath || '').split('?')[1] ?? ''
     const params = new URLSearchParams(query)
-    return (params.get('q') || params.get('recherche') || '').trim()
+    return (params.get('q') || '').trim()
   })
-  const { totalItems } = useCart()
-  const { settings } = useStoreSettings()
 
   const seo = useMemo(() => {
     const currentPath = stripQuery(router.asPath || '/')
@@ -120,13 +96,19 @@ export const Layout = ({ children }: LayoutProps) => {
     [router.asPath],
   )
 
-  const handleHeaderSearch = (event: FormEvent<HTMLFormElement>) => {
+  const activeCategories = useMemo(
+    () => categories.filter((category) => category.is_active).slice(0, 8),
+    [categories],
+  )
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const term = quickSearch.trim()
+    const query = searchInput.trim()
     setIsMenuOpen(false)
+
     void router.push({
       pathname: '/boutique',
-      query: term ? { q: term } : {},
+      query: query ? { q: query } : {},
     })
   }
 
@@ -150,7 +132,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
         </div>
 
-        <div className="header">
+        <div className="header header--primary">
           <div className="container header__content">
             <div className="header__left">
               <button
@@ -158,21 +140,24 @@ export const Layout = ({ children }: LayoutProps) => {
                 className="menu-toggle"
                 onClick={() => setIsMenuOpen((current) => !current)}
                 aria-label="Ouvrir le menu"
+                aria-expanded={isMenuOpen}
               >
                 Menu
               </button>
 
               <nav className={`nav ${isMenuOpen ? 'is-open' : ''}`}>
-                <form className="nav-search" onSubmit={handleHeaderSearch}>
+                <form className="nav-search" onSubmit={submitSearch}>
                   <input
                     type="search"
-                    placeholder="Rechercher un produit..."
-                    value={quickSearch}
-                    onChange={(event) => setQuickSearch(event.target.value)}
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Rechercher un article"
+                    aria-label="Rechercher un article"
                   />
                   <button type="submit">OK</button>
                 </form>
-                {storefrontLinks.map((link) => (
+
+                {primaryLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
@@ -194,34 +179,47 @@ export const Layout = ({ children }: LayoutProps) => {
             </Link>
 
             <div className="header__actions">
-              <form className="header-search" onSubmit={handleHeaderSearch}>
+              <form className="header-search" onSubmit={submitSearch}>
                 <input
                   type="search"
-                  placeholder="Rechercher..."
-                  value={quickSearch}
-                  onChange={(event) => setQuickSearch(event.target.value)}
-                  aria-label="Rechercher un produit"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Recherche"
+                  aria-label="Recherche"
                 />
                 <button type="submit">Chercher</button>
               </form>
 
               <Link
-                href="/contact"
-                className={isPathActive('/contact', router.asPath || '/') ? 'nav-link is-active' : 'nav-link'}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Contact
-              </Link>
-
-              <Link
                 href="/panier"
-                className={isPathActive('/panier', router.asPath || '/') ? 'nav-link is-active' : 'nav-link'}
+                className={
+                  isPathActive('/panier', router.asPath || '/')
+                    ? 'nav-link is-active'
+                    : 'nav-link'
+                }
                 onClick={() => setIsMenuOpen(false)}
               >
                 Panier
                 {totalItems > 0 ? <span className="cart-count">{totalItems}</span> : null}
               </Link>
             </div>
+          </div>
+        </div>
+
+        <div className="header header--secondary">
+          <div className="container category-strip" role="navigation" aria-label="Catégories">
+            <Link href="/boutique" className="category-strip__link">
+              Tout voir
+            </Link>
+            {activeCategories.map((category) => (
+              <Link
+                key={category.id}
+                href={`/boutique?categorie=${encodeURIComponent(category.name)}`}
+                className="category-strip__link"
+              >
+                {category.name}
+              </Link>
+            ))}
           </div>
         </div>
       </header>
@@ -231,26 +229,42 @@ export const Layout = ({ children }: LayoutProps) => {
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
         <Link
           href="/"
-          className={isPathActive('/', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
+          className={
+            isPathActive('/', router.asPath || '/')
+              ? 'mobile-nav-link is-active'
+              : 'mobile-nav-link'
+          }
         >
           <span>Accueil</span>
         </Link>
         <Link
           href="/boutique"
-          className={isPathActive('/boutique', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
+          className={
+            isPathActive('/boutique', router.asPath || '/')
+              ? 'mobile-nav-link is-active'
+              : 'mobile-nav-link'
+          }
         >
-          <span>Boutique</span>
+          <span>Shop</span>
         </Link>
         <Link
           href="/panier"
-          className={isPathActive('/panier', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
+          className={
+            isPathActive('/panier', router.asPath || '/')
+              ? 'mobile-nav-link is-active'
+              : 'mobile-nav-link'
+          }
         >
           <span>Panier</span>
           {totalItems > 0 ? <strong className="mobile-nav-count">{totalItems}</strong> : null}
         </Link>
         <Link
           href="/contact"
-          className={isPathActive('/contact', router.asPath || '/') ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
+          className={
+            isPathActive('/contact', router.asPath || '/')
+              ? 'mobile-nav-link is-active'
+              : 'mobile-nav-link'
+          }
         >
           <span>Contact</span>
         </Link>
@@ -271,25 +285,26 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="footer-column">
               <p className="footer-title">Navigation</p>
               <nav className="footer-links">
-                <Link href="/boutique">Boutique</Link>
+                <Link href="/">Accueil</Link>
+                <Link href="/boutique">Catalogue</Link>
                 <Link href="/contact">Contact</Link>
                 <Link href="/faq">FAQ</Link>
                 <Link href="/cgv-retours">Conditions</Link>
-                <Link href="/confidentialite">Confidentialite</Link>
+                <Link href="/confidentialite">Confidentialité</Link>
               </nav>
             </div>
 
             <div className="footer-column">
-              <p className="footer-title">Import Export</p>
-              <p className="footer-note">Approvisionnement principal en Chine</p>
-              <p className="footer-note">Distribution locale au Senegal</p>
-              <p className="footer-note">Prix affiches en XOF</p>
+              <p className="footer-title">HOTGYAAL</p>
+              <p className="footer-note">Sourcing produits en Chine</p>
+              <p className="footer-note">Distribution au Sénégal</p>
+              <p className="footer-note">Commandes et tarifs en XOF</p>
             </div>
           </div>
         </div>
 
         <div className="container footer__bottom">
-          <p>© {new Date().getFullYear()} HOTGYAAL - Tous droits reserves.</p>
+          <p>© {new Date().getFullYear()} HOTGYAAL - Tous droits réservés.</p>
         </div>
       </footer>
     </div>

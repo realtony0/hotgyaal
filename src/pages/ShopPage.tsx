@@ -9,82 +9,59 @@ import { groupProductsForStorefront } from '../utils/products'
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc'
 
-const CATEGORY_FALLBACK_TONES = [
-  'linear-gradient(130deg, #2b1c23 0%, #734558 52%, #c0849c 100%)',
-  'linear-gradient(130deg, #1e2732 0%, #3e5f7a 52%, #86a9c6 100%)',
-  'linear-gradient(130deg, #2b2a20 0%, #6f653a 52%, #c1a96f 100%)',
-]
+const readQueryValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] ?? '' : value ?? ''
 
 export const ShopPage = () => {
   const router = useRouter()
   const { categories, loading: loadingCategories, error: categoriesError } =
     useStoreCategories()
+
   const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [errorProducts, setErrorProducts] = useState<string | null>(null)
 
-  const initialCategory = useMemo(() => {
-    const queryValue = router.query.categorie
-    return Array.isArray(queryValue) ? queryValue[0] ?? '' : queryValue ?? ''
-  }, [router.query.categorie])
-
-  const initialSubCategory = useMemo(() => {
-    const queryValue = router.query.sous_categorie
-    return Array.isArray(queryValue) ? queryValue[0] ?? '' : queryValue ?? ''
-  }, [router.query.sous_categorie])
-  const initialSearch = useMemo(() => {
-    const queryValue = router.query.q ?? router.query.recherche
-    return Array.isArray(queryValue) ? queryValue[0] ?? '' : queryValue ?? ''
-  }, [router.query.q, router.query.recherche])
-
-  const [search, setSearch] = useState(initialSearch)
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory)
-  const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory)
+  const [search, setSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedSubCategory, setSelectedSubCategory] = useState('')
   const [sort, setSort] = useState<SortOption>('newest')
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
 
   useEffect(() => {
     if (!router.isReady) {
       return
     }
 
-    setSelectedCategory(initialCategory)
-    setSelectedSubCategory(initialSubCategory)
-  }, [router.isReady, initialCategory, initialSubCategory])
-
-  useEffect(() => {
-    if (!router.isReady || !initialSearch.trim()) {
-      return
-    }
-
-    setSearch(initialSearch)
-  }, [initialSearch, router.isReady])
+    setSearch(readQueryValue(router.query.q || router.query.recherche))
+    setSelectedCategory(readQueryValue(router.query.categorie))
+    setSelectedSubCategory(readQueryValue(router.query.sous_categorie))
+  }, [router.isReady, router.query])
 
   useEffect(() => {
     const loadProducts = async () => {
       if (!isSupabaseConfigured) {
         setProducts([])
-        setError(
-          'Supabase n\'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.',
+        setErrorProducts(
+          "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
         )
-        setLoading(false)
+        setLoadingProducts(false)
         return
       }
 
       try {
-        setLoading(true)
+        setLoadingProducts(true)
         const data = await listProducts()
         setProducts(groupProductsForStorefront(data))
-        setError(null)
+        setErrorProducts(null)
       } catch (loadError) {
         setProducts([])
-        setError(
+        setErrorProducts(
           loadError instanceof Error
             ? loadError.message
             : 'Impossible de charger les produits depuis Supabase.',
         )
       } finally {
-        setLoading(false)
+        setLoadingProducts(false)
       }
     }
 
@@ -96,74 +73,31 @@ export const ShopPage = () => {
     [categories],
   )
 
-  useEffect(() => {
-    if (!selectedCategory) {
-      return
-    }
+  const categoryCountMap = useMemo(() => {
+    const map = new Map<string, number>()
+    products.forEach((product) => {
+      map.set(product.main_category, (map.get(product.main_category) ?? 0) + 1)
+    })
+    return map
+  }, [products])
 
-    const exists = activeCategories.some(
-      (category) => category.name === selectedCategory,
-    )
-
-    if (exists) {
-      return
-    }
-
-    setSelectedCategory('')
-    setSelectedSubCategory('')
-
-    if (router.isReady) {
-      void router.replace('/boutique', undefined, { shallow: true, scroll: false })
-    }
-  }, [activeCategories, router, selectedCategory])
+  const subCategoryCountMap = useMemo(() => {
+    const map = new Map<string, number>()
+    products.forEach((product) => {
+      const key = `${product.main_category}|||${product.sub_category}`
+      map.set(key, (map.get(key) ?? 0) + 1)
+    })
+    return map
+  }, [products])
 
   const availableSubcategories = useMemo(() => {
-    const category = activeCategories.find(
-      (entry) => entry.name === selectedCategory,
-    )
+    if (!selectedCategory) {
+      return []
+    }
+
+    const category = activeCategories.find((entry) => entry.name === selectedCategory)
     return category?.subcategories ?? []
   }, [activeCategories, selectedCategory])
-
-  const categoryStats = useMemo(() => {
-    const stats = new Map<
-      string,
-      { total: number; subCounts: Map<string, number> }
-    >()
-
-    products.forEach((product) => {
-      const category = product.main_category
-      const subCategory = product.sub_category
-      const current =
-        stats.get(category) ?? { total: 0, subCounts: new Map<string, number>() }
-      current.total += 1
-      current.subCounts.set(subCategory, (current.subCounts.get(subCategory) ?? 0) + 1)
-      stats.set(category, current)
-    })
-
-    return activeCategories.map((category) => {
-      const current = stats.get(category.name)
-      const topSubcategories = category.subcategories
-        .map((subCategory) => ({
-          name: subCategory,
-          count: current?.subCounts.get(subCategory) ?? 0,
-        }))
-        .filter((entry) => entry.count > 0)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 3)
-
-      return {
-        ...category,
-        total: current?.total ?? 0,
-        subCounts: current?.subCounts ?? new Map<string, number>(),
-        topSubcategories,
-      }
-    })
-  }, [activeCategories, products])
-
-  const selectedCategoryStats = useMemo(
-    () => categoryStats.find((category) => category.name === selectedCategory),
-    [categoryStats, selectedCategory],
-  )
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
@@ -175,8 +109,15 @@ export const ShopPage = () => {
         !selectedSubCategory || product.sub_category === selectedSubCategory
       const matchesSearch =
         !normalizedSearch ||
-        product.name.toLowerCase().includes(normalizedSearch) ||
-        product.description.toLowerCase().includes(normalizedSearch)
+        [
+          product.name,
+          product.description,
+          product.main_category,
+          product.sub_category,
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedSearch)
 
       return matchesCategory && matchesSubCategory && matchesSearch
     })
@@ -194,7 +135,7 @@ export const ShopPage = () => {
     })
   }, [products, search, selectedCategory, selectedSubCategory, sort])
 
-  const updateShopQuery = (patch: Record<string, string | null>) => {
+  const pushQuery = (patch: Record<string, string | null>) => {
     if (!router.isReady) {
       return
     }
@@ -202,13 +143,9 @@ export const ShopPage = () => {
     const nextQuery: Record<string, string> = {}
 
     Object.entries(router.query).forEach(([key, value]) => {
-      if (typeof value === 'string') {
-        nextQuery[key] = value
-        return
-      }
-
-      if (Array.isArray(value) && value[0]) {
-        nextQuery[key] = value[0]
+      const parsed = readQueryValue(value)
+      if (parsed) {
+        nextQuery[key] = parsed
       }
     })
 
@@ -230,264 +167,201 @@ export const ShopPage = () => {
     )
   }
 
-  const applyCategoryFilter = (category: string) => {
-    setSelectedCategory(category)
+  const handleApplySearch = () => {
+    pushQuery({ q: search.trim() || null })
+  }
+
+  const handlePickCategory = (name: string) => {
+    setSelectedCategory(name)
     setSelectedSubCategory('')
-    updateShopQuery({
-      categorie: category || null,
+    pushQuery({
+      categorie: name || null,
       sous_categorie: null,
     })
   }
 
-  const applySubCategoryFilter = (subCategory: string) => {
-    setSelectedSubCategory(subCategory)
-    updateShopQuery({
-      sous_categorie: subCategory || null,
-    })
+  const handlePickSubCategory = (name: string) => {
+    const isSame = selectedSubCategory === name
+    setSelectedSubCategory(isSame ? '' : name)
+    pushQuery({ sous_categorie: isSame ? null : name })
   }
 
-  const resetFilters = () => {
+  const clearFilters = () => {
     setSearch('')
     setSelectedCategory('')
     setSelectedSubCategory('')
     setSort('newest')
+    setIsFiltersOpen(false)
     if (router.isReady) {
       void router.replace('/boutique', undefined, { shallow: true, scroll: false })
     }
-    setIsFilterPanelOpen(false)
   }
 
   const hasActiveFilters = Boolean(
-    selectedCategory || selectedSubCategory || search.trim(),
+    search.trim() || selectedCategory || selectedSubCategory,
   )
 
   return (
-    <section className="section">
+    <section className="section shop-v2">
       <div className="container">
-        <div className="shop-hero">
+        <div className="shop-hero-v2">
           <div>
-            <p className="eyebrow">Boutique HOTGYAAL</p>
-            <h1>Selection boutique</h1>
+            <p className="eyebrow">Catalogue HOTGYAAL</p>
+            <h1>Shop premium pour le marche senegalais</h1>
             <p>
-              Explorez nos categories et filtrez rapidement par univers et
-              sous-categorie. Produits importes depuis la Chine pour le marche
-              senegalais.
+              Recherchez rapidement vos articles, puis filtrez par categorie ou sous-categorie.
             </p>
           </div>
-          <div className="shop-hero__count">
+          <div className="shop-hero-v2__count">
             <strong>{filteredProducts.length}</strong>
-            <span>articles visibles</span>
+            <span>article(s)</span>
           </div>
         </div>
 
-        <div className="shop-category-browser">
+        <div className="shop-search-v2">
+          <label>
+            Recherche produit
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Nom, categorie, sous-categorie"
+            />
+          </label>
+          <button type="button" className="button" onClick={handleApplySearch}>
+            Rechercher
+          </button>
+          <button type="button" className="button button--ghost" onClick={clearFilters}>
+            Reinitialiser
+          </button>
+        </div>
+
+        <div className="shop-category-grid-v2">
           <button
             type="button"
-            className={
-              !selectedCategory
-                ? 'shop-category-card shop-category-card--all is-active'
-                : 'shop-category-card shop-category-card--all'
-            }
-            onClick={() => applyCategoryFilter('')}
+            onClick={() => handlePickCategory('')}
+            className={!selectedCategory ? 'shop-cat-chip is-active' : 'shop-cat-chip'}
           >
-            <div className="shop-category-card__media shop-category-card__media--all">
-              <span>{products.length} produit(s)</span>
-            </div>
-
-            <div className="shop-category-card__body">
-              <h3>Toutes les categories</h3>
-              <p>Vue globale du catalogue HOTGYAAL</p>
-              <div className="shop-category-card__subs">
-                <span>Multi-categories</span>
-                <span>Nouveautés</span>
-                <span>Best sellers</span>
-              </div>
-            </div>
+            Tout ({products.length})
           </button>
 
-          {categoryStats.map((category, index) => {
+          {activeCategories.map((category) => {
+            const count = categoryCountMap.get(category.name) ?? 0
             const isActive = selectedCategory === category.name
-            const hasProducts = category.total > 0
-            const mediaStyle = category.image_url
-              ? { backgroundImage: `url(${category.image_url})` }
-              : {
-                  background:
-                    CATEGORY_FALLBACK_TONES[index % CATEGORY_FALLBACK_TONES.length],
-                }
 
             return (
               <button
+                key={category.id}
                 type="button"
-                key={category.slug}
+                disabled={count === 0}
+                onClick={() => handlePickCategory(category.name)}
                 className={
                   [
-                    'shop-category-card',
+                    'shop-cat-chip',
                     isActive ? 'is-active' : '',
-                    !hasProducts ? 'is-disabled' : '',
+                    count === 0 ? 'is-disabled' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')
                 }
-                onClick={() => applyCategoryFilter(category.name)}
-                disabled={!hasProducts}
               >
-                <div
-                  className="shop-category-card__media"
-                  style={mediaStyle}
-                >
-                  <span>{category.total} produit(s)</span>
-                </div>
-
-                <div className="shop-category-card__body">
-                  <h3>{category.name}</h3>
-                  <p>{category.description}</p>
-                  <div className="shop-category-card__subs">
-                    {(category.topSubcategories.length
-                      ? category.topSubcategories.map((sub) => `${sub.name} (${sub.count})`)
-                      : category.subcategories
-                          .slice(0, 3)
-                          .map(
-                            (subCategory) =>
-                              `${subCategory} (${category.subCounts.get(subCategory) ?? 0})`,
-                          )
-                    ).map((subLabel) => (
-                      <span key={subLabel}>{subLabel}</span>
-                    ))}
-                  </div>
-                </div>
+                {category.name} ({count})
               </button>
             )
           })}
         </div>
 
-        {loadingCategories ? <p>Chargement des categories...</p> : null}
-        {categoriesError ? <p className="error-text">{categoriesError}</p> : null}
-
         <div className="shop-mobile-actions">
           <button
             type="button"
             className="mobile-filter-toggle"
-            onClick={() => setIsFilterPanelOpen((current) => !current)}
-            aria-expanded={isFilterPanelOpen}
-            aria-controls="shop-filters-panel"
+            onClick={() => setIsFiltersOpen((current) => !current)}
+            aria-expanded={isFiltersOpen}
+            aria-controls="shop-v2-filters"
           >
-            {isFilterPanelOpen ? 'Masquer filtres' : 'Filtres et tri'}
+            {isFiltersOpen ? 'Masquer filtres' : 'Afficher filtres'}
           </button>
-
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              className="chip chip--clear mobile-filter-clear"
-              onClick={resetFilters}
-            >
-              Reinitialiser
-            </button>
-          ) : null}
         </div>
 
         <div
-          id="shop-filters-panel"
-          className={
-            [
-              'filters-card',
-              'filters-card--shop',
-              'shop-filters-panel',
-              isFilterPanelOpen ? 'is-open' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')
-          }
+          id="shop-v2-filters"
+          className={[
+            'shop-filters-v2',
+            isFiltersOpen ? 'is-open' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
-          <div className="shop-filters-head">
+          <div className="shop-filters-v2__head">
             <p>
-              Categorie active:{' '}
-              <strong>{selectedCategory || 'Toutes les categories'}</strong>
+              Categorie: <strong>{selectedCategory || 'Toutes'}</strong>
             </p>
-            {selectedSubCategory ? <p>Sous-categorie: {selectedSubCategory}</p> : null}
-            <button
-              type="button"
-              className="shop-filters-close"
-              onClick={() => setIsFilterPanelOpen(false)}
-            >
-              Fermer
-            </button>
+            {selectedSubCategory ? (
+              <p>
+                Sous-categorie: <strong>{selectedSubCategory}</strong>
+              </p>
+            ) : null}
           </div>
 
-          <div className="filters-grid">
+          <div className="shop-filters-v2__controls">
             <label>
-              Rechercher
-              <input
-                type="search"
-                placeholder="Nom produit..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-
-            <label>
-              Trier
+              Tri
               <select
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortOption)}
               >
-                <option value="newest">Plus récents</option>
+                <option value="newest">Plus recents</option>
                 <option value="price-asc">Prix croissant</option>
-                <option value="price-desc">Prix décroissant</option>
+                <option value="price-desc">Prix decroissant</option>
               </select>
             </label>
           </div>
 
-          {selectedCategory && availableSubcategories.length > 0 ? (
-            <div className="shop-subcategory-pills">
+          {availableSubcategories.length ? (
+            <div className="shop-sub-pills-v2">
               {availableSubcategories.map((subCategory) => {
-                const subCategoryCount =
-                  selectedCategoryStats?.subCounts.get(subCategory) ?? 0
-                const isDisabled = subCategoryCount === 0
-                const isActive = subCategory === selectedSubCategory
+                const key = `${selectedCategory}|||${subCategory}`
+                const count = subCategoryCountMap.get(key) ?? 0
+                const isActive = selectedSubCategory === subCategory
 
                 return (
                   <button
-                    type="button"
                     key={subCategory}
+                    type="button"
+                    disabled={count === 0}
                     className={
                       [
                         'chip',
                         isActive ? 'chip--active' : '',
-                        isDisabled ? 'chip--disabled' : '',
+                        count === 0 ? 'chip--disabled' : '',
                       ]
                         .filter(Boolean)
                         .join(' ')
                     }
-                    onClick={() =>
-                      applySubCategoryFilter(isActive ? '' : subCategory)
-                    }
-                    disabled={isDisabled}
+                    onClick={() => handlePickSubCategory(subCategory)}
                   >
-                    {`${subCategory} (${subCategoryCount})`}
+                    {subCategory} ({count})
                   </button>
                 )
               })}
             </div>
           ) : null}
 
-          {hasActiveFilters && (
-            <div className="shop-active-filters">
+          {hasActiveFilters ? (
+            <div className="shop-active-filters-v2">
               {selectedCategory ? <span className="active-pill">{selectedCategory}</span> : null}
-              {selectedSubCategory ? (
-                <span className="active-pill">{selectedSubCategory}</span>
-              ) : null}
+              {selectedSubCategory ? <span className="active-pill">{selectedSubCategory}</span> : null}
               {search.trim() ? <span className="active-pill">Recherche: {search.trim()}</span> : null}
-              <button type="button" className="chip chip--clear" onClick={resetFilters}>
-                Reinitialiser
-              </button>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {loading ? <p>Chargement des produits...</p> : null}
-        {error ? <p className="error-text">{error}</p> : null}
+        {loadingCategories ? <p>Chargement des categories...</p> : null}
+        {categoriesError ? <p className="error-text">{categoriesError}</p> : null}
 
-        {!loading && !error && filteredProducts.length === 0 ? (
+        {loadingProducts ? <p>Chargement des produits...</p> : null}
+        {!loadingProducts && errorProducts ? <p className="error-text">{errorProducts}</p> : null}
+        {!loadingProducts && !errorProducts && filteredProducts.length === 0 ? (
           <p>Aucun produit ne correspond à vos filtres.</p>
         ) : null}
 
@@ -496,7 +370,6 @@ export const ShopPage = () => {
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
-
       </div>
     </section>
   )

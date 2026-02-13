@@ -12,16 +12,18 @@ export const ProductPage = () => {
   const router = useRouter()
   const slugParam = router.query.slug
   const slug = Array.isArray(slugParam) ? slugParam[0] : slugParam
+
+  const { addToCart } = useCart()
+
   const [product, setProduct] = useState<Product | null>(null)
-  const [relatedVariants, setRelatedVariants] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [quantity, setQuantity] = useState(1)
+  const [variants, setVariants] = useState<Product[]>([])
   const [selectedSize, setSelectedSize] = useState('')
+  const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const { addToCart } = useCart()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -35,29 +37,28 @@ export const ProductPage = () => {
         return
       }
 
+      if (!isSupabaseConfigured) {
+        setLoading(false)
+        setError(
+          "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+        )
+        return
+      }
+
       try {
         setLoading(true)
-
-        if (!isSupabaseConfigured) {
-          setError(
-            'Supabase n\'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.',
-          )
-          setProduct(null)
-          return
-        }
-
         const data = await getProductBySlug(slug)
 
         if (!data) {
-          setError('Produit introuvable.')
           setProduct(null)
+          setError('Produit introuvable.')
           return
         }
 
         const allProducts = await listProducts()
 
         setProduct(data)
-        setRelatedVariants(getRelatedVariants(allProducts, data))
+        setVariants(getRelatedVariants(allProducts, data))
         setActiveImage(data.image_url)
         setError(null)
       } catch (loadError) {
@@ -72,7 +73,7 @@ export const ProductPage = () => {
       }
     }
 
-    loadProduct()
+    void loadProduct()
   }, [router.isReady, slug])
 
   const gallery = useMemo(() => {
@@ -80,25 +81,20 @@ export const ProductPage = () => {
       return []
     }
 
-    const images = [product.image_url, ...(product.gallery_urls || [])].filter(
+    const imagePool = [product.image_url, ...(product.gallery_urls ?? [])].filter(
       Boolean,
     ) as string[]
 
-    return Array.from(new Set(images))
+    return Array.from(new Set(imagePool))
   }, [product])
-
-  const productMeta = useMemo(
-    () => (product ? getProductVariantMeta(product) : null),
-    [product],
-  )
 
   const availableSizes = useMemo(() => {
     if (!product) {
       return []
     }
 
-    const sizes = (product.sizes ?? []).map((size) => size.trim()).filter(Boolean)
-    return sizes.length ? Array.from(new Set(sizes)) : ['Taille unique']
+    const cleaned = (product.sizes ?? []).map((size) => size.trim()).filter(Boolean)
+    return cleaned.length ? Array.from(new Set(cleaned)) : ['Taille unique']
   }, [product])
 
   useEffect(() => {
@@ -112,49 +108,54 @@ export const ProductPage = () => {
     )
   }, [availableSizes])
 
+  const productMeta = useMemo(
+    () => (product ? getProductVariantMeta(product) : null),
+    [product],
+  )
+
   const handleAddToCart = () => {
     if (!product) {
       return
     }
 
     if (product.is_out_of_stock) {
-      setFeedback('Article indisponible pour le moment.')
+      setFeedback('Article temporairement en rupture.')
       return
     }
 
     const size = selectedSize || availableSizes[0] || 'Taille unique'
     addToCart(product, size, quantity)
-    setFeedback(`${quantity} article(s) ajouté(s) - taille ${size}.`)
+    setFeedback(`${quantity} article(s) ajoute(s), taille ${size}.`)
   }
 
   if (loading) {
     return (
-      <div className="section">
+      <section className="section">
         <div className="container">
           <p>Chargement du produit...</p>
         </div>
-      </div>
+      </section>
     )
   }
 
   if (error || !product) {
     return (
-      <div className="section">
+      <section className="section">
         <div className="container">
           <p className="error-text">{error ?? 'Produit introuvable.'}</p>
           <Link href="/boutique" className="button">
-            Retour à la boutique
+            Retour au catalogue
           </Link>
         </div>
-      </div>
+      </section>
     )
   }
 
   return (
-    <section className="section">
-      <div className="container product-detail">
-        <div>
-          <div className="product-detail__hero-image">
+    <section className="section product-page-v2">
+      <div className="container product-detail-v2">
+        <div className="product-detail-v2__gallery">
+          <div className="product-detail-v2__cover">
             <img
               src={
                 activeImage ||
@@ -165,13 +166,15 @@ export const ProductPage = () => {
           </div>
 
           {gallery.length > 1 ? (
-            <div className="product-detail__thumbs">
+            <div className="product-detail-v2__thumbs">
               {gallery.map((imageUrl) => (
                 <button
                   type="button"
                   key={imageUrl}
                   className={
-                    imageUrl === activeImage ? 'thumb is-active' : 'thumb'
+                    imageUrl === activeImage
+                      ? 'product-detail-v2__thumb is-active'
+                      : 'product-detail-v2__thumb'
                   }
                   onClick={() => setActiveImage(imageUrl)}
                 >
@@ -182,41 +185,37 @@ export const ProductPage = () => {
           ) : null}
         </div>
 
-        <div className="product-detail__info">
+        <div className="product-detail-v2__info">
           <p className="eyebrow">{product.main_category}</p>
           <h1>{productMeta?.baseName ?? product.name}</h1>
-          <p>{product.sub_category}</p>
+          <p className="product-detail-v2__sub">{product.sub_category}</p>
 
-          {relatedVariants.length > 1 ? (
+          <div className="product-detail-v2__price">
+            <strong>{formatCurrency(product.price)}</strong>
+            {product.compare_price ? <span>{formatCurrency(product.compare_price)}</span> : null}
+          </div>
+
+          <p className="product-detail-v2__description">{product.description}</p>
+
+          {variants.length > 1 ? (
             <div className="variant-switcher">
-              <p className="variant-switcher__label">Couleurs disponibles</p>
+              <p className="variant-switcher__label">Coloris disponibles</p>
               <div className="variant-switcher__list">
-                {relatedVariants.map((variant) => {
+                {variants.map((variant) => {
                   const meta = getProductVariantMeta(variant)
                   return (
                     <Link
-                      key={variant.slug}
+                      key={variant.id}
                       href={`/produit/${variant.slug}`}
-                      className={
-                        variant.slug === product.slug ? 'chip chip--active' : 'chip'
-                      }
+                      className={variant.id === product.id ? 'chip chip--active' : 'chip'}
                     >
-                      {meta.color ?? 'Standard'}
+                      {meta.color || 'Standard'}
                     </Link>
                   )
                 })}
               </div>
             </div>
           ) : null}
-
-          <div className="product-card__price product-detail__price">
-            <strong>{formatCurrency(product.price)}</strong>
-            {product.compare_price ? (
-              <span>{formatCurrency(product.compare_price)}</span>
-            ) : null}
-          </div>
-
-          <p className="product-detail__description">{product.description}</p>
 
           <div className="size-selector">
             <p className="size-selector__label">Tailles</p>
@@ -234,9 +233,9 @@ export const ProductPage = () => {
             </div>
           </div>
 
-          <div className="product-detail__actions">
+          <div className="product-detail-v2__actions">
             <label>
-              Quantité
+              Quantite
               <input
                 type="number"
                 min={1}
@@ -252,10 +251,10 @@ export const ProductPage = () => {
               onClick={handleAddToCart}
               disabled={product.is_out_of_stock}
             >
-              {product.is_out_of_stock ? 'Indisponible' : 'Ajouter au panier'}
+              {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
             </button>
             <Link href="/panier" className="button button--ghost">
-              Voir le panier
+              Aller au panier
             </Link>
           </div>
 

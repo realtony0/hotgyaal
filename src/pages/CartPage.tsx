@@ -12,16 +12,16 @@ type CheckoutFormState = {
   customerName: string
   customerPhone: string
   line1: string
-  line2: string
   city: string
+  note: string
 }
 
 const initialCheckoutState: CheckoutFormState = {
   customerName: '',
   customerPhone: '',
   line1: '',
-  line2: '',
   city: '',
+  note: '',
 }
 
 type ShippingOption = {
@@ -35,19 +35,19 @@ const SHIPPING_OPTIONS: ShippingOption[] = [
   {
     id: 'gp-express',
     name: 'Gp Express',
-    priceLabel: '10.000fcfa le kg',
+    priceLabel: '10.000 FCFA / kg',
     timeline: '7 jours',
   },
   {
     id: 'freight-aerien',
     name: 'Freight aerien',
-    priceLabel: '7.000fcfa le kg',
+    priceLabel: '7.000 FCFA / kg',
     timeline: '10-12 jours',
   },
   {
     id: 'container',
     name: 'Contener',
-    priceLabel: '117.000fcfa /CBM',
+    priceLabel: '117.000 FCFA / CBM',
     timeline: '1-2 mois',
   },
 ]
@@ -104,14 +104,13 @@ const buildOrderMessage = (
   lines.push('')
   lines.push(`Sous-total produits: ${formatCurrency(subtotal)}`)
   lines.push(
-    `Option transport: ${shippingOption.name} - ${shippingOption.priceLabel} (${shippingOption.timeline})`,
+    `Option transit: ${shippingOption.name} - ${shippingOption.priceLabel} (${shippingOption.timeline})`,
   )
-  lines.push('Frais transport exacts: confirmes apres calcul du poids/volume.')
-  lines.push('Vente au Senegal, sourcing import-export depuis la Chine.')
+  lines.push('Frais exacts confirms apres verification poids/volume.')
   lines.push('')
   lines.push(`Adresse: ${formState.line1}, ${formState.city}`)
-  if (formState.line2.trim()) {
-    lines.push(`Note cliente: ${formState.line2.trim()}`)
+  if (formState.note.trim()) {
+    lines.push(`Note cliente: ${formState.note.trim()}`)
   }
 
   return lines.join('\n')
@@ -119,8 +118,8 @@ const buildOrderMessage = (
 
 export const CartPage = () => {
   const { user } = useAuth()
-  const { items, subtotal, removeFromCart, updateQuantity, clearCart } = useCart()
   const { settings } = useStoreSettings()
+  const { items, subtotal, removeFromCart, updateQuantity, clearCart } = useCart()
 
   const [formState, setFormState] = useState<CheckoutFormState>(
     initialCheckoutState,
@@ -130,9 +129,7 @@ export const CartPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const productsTotal = subtotal
   const selectedShippingOption = getShippingOptionById(selectedShippingId)
-  const normalizedCustomerEmail = getFallbackEmail(formState.customerPhone)
   const orderChatNumber = normalizeChatNumber(
     settings.order_chat_number ||
       (
@@ -150,20 +147,19 @@ export const CartPage = () => {
       return
     }
 
-    const shippingOption = getShippingOptionById(selectedShippingId)
-    if (!shippingOption) {
-      setError('Choisissez une option de transport.')
+    if (!selectedShippingOption) {
+      setError('Choisissez une option de transit.')
       return
     }
 
     if (!orderChatNumber) {
-      setError('Le numéro de confirmation n’est pas configuré.')
+      setError('Le numero de confirmation est absent.')
       return
     }
 
     if (!isSupabaseConfigured) {
       setError(
-        'Supabase n\'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.',
+        "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
       )
       return
     }
@@ -173,19 +169,22 @@ export const CartPage = () => {
       setError(null)
       setSuccessMessage(null)
 
-      const line2Parts = [
-        formState.line2.trim(),
-        `Transport: ${shippingOption.name} (${shippingOption.priceLabel}, ${shippingOption.timeline})`,
-      ].filter(Boolean)
+      const customerEmail = getFallbackEmail(formState.customerPhone)
+      const line2 = [
+        formState.note.trim(),
+        `Transit: ${selectedShippingOption.name} (${selectedShippingOption.priceLabel}, ${selectedShippingOption.timeline})`,
+      ]
+        .filter(Boolean)
+        .join(' | ')
 
       const order = await createOrder({
         userId: user?.id ?? null,
         customerName: formState.customerName,
-        customerEmail: normalizedCustomerEmail,
+        customerEmail,
         customerPhone: formState.customerPhone,
         shippingAddress: {
           line1: formState.line1,
-          line2: line2Parts.join(' | '),
+          line2,
           city: formState.city,
           postal_code: '00000',
           country: 'Senegal',
@@ -193,22 +192,22 @@ export const CartPage = () => {
         items,
       })
 
-      const orderMessage = buildOrderMessage(
+      const message = buildOrderMessage(
         formState,
         items,
         subtotal,
-        shippingOption,
+        selectedShippingOption,
         order.order_number,
       )
 
       clearCart()
       setFormState(initialCheckoutState)
       setSelectedShippingId('')
-      setSuccessMessage('Commande prête. Redirection en cours...')
+      setSuccessMessage('Commande en cours de confirmation...')
 
       if (typeof window !== 'undefined') {
         window.location.assign(
-          `https://wa.me/${orderChatNumber}?text=${encodeURIComponent(orderMessage)}`,
+          `https://wa.me/${orderChatNumber}?text=${encodeURIComponent(message)}`,
         )
       }
     } catch (submitError) {
@@ -223,19 +222,22 @@ export const CartPage = () => {
   }
 
   return (
-    <section className="section">
+    <section className="section cart-v2">
       <div className="container cart-layout">
         <div>
-          <div className="section__header">
-            <h1>Panier</h1>
+          <div className="section__header section__header--v2">
+            <div>
+              <p className="eyebrow">Panier</p>
+              <h1>Votre selection</h1>
+            </div>
             <Link href="/boutique">Continuer mes achats</Link>
           </div>
 
-          {items.length === 0 ? (
+          {!items.length ? (
             <div className="empty-state">
               <p>Votre panier est vide.</p>
               <Link className="button" href="/boutique">
-                Découvrir la boutique
+                Explorer la boutique
               </Link>
             </div>
           ) : (
@@ -249,7 +251,6 @@ export const CartPage = () => {
                     }
                     alt={item.product.name}
                     loading="lazy"
-                    decoding="async"
                   />
 
                   <div>
@@ -263,7 +264,7 @@ export const CartPage = () => {
 
                   <div className="quantity-actions">
                     <label>
-                      Qté
+                      Qte
                       <input
                         type="number"
                         min={1}
@@ -290,38 +291,30 @@ export const CartPage = () => {
           )}
         </div>
 
-        <aside className="checkout-card">
-          <h2>Résumé</h2>
+        <aside className="checkout-card checkout-card-v2">
+          <h2>Finaliser</h2>
           <dl>
             <div>
               <dt>Sous-total</dt>
               <dd>{formatCurrency(subtotal)}</dd>
             </div>
             <div>
-              <dt>Transport</dt>
+              <dt>Transit</dt>
               <dd>
                 {selectedShippingOption
                   ? `${selectedShippingOption.name} (${selectedShippingOption.timeline})`
                   : 'A choisir'}
               </dd>
             </div>
-            <div>
-              <dt>Total produits</dt>
-              <dd>{formatCurrency(productsTotal)}</dd>
-            </div>
           </dl>
-          <p className="shipping-note">
-            Le tarif final du transport est confirmé apres verification du poids
-            ou du volume.
-          </p>
 
-          <p className="checkout-card__lead">
-            Remplissez ces 4 infos et validez. La commande part directement en confirmation.
+          <p className="shipping-note">
+            Le cout final du transit est confirme apres verification du poids ou du volume.
           </p>
 
           <form className="checkout-form checkout-form--simple" onSubmit={handleSubmit}>
             <fieldset className="shipping-selector">
-              <legend>Choix transport</legend>
+              <legend>Choix transit</legend>
               <div className="shipping-options">
                 {SHIPPING_OPTIONS.map((option) => (
                   <label
@@ -338,9 +331,7 @@ export const CartPage = () => {
                       name="shipping-option"
                       value={option.id}
                       checked={selectedShippingId === option.id}
-                      onChange={(event) =>
-                        setSelectedShippingId(event.target.value)
-                      }
+                      onChange={(event) => setSelectedShippingId(event.target.value)}
                     />
                     <span>
                       <strong>{option.name}</strong>
@@ -351,56 +342,41 @@ export const CartPage = () => {
                   </label>
                 ))}
               </div>
-              <p className="shipping-note">
-                L'activité est basee entre la Chine (sourcing) et le Senegal
-                (vente locale).
-              </p>
             </fieldset>
 
-            <div className="checkout-customer-grid">
-              <label>
-                Nom complet
-                <input
-                  required
-                  placeholder="Ex: Aissatou Ndiaye"
-                  value={formState.customerName}
-                  onChange={(event) =>
-                    setFormState((state) => ({
-                      ...state,
-                      customerName: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-
-              <label>
-                Téléphone
-                <input
-                  required
-                  placeholder="Ex: 77 000 00 00"
-                  value={formState.customerPhone}
-                  onChange={(event) =>
-                    setFormState((state) => ({
-                      ...state,
-                      customerPhone: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-            </div>
-
             <label>
-              Quartier / Adresse
+              Nom complet
               <input
                 required
-                placeholder="Ex: Parcelles Assainies Unite 10"
+                value={formState.customerName}
+                onChange={(event) =>
+                  setFormState((state) => ({ ...state, customerName: event.target.value }))
+                }
+                placeholder="Ex: Aissatou Ndiaye"
+              />
+            </label>
+
+            <label>
+              Telephone
+              <input
+                required
+                value={formState.customerPhone}
+                onChange={(event) =>
+                  setFormState((state) => ({ ...state, customerPhone: event.target.value }))
+                }
+                placeholder="Ex: 77 000 00 00"
+              />
+            </label>
+
+            <label>
+              Adresse / Quartier
+              <input
+                required
                 value={formState.line1}
                 onChange={(event) =>
-                  setFormState((state) => ({
-                    ...state,
-                    line1: event.target.value,
-                  }))
+                  setFormState((state) => ({ ...state, line1: event.target.value }))
                 }
+                placeholder="Ex: Parcelles Assainies U10"
               />
             </label>
 
@@ -408,40 +384,30 @@ export const CartPage = () => {
               Ville
               <input
                 required
-                placeholder="Ex: Dakar"
                 value={formState.city}
                 onChange={(event) =>
-                  setFormState((state) => ({
-                    ...state,
-                    city: event.target.value,
-                  }))
+                  setFormState((state) => ({ ...state, city: event.target.value }))
                 }
+                placeholder="Ex: Dakar"
               />
             </label>
 
             <label>
               Note (optionnel)
               <input
-                placeholder="Ex: Disponible apres 17h"
-                value={formState.line2}
+                value={formState.note}
                 onChange={(event) =>
-                  setFormState((state) => ({
-                    ...state,
-                    line2: event.target.value,
-                  }))
+                  setFormState((state) => ({ ...state, note: event.target.value }))
                 }
+                placeholder="Ex: Appeler avant livraison"
               />
             </label>
 
             {error ? <p className="error-text">{error}</p> : null}
             {successMessage ? <p className="success-text">{successMessage}</p> : null}
 
-            <button
-              className="button"
-              type="submit"
-              disabled={loading || items.length === 0}
-            >
-              {loading ? 'Validation...' : 'Finaliser la commande'}
+            <button className="button" type="submit" disabled={loading || !items.length}>
+              {loading ? 'Validation...' : 'Valider la commande'}
             </button>
           </form>
         </aside>

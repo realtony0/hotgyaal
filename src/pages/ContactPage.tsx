@@ -4,25 +4,47 @@ export const ContactPage = () => {
   const { settings } = useStoreSettings()
 
   return (
-    <section className="section static-page">
+    <section className="section contact-v2">
       <div className="container">
-        <h1>Contact</h1>
-        <p>{settings.contact_intro}</p>
+        <div className="contact-v2__hero">
+          <p className="eyebrow">Contact HOTGYAAL</p>
+          <h1>Parlons de votre commande</h1>
+          <p>{settings.contact_intro}</p>
+        </div>
 
-        <div className="static-page__grid">
-          <article className="static-page__card">
-            <h2>Service client</h2>
-            <p>Contact direct: {settings.contact_phone}</p>
-            <p>Email: {settings.contact_email}</p>
-            <p>Disponibilite: {settings.contact_hours}</p>
+        <div className="contact-v2__grid">
+          <article className="contact-v2__card">
+            <h2>Coordonnees</h2>
+            <p>
+              <strong>Telephone</strong>
+              <span>{settings.contact_phone}</span>
+            </p>
+            <p>
+              <strong>Email</strong>
+              <span>{settings.contact_email}</span>
+            </p>
+            <p>
+              <strong>Disponibilite</strong>
+              <span>{settings.contact_hours}</span>
+            </p>
           </article>
 
-          <article className="static-page__card">
-            <h2>Zone de vente</h2>
-            <p>Dakar et Senegal</p>
+          <article className="contact-v2__card">
+            <h2>Zone commerciale</h2>
             <p>
-              Selection produits et achats en Chine, distribution locale au
-              Senegal.
+              Vente locale au Senegal, avec sourcing import-export depuis la Chine.
+            </p>
+            <p>
+              Le catalogue est mis a jour regulierement selon les arrivages et les
+              tendances.
+            </p>
+          </article>
+
+          <article className="contact-v2__card">
+            <h2>Service client</h2>
+            <p>
+              Pour une commande en cours, indiquez votre nom et votre numero lors de
+              votre prise de contact pour un traitement plus rapide.
             </p>
           </article>
         </div>
