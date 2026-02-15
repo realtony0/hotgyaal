@@ -217,10 +217,10 @@ export const HomePage = () => {
         <div className="container import-band">
           <div>
             <p className="eyebrow">Import Export</p>
-            <h2>Une selection pensee pour le Senegal</h2>
+            <h2>Une selection pensee pour tous les styles</h2>
             <p>
-              HOTGYAAL source ses produits en Chine puis organise la distribution locale
-              avec un suivi commande clair.
+              HOTGYAAL source ses produits en Chine puis organise la diffusion des
+              collections avec un suivi commande clair.
             </p>
           </div>
           <div className="import-band__grid">

@@ -52,7 +52,7 @@ const getSeoContent = (pathname: string) => {
     return {
       title: 'HOTGYAAL | Boutique',
       description:
-        'Catalogue HOTGYAAL: mode, accessoires, beauté et plus, en XOF pour le marché sénégalais.',
+        'Catalogue HOTGYAAL: mode, accessoires, beaute et plus.',
     }
   }
 
@@ -75,14 +75,14 @@ const getSeoContent = (pathname: string) => {
   if (pathname.startsWith('/contact')) {
     return {
       title: 'HOTGYAAL | Contact',
-      description: 'Contact HOTGYAAL, vente au Sénégal, sourcing depuis la Chine.',
+      description: 'Contact HOTGYAAL, sourcing et import-export.',
     }
   }
 
   return {
     title: 'HOTGYAAL | Fashion & Lifestyle',
     description:
-      'HOTGYAAL propose mode, accessoires, beauté et lifestyle pour le marché sénégalais, avec sourcing direct en Chine.',
+      'HOTGYAAL propose mode, accessoires, beaute et lifestyle, avec sourcing direct en Chine.',
   }
 }
 
@@ -573,11 +573,6 @@ export const Layout = ({ children }: LayoutProps) => {
               <span>{settings.contact_phone}</span>
               <span>{settings.contact_email}</span>
             </div>
-            <div className="footer-trust-list">
-              <span>Nouveautes quotidiennes</span>
-              <span>Commande via panier</span>
-              <span>Service client rapide</span>
-            </div>
           </div>
 
           <div className="footer-columns">
@@ -597,7 +592,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <p className="footer-title">Infos boutique</p>
               <p className="footer-note">Selection mode, beaute et accessoires</p>
               <p className="footer-note">Produits importes depuis la Chine</p>
-              <p className="footer-note">Disponibles pour le marche senegalais</p>
+              <p className="footer-note">Disponibles selon les collections en cours</p>
             </div>
           </div>
         </div>

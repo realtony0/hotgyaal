@@ -4,8 +4,7 @@ export const TermsPage = () => {
       <div className="container">
         <h1>Conditions de vente</h1>
         <p>
-          Ces conditions encadrent les commandes HOTGYAAL pour la vente au
-          Senegal.
+          Ces conditions encadrent les commandes HOTGYAAL.
         </p>
 
         <div className="faq-list">
@@ -30,8 +29,7 @@ export const TermsPage = () => {
           <article className="static-page__card">
             <h2>Approvisionnement</h2>
             <p>
-              HOTGYAAL opere en import-export: sourcing et achats en Chine,
-              commercialisation au Senegal.
+              HOTGYAAL opere en import-export: sourcing et achats en Chine.
             </p>
           </article>
 

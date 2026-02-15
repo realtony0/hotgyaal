@@ -32,7 +32,7 @@ export const ContactPage = () => {
           <article className="contact-v2__card">
             <h2>Zone commerciale</h2>
             <p>
-              Vente locale au Senegal, avec sourcing import-export depuis la Chine.
+              Collections proposees avec un sourcing import-export depuis la Chine.
             </p>
             <p>
               Le catalogue est mis a jour regulierement selon les arrivages et les

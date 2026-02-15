@@ -185,7 +185,7 @@ export const CartPage = () => {
           line2,
           city: formState.city.trim() || 'Dakar',
           postal_code: '00000',
-          country: 'Senegal',
+          country: 'International',
         },
         items,
       })

@@ -7,18 +7,18 @@ const MISSING_TABLE_SCHEMA_CACHE_CODE = 'PGRST205'
 
 export const DEFAULT_STORE_SETTINGS: StoreSettingsPayload = {
   announcement_text:
-    'Mode femme & accessoires · Vente au Senegal · Importation directe Chine',
+    'Mode femme & accessoires · Importation directe Chine',
   hero_eyebrow: 'Mode Femme & Accessoires',
-  hero_title: 'Vetements, accessoires et chaussures tendance au Senegal.',
+  hero_title: 'Vetements, accessoires et chaussures tendance.',
   hero_description:
-    'HOTGYAAL met en avant la mode feminine: robes, tops, ensembles, sacs, bijoux et chaussures. Les produits sont selectionnes en Chine puis proposes au marche senegalais.',
+    'HOTGYAAL met en avant la mode feminine: robes, tops, ensembles, sacs, bijoux et chaussures. Les produits sont selectionnes en Chine puis proposes en collection.',
   contact_intro:
-    "HOTGYAAL vend au Senegal et source ses collections en Chine via une activite d'import-export.",
+    "HOTGYAAL source ses collections en Chine via une activite d'import-export.",
   contact_phone: '+221 77 493 14 74',
   contact_email: 'sophieniang344@gmail.com',
   contact_hours: 'lundi a samedi, 9h - 19h',
   footer_blurb:
-    'Specialiste mode femme, accessoires et chaussures. Vente au Senegal avec importation directe depuis la Chine.',
+    'Specialiste mode femme, accessoires et chaussures. Importation directe depuis la Chine.',
   order_chat_number: '774931474',
 }
 

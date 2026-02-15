@@ -17,7 +17,7 @@ const FAQ_ITEMS = [
   {
     question: 'Ou est basee HOTGYAAL ?',
     answer:
-      "La vente est au Senegal. Le sourcing et les achats fournisseurs sont geres en Chine dans une logique d'import-export.",
+      "HOTGYAAL fonctionne en import-export. Le sourcing et les achats fournisseurs sont geres en Chine.",
   },
   {
     question: 'Comment contacter le service client ?',
