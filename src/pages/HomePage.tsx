@@ -89,29 +89,6 @@ export const HomePage = () => {
     [categories],
   )
 
-  const heroKpis = useMemo(
-    () => [
-      {
-        label: 'Articles actifs',
-        value: sortedProducts.length ? `${sortedProducts.length}+` : '0',
-      },
-      {
-        label: 'Categories',
-        value: String(activeCategories.length || categories.length || 0),
-      },
-      {
-        label: 'Best sellers',
-        value: String(bestSellers.length || 0),
-      },
-    ],
-    [
-      activeCategories.length,
-      bestSellers.length,
-      categories.length,
-      sortedProducts.length,
-    ],
-  )
-
   const heroTickerItems = useMemo(() => {
     const names = activeCategories.map((category) => category.name)
     return names.length
@@ -134,15 +111,6 @@ export const HomePage = () => {
               <Link href="/boutique?categorie=V%C3%AAtements%20Femmes" className="button button--ghost">
                 Voir la mode femme
               </Link>
-            </div>
-
-            <div className="hero-v2__kpis">
-              {heroKpis.map((kpi) => (
-                <article key={kpi.label} className="hero-v2__kpi">
-                  <strong>{kpi.value}</strong>
-                  <span>{kpi.label}</span>
-                </article>
-              ))}
             </div>
           </div>
 

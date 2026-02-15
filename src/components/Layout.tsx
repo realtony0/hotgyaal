@@ -1,10 +1,22 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
+import { isSupabaseConfigured } from '../lib/supabase'
+import { listProducts } from '../services/products'
+import type { Product } from '../types'
+import { groupProductsForStorefront } from '../utils/products'
 
 const primaryLinks = [
   { href: '/', label: 'Accueil' },
@@ -16,6 +28,11 @@ const primaryLinks = [
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://hotgyaal.com'
 
 const stripQuery = (path: string) => path.split('?')[0] || '/'
+const readSearchFromPath = (path: string) => {
+  const query = path.split('?')[1] ?? ''
+  const params = new URLSearchParams(query)
+  return (params.get('q') || params.get('recherche') || '').trim()
+}
 
 const isPathActive = (href: string, asPath: string) => {
   if (href.includes('?')) {
@@ -73,6 +90,14 @@ type LayoutProps = {
   children: ReactNode
 }
 
+type SearchSuggestion = {
+  key: string
+  label: string
+  hint: string
+  href: string
+  kind: 'product' | 'category' | 'query'
+}
+
 export const Layout = ({ children }: LayoutProps) => {
   const router = useRouter()
   const { settings } = useStoreSettings()
@@ -80,11 +105,14 @@ export const Layout = ({ children }: LayoutProps) => {
   const { totalItems } = useCart()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [searchInput, setSearchInput] = useState(() => {
-    const query = (router.asPath || '').split('?')[1] ?? ''
-    const params = new URLSearchParams(query)
-    return (params.get('q') || '').trim()
-  })
+  const [searchInput, setSearchInput] = useState(() =>
+    readSearchFromPath(router.asPath || '/'),
+  )
+  const [searchableProducts, setSearchableProducts] = useState<Product[]>([])
+  const [isSearchSuggestionsOpen, setIsSearchSuggestionsOpen] = useState(false)
+  const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
+  const desktopSearchRef = useRef<HTMLDivElement | null>(null)
+  const mobileSearchRef = useRef<HTMLDivElement | null>(null)
 
   const seo = useMemo(() => {
     const currentPath = stripQuery(router.asPath || '/')
@@ -101,15 +129,263 @@ export const Layout = ({ children }: LayoutProps) => {
     [categories],
   )
 
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      return
+    }
+
+    let ignore = false
+
+    const loadSearchableProducts = async () => {
+      try {
+        const data = await listProducts()
+        if (ignore) {
+          return
+        }
+
+        setSearchableProducts(groupProductsForStorefront(data).slice(0, 200))
+      } catch {
+        if (!ignore) {
+          setSearchableProducts([])
+        }
+      }
+    }
+
+    void loadSearchableProducts()
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null
+
+      const isInDesktopSearch = Boolean(
+        target && desktopSearchRef.current?.contains(target),
+      )
+      const isInMobileSearch = Boolean(
+        target && mobileSearchRef.current?.contains(target),
+      )
+
+      if (!isInDesktopSearch && !isInMobileSearch) {
+        setIsSearchSuggestionsOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncSearchFromRoute = (nextUrl: string) => {
+      setSearchInput(readSearchFromPath(nextUrl))
+      setIsSearchSuggestionsOpen(false)
+    }
+
+    router.events.on('routeChangeComplete', syncSearchFromRoute)
+    return () => {
+      router.events.off('routeChangeComplete', syncSearchFromRoute)
+    }
+  }, [router.events])
+
+  const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
+    const query = searchInput.trim().toLowerCase()
+
+    const baseProductSuggestions = searchableProducts.map((product) => {
+      const name = product.name.toLowerCase()
+      const mainCategory = product.main_category.toLowerCase()
+      const subCategory = product.sub_category.toLowerCase()
+      const description = product.description.toLowerCase()
+
+      if (!query) {
+        return { product, score: 0 }
+      }
+
+      let score = 0
+
+      if (name === query) {
+        score += 140
+      }
+
+      if (name.startsWith(query)) {
+        score += 110
+      }
+
+      if (name.includes(query)) {
+        score += 80
+      }
+
+      if (mainCategory.includes(query) || subCategory.includes(query)) {
+        score += 45
+      }
+
+      if (description.includes(query)) {
+        score += 20
+      }
+
+      return { product, score }
+    })
+
+    if (!query) {
+      const trendingProducts = baseProductSuggestions
+        .slice(0, 4)
+        .map(({ product }) => ({
+          key: `product-${product.id}`,
+          label: product.name,
+          hint: `${product.main_category} · ${product.sub_category}`,
+          href: `/produit/${product.slug}`,
+          kind: 'product' as const,
+        }))
+
+      const trendingCategories = activeCategories.slice(0, 3).map((category) => ({
+        key: `category-${category.id}`,
+        label: category.name,
+        hint: 'Categorie',
+        href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
+        kind: 'category' as const,
+      }))
+
+      return [...trendingProducts, ...trendingCategories]
+    }
+
+    const productMatches = baseProductSuggestions
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6)
+      .map(({ product }) => ({
+        key: `product-${product.id}`,
+        label: product.name,
+        hint: `${product.main_category} · ${product.sub_category}`,
+        href: `/produit/${product.slug}`,
+        kind: 'product' as const,
+      }))
+
+    const categoryMatches = activeCategories
+      .filter((category) => category.name.toLowerCase().includes(query))
+      .slice(0, 3)
+      .map((category) => ({
+        key: `category-${category.id}`,
+        label: category.name,
+        hint: 'Categorie',
+        href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
+        kind: 'category' as const,
+      }))
+
+    const combined = [...productMatches, ...categoryMatches]
+
+    if (combined.length === 0) {
+      return [
+        {
+          key: `query-${query}`,
+          label: `Rechercher "${searchInput.trim()}"`,
+          hint: 'Voir les resultats',
+          href: `/boutique?q=${encodeURIComponent(searchInput.trim())}`,
+          kind: 'query',
+        },
+      ]
+    }
+
+    return combined
+  }, [activeCategories, searchInput, searchableProducts])
+
+  const activeSuggestionIndex =
+    highlightedSuggestionIndex < searchSuggestions.length
+      ? highlightedSuggestionIndex
+      : 0
+
+  const selectSearchSuggestion = (suggestion: SearchSuggestion) => {
+    setSearchInput(suggestion.label)
+    setIsSearchSuggestionsOpen(false)
+    setIsMenuOpen(false)
+    void router.push(suggestion.href)
+  }
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!searchSuggestions.length) {
+      return
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setIsSearchSuggestionsOpen(true)
+      setHighlightedSuggestionIndex((current) =>
+        current + 1 >= searchSuggestions.length ? 0 : current + 1,
+      )
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setIsSearchSuggestionsOpen(true)
+      setHighlightedSuggestionIndex((current) =>
+        current - 1 < 0 ? searchSuggestions.length - 1 : current - 1,
+      )
+      return
+    }
+
+    if (event.key === 'Escape') {
+      setIsSearchSuggestionsOpen(false)
+      return
+    }
+
+    if (event.key === 'Enter' && isSearchSuggestionsOpen) {
+      const selected = searchSuggestions[activeSuggestionIndex]
+      if (selected) {
+        event.preventDefault()
+        selectSearchSuggestion(selected)
+      }
+    }
+  }
+
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const query = searchInput.trim()
     setIsMenuOpen(false)
+    setIsSearchSuggestionsOpen(false)
+
+    if (!query) {
+      void router.push('/boutique')
+      return
+    }
 
     void router.push({
       pathname: '/boutique',
       query: query ? { q: query } : {},
     })
+  }
+
+  const showSearchSuggestions =
+    isSearchSuggestionsOpen && searchSuggestions.length > 0
+
+  const renderSearchSuggestions = () => {
+    if (!showSearchSuggestions) {
+      return null
+    }
+
+    return (
+      <div className="smart-search__panel">
+        {searchSuggestions.map((suggestion, index) => (
+          <button
+            key={suggestion.key}
+            type="button"
+            className={
+              index === activeSuggestionIndex
+                ? 'smart-search__item is-active'
+                : 'smart-search__item'
+            }
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => selectSearchSuggestion(suggestion)}
+          >
+            <span>{suggestion.label}</span>
+            <small>{suggestion.hint}</small>
+          </button>
+        ))}
+      </div>
+    )
   }
 
   return (
@@ -146,16 +422,25 @@ export const Layout = ({ children }: LayoutProps) => {
               </button>
 
               <nav className={`nav ${isMenuOpen ? 'is-open' : ''}`}>
-                <form className="nav-search" onSubmit={submitSearch}>
-                  <input
-                    type="search"
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder="Rechercher un article"
-                    aria-label="Rechercher un article"
-                  />
-                  <button type="submit">OK</button>
-                </form>
+                <div className="nav-search-wrap smart-search" ref={mobileSearchRef}>
+                  <form className="nav-search" onSubmit={submitSearch}>
+                    <input
+                      type="search"
+                      value={searchInput}
+                      onChange={(event) => {
+                        setSearchInput(event.target.value)
+                        setIsSearchSuggestionsOpen(true)
+                        setHighlightedSuggestionIndex(0)
+                      }}
+                      onFocus={() => setIsSearchSuggestionsOpen(true)}
+                      onKeyDown={handleSearchKeyDown}
+                      placeholder="Rechercher un article"
+                      aria-label="Rechercher un article"
+                    />
+                    <button type="submit">OK</button>
+                  </form>
+                  {renderSearchSuggestions()}
+                </div>
 
                 {primaryLinks.map((link) => (
                   <Link
@@ -179,16 +464,25 @@ export const Layout = ({ children }: LayoutProps) => {
             </Link>
 
             <div className="header__actions">
-              <form className="header-search" onSubmit={submitSearch}>
-                <input
-                  type="search"
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Recherche"
-                  aria-label="Recherche"
-                />
-                <button type="submit">Chercher</button>
-              </form>
+              <div className="header-search-wrap smart-search" ref={desktopSearchRef}>
+                <form className="header-search" onSubmit={submitSearch}>
+                  <input
+                    type="search"
+                    value={searchInput}
+                    onChange={(event) => {
+                      setSearchInput(event.target.value)
+                      setIsSearchSuggestionsOpen(true)
+                      setHighlightedSuggestionIndex(0)
+                    }}
+                    onFocus={() => setIsSearchSuggestionsOpen(true)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Recherche intelligente"
+                    aria-label="Recherche"
+                  />
+                  <button type="submit">Chercher</button>
+                </form>
+                {renderSearchSuggestions()}
+              </div>
 
               <Link
                 href="/panier"

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/router'
 import { ProductCard } from '../components/ProductCard'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
@@ -6,6 +7,7 @@ import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
 
 export const ShopPage = () => {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
   const [errorProducts, setErrorProducts] = useState<string | null>(null)
@@ -46,17 +48,61 @@ export const ShopPage = () => {
     [products],
   )
 
+  const searchQuery = useMemo(() => {
+    if (!router.isReady) {
+      return ''
+    }
+
+    const value = router.query.q || router.query.recherche
+    return Array.isArray(value) ? (value[0] ?? '').trim() : (value ?? '').trim()
+  }, [router.isReady, router.query])
+
+  const categoryQuery = useMemo(() => {
+    if (!router.isReady) {
+      return ''
+    }
+
+    const value = router.query.categorie
+    return Array.isArray(value) ? (value[0] ?? '').trim() : (value ?? '').trim()
+  }, [router.isReady, router.query])
+
+  const visibleProducts = useMemo(() => {
+    const query = searchQuery.toLowerCase()
+    const category = categoryQuery.toLowerCase()
+
+    return sortedProducts.filter((product) => {
+      const matchesCategory = !category || product.main_category.toLowerCase() === category
+      if (!matchesCategory) {
+        return false
+      }
+
+      if (!query) {
+        return true
+      }
+
+      return [
+        product.name,
+        product.description,
+        product.main_category,
+        product.sub_category,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    })
+  }, [categoryQuery, searchQuery, sortedProducts])
+
   return (
     <section className="section shop-v2">
       <div className="container">
         {loadingProducts ? <p>Chargement des produits...</p> : null}
         {!loadingProducts && errorProducts ? <p className="error-text">{errorProducts}</p> : null}
-        {!loadingProducts && !errorProducts && sortedProducts.length === 0 ? (
+        {!loadingProducts && !errorProducts && visibleProducts.length === 0 ? (
           <p>Aucun produit disponible.</p>
         ) : null}
 
         <div className="product-grid stagger-grid">
-          {sortedProducts.map((product) => (
+          {visibleProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
