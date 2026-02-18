@@ -92,9 +92,24 @@ export const ShopPage = () => {
     })
   }, [categoryQuery, searchQuery, sortedProducts])
 
+  const resultsLabel = loadingProducts
+    ? 'Chargement des articles...'
+    : `${visibleProducts.length} article${visibleProducts.length > 1 ? 's' : ''}`
+
   return (
     <section className="section shop-v2">
       <div className="container">
+        <div className="shop-mobile-summary" role="status" aria-live="polite">
+          <p>{resultsLabel}</p>
+
+          {searchQuery || categoryQuery ? (
+            <div className="shop-mobile-summary__chips">
+              {categoryQuery ? <span className="active-pill">{categoryQuery}</span> : null}
+              {searchQuery ? <span className="active-pill">Recherche: {searchQuery}</span> : null}
+            </div>
+          ) : null}
+        </div>
+
         {loadingProducts ? <p>Chargement des produits...</p> : null}
         {!loadingProducts && errorProducts ? <p className="error-text">{errorProducts}</p> : null}
         {!loadingProducts && !errorProducts && visibleProducts.length === 0 ? (

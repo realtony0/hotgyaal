@@ -46,11 +46,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
           {product.compare_price ? <span>{formatCurrency(product.compare_price)}</span> : null}
         </div>
 
-        {savings > 0 ? (
-          <p className="product-card-v2__save">Economie {formatCurrency(savings)}</p>
-        ) : (
-          <p className="product-card-v2__save">Prix catalogue HOTGYAAL</p>
-        )}
+        {savings > 0 ? <p className="product-card-v2__save">Economie {formatCurrency(savings)}</p> : null}
 
         <div className="product-card-v2__foot">
           <span>{product.sizes.length ? `${product.sizes.length} tailles` : 'Taille unique'}</span>
