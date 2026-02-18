@@ -165,9 +165,7 @@ export const Layout = ({ children }: LayoutProps) => {
       const isInDesktopSearch = Boolean(
         target && desktopSearchRef.current?.contains(target),
       )
-      const isInMobileSearch = Boolean(
-        target && mobileSearchRef.current?.contains(target),
-      )
+      const isInMobileSearch = Boolean(target && mobileSearchRef.current?.contains(target))
 
       if (!isInDesktopSearch && !isInMobileSearch) {
         setIsSearchSuggestionsOpen(false)
@@ -422,26 +420,6 @@ export const Layout = ({ children }: LayoutProps) => {
               </button>
 
               <nav className={`nav ${isMenuOpen ? 'is-open' : ''}`}>
-                <div className="nav-search-wrap smart-search" ref={mobileSearchRef}>
-                  <form className="nav-search" onSubmit={submitSearch}>
-                    <input
-                      type="search"
-                      value={searchInput}
-                      onChange={(event) => {
-                        setSearchInput(event.target.value)
-                        setIsSearchSuggestionsOpen(true)
-                        setHighlightedSuggestionIndex(0)
-                      }}
-                      onFocus={() => setIsSearchSuggestionsOpen(true)}
-                      onKeyDown={handleSearchKeyDown}
-                      placeholder="Rechercher un article"
-                      aria-label="Rechercher un article"
-                    />
-                    <button type="submit">OK</button>
-                  </form>
-                  {renderSearchSuggestions()}
-                </div>
-
                 {primaryLinks.map((link) => (
                   <Link
                     key={link.href}
@@ -496,6 +474,28 @@ export const Layout = ({ children }: LayoutProps) => {
                 Panier
                 {totalItems > 0 ? <span className="cart-count">{totalItems}</span> : null}
               </Link>
+            </div>
+          </div>
+
+          <div className="container header__mobile-search" ref={mobileSearchRef}>
+            <div className="mobile-search-bar smart-search">
+              <form className="mobile-search-bar__form" onSubmit={submitSearch}>
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => {
+                    setSearchInput(event.target.value)
+                    setIsSearchSuggestionsOpen(true)
+                    setHighlightedSuggestionIndex(0)
+                  }}
+                  onFocus={() => setIsSearchSuggestionsOpen(true)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Rechercher produits, categories..."
+                  aria-label="Recherche mobile"
+                />
+                <button type="submit">OK</button>
+              </form>
+              {renderSearchSuggestions()}
             </div>
           </div>
         </div>
