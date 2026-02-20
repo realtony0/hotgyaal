@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
 import { isSupabaseConfigured } from '../lib/supabase'
-import { getProductBySlug, listProducts } from '../services/products'
+import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
 import { getProductVariantMeta, getRelatedVariants } from '../utils/products'
@@ -47,15 +47,17 @@ export const ProductPage = () => {
 
       try {
         setLoading(true)
-        const data = await getProductBySlug(slug)
+        const allProducts = await listProducts()
+        const normalizedSlug = slug.trim().toLowerCase()
+        const data =
+          allProducts.find((item) => item.slug.trim().toLowerCase() === normalizedSlug) ??
+          null
 
         if (!data) {
           setProduct(null)
           setError('Produit introuvable.')
           return
         }
-
-        const allProducts = await listProducts()
 
         setProduct(data)
         setVariants(getRelatedVariants(allProducts, data))

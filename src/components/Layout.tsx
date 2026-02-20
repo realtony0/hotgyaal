@@ -25,6 +25,13 @@ const primaryLinks = [
   { href: '/faq', label: 'FAQ' },
 ]
 
+const mobileLinks = [
+  { href: '/', label: 'Accueil', icon: 'home' },
+  { href: '/boutique', label: 'Shop', icon: 'shop' },
+  { href: '/panier', label: 'Panier', icon: 'cart' },
+  { href: '/contact', label: 'Contact', icon: 'contact' },
+] as const
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://hotgyaal.com'
 
 const stripQuery = (path: string) => path.split('?')[0] || '/'
@@ -98,6 +105,45 @@ type SearchSuggestion = {
   kind: 'product' | 'category' | 'query'
 }
 
+type MobileIconName = (typeof mobileLinks)[number]['icon']
+
+const MobileNavIcon = ({ icon }: { icon: MobileIconName }) => {
+  if (icon === 'home') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+        <path d="m3 10.4 9-7.2 9 7.2" />
+        <path d="M6.4 9.8V20h11.2V9.8" />
+      </svg>
+    )
+  }
+
+  if (icon === 'shop') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+        <path d="M4.5 7.2h15l-1.2 12.3H5.7z" />
+        <path d="M8.2 7.2a3.8 3.8 0 0 1 7.6 0" />
+      </svg>
+    )
+  }
+
+  if (icon === 'cart') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+        <path d="M3.2 4.5h2.6l2.2 10.4h9.6l2-7.1H7.2" />
+        <circle cx="10.4" cy="18.5" r="1.35" />
+        <circle cx="17.1" cy="18.5" r="1.35" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M4.2 19.1a7.8 7.8 0 1 1 15.6 0" />
+      <circle cx="12" cy="8.1" r="3.1" />
+    </svg>
+  )
+}
+
 export const Layout = ({ children }: LayoutProps) => {
   const router = useRouter()
   const { settings } = useStoreSettings()
@@ -109,6 +155,7 @@ export const Layout = ({ children }: LayoutProps) => {
     readSearchFromPath(router.asPath || '/'),
   )
   const [searchableProducts, setSearchableProducts] = useState<Product[]>([])
+  const [shouldLoadSearchData, setShouldLoadSearchData] = useState(false)
   const [isSearchSuggestionsOpen, setIsSearchSuggestionsOpen] = useState(false)
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
   const desktopSearchRef = useRef<HTMLDivElement | null>(null)
@@ -130,7 +177,7 @@ export const Layout = ({ children }: LayoutProps) => {
   )
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !shouldLoadSearchData) {
       return
     }
 
@@ -156,7 +203,7 @@ export const Layout = ({ children }: LayoutProps) => {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [shouldLoadSearchData])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -448,11 +495,19 @@ export const Layout = ({ children }: LayoutProps) => {
                     type="search"
                     value={searchInput}
                     onChange={(event) => {
+                      if (!shouldLoadSearchData) {
+                        setShouldLoadSearchData(true)
+                      }
                       setSearchInput(event.target.value)
                       setIsSearchSuggestionsOpen(true)
                       setHighlightedSuggestionIndex(0)
                     }}
-                    onFocus={() => setIsSearchSuggestionsOpen(true)}
+                    onFocus={() => {
+                      if (!shouldLoadSearchData) {
+                        setShouldLoadSearchData(true)
+                      }
+                      setIsSearchSuggestionsOpen(true)
+                    }}
                     onKeyDown={handleSearchKeyDown}
                     placeholder="Recherche intelligente"
                     aria-label="Recherche"
@@ -484,11 +539,19 @@ export const Layout = ({ children }: LayoutProps) => {
                   type="search"
                   value={searchInput}
                   onChange={(event) => {
+                    if (!shouldLoadSearchData) {
+                      setShouldLoadSearchData(true)
+                    }
                     setSearchInput(event.target.value)
                     setIsSearchSuggestionsOpen(true)
                     setHighlightedSuggestionIndex(0)
                   }}
-                  onFocus={() => setIsSearchSuggestionsOpen(true)}
+                  onFocus={() => {
+                    if (!shouldLoadSearchData) {
+                      setShouldLoadSearchData(true)
+                    }
+                    setIsSearchSuggestionsOpen(true)
+                  }}
                   onKeyDown={handleSearchKeyDown}
                   placeholder="Rechercher produits, categories..."
                   aria-label="Recherche mobile"
@@ -521,47 +584,29 @@ export const Layout = ({ children }: LayoutProps) => {
       <main>{children}</main>
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
-        <Link
-          href="/"
-          className={
-            isPathActive('/', router.asPath || '/')
-              ? 'mobile-nav-link is-active'
-              : 'mobile-nav-link'
-          }
-        >
-          <span>Accueil</span>
-        </Link>
-        <Link
-          href="/boutique"
-          className={
-            isPathActive('/boutique', router.asPath || '/')
-              ? 'mobile-nav-link is-active'
-              : 'mobile-nav-link'
-          }
-        >
-          <span>Shop</span>
-        </Link>
-        <Link
-          href="/panier"
-          className={
-            isPathActive('/panier', router.asPath || '/')
-              ? 'mobile-nav-link is-active'
-              : 'mobile-nav-link'
-          }
-        >
-          <span>Panier</span>
-          {totalItems > 0 ? <strong className="mobile-nav-count">{totalItems}</strong> : null}
-        </Link>
-        <Link
-          href="/contact"
-          className={
-            isPathActive('/contact', router.asPath || '/')
-              ? 'mobile-nav-link is-active'
-              : 'mobile-nav-link'
-          }
-        >
-          <span>Contact</span>
-        </Link>
+        {mobileLinks.map((link) => {
+          const isActive = isPathActive(link.href, router.asPath || '/')
+          const isCart = link.href === '/panier'
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <span className="mobile-nav-link__icon-wrap">
+                <span className="mobile-nav-link__icon" aria-hidden="true">
+                  <MobileNavIcon icon={link.icon} />
+                </span>
+                {isCart && totalItems > 0 ? (
+                  <strong className="mobile-nav-count">{totalItems}</strong>
+                ) : null}
+              </span>
+              <span className="mobile-nav-link__label">{link.label}</span>
+            </Link>
+          )
+        })}
       </nav>
 
       <footer className="footer">
