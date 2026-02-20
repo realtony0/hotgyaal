@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
@@ -243,16 +242,12 @@ export const CartPage = () => {
             <div className="cart-items">
               {items.map((item) => (
                 <article className="cart-item" key={item.line_id}>
-                  <Image
+                  <img
                     src={
                       item.product.image_url ||
                       'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=500&q=80'
                     }
                     alt={item.product.name}
-                    width={192}
-                    height={244}
-                    quality={68}
-                    sizes="(max-width: 760px) 82px, 96px"
                     loading="lazy"
                   />
 

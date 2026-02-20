@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { ProductCard } from '../components/ProductCard'
@@ -117,26 +116,10 @@ export const HomePage = () => {
 
           <div className="hero-v2__visual">
             <div className="hero-v2__tile hero-v2__tile--large">
-              <Image
-                src={heroImages[0]}
-                alt="Collection HOTGYAAL"
-                width={1000}
-                height={1250}
-                quality={76}
-                sizes="(max-width: 760px) 100vw, 50vw"
-                priority
-              />
+              <img src={heroImages[0]} alt="Collection HOTGYAAL" fetchPriority="high" />
             </div>
             <div className="hero-v2__tile hero-v2__tile--small">
-              <Image
-                src={heroImages[1]}
-                alt="Nouveautes HOTGYAAL"
-                width={900}
-                height={1080}
-                quality={72}
-                sizes="(max-width: 1040px) 100vw, 33vw"
-                loading="lazy"
-              />
+              <img src={heroImages[1]} alt="Nouveautes HOTGYAAL" fetchPriority="high" />
             </div>
           </div>
         </div>
@@ -208,16 +191,12 @@ export const HomePage = () => {
                 className="category-card-v2"
               >
                 <div className="category-card-v2__media">
-                  <Image
+                  <img
                     src={
                       category.image_url ||
                       'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80'
                     }
                     alt={category.name}
-                    width={900}
-                    height={560}
-                    quality={72}
-                    sizes="(max-width: 760px) 100vw, (max-width: 1040px) 50vw, 33vw"
                     loading="lazy"
                   />
                 </div>
@@ -274,16 +253,12 @@ export const HomePage = () => {
           <div className="editor-grid">
             {editorChoice.map((product) => (
               <Link key={product.id} href={`/produit/${product.slug}`} className="editor-card">
-                <Image
+                <img
                   src={
                     product.image_url ||
                     'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=900&q=80'
                   }
                   alt={product.name}
-                  width={900}
-                  height={1200}
-                  quality={72}
-                  sizes="(max-width: 760px) 100vw, (max-width: 1040px) 50vw, 25vw"
                   loading="lazy"
                 />
                 <div className="editor-card__overlay">
