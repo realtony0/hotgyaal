@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { formatCurrency } from '../utils/format'
 import type { Product } from '../types'
@@ -15,14 +16,17 @@ export const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <article className="product-card-v2">
       <Link href={`/produit/${product.slug}`} className="product-card-v2__media">
-        <img
+        <Image
           src={
             product.image_url ||
             'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80'
           }
           alt={product.name}
+          width={900}
+          height={1125}
+          quality={72}
+          sizes="(max-width: 760px) 50vw, (max-width: 1040px) 33vw, 25vw"
           loading="lazy"
-          decoding="async"
         />
 
         <div className="product-card-v2__badges">

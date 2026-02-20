@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
@@ -156,12 +157,17 @@ export const ProductPage = () => {
       <div className="container product-detail-v2">
         <div className="product-detail-v2__gallery">
           <div className="product-detail-v2__cover">
-            <img
+            <Image
               src={
                 activeImage ||
                 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80'
               }
               alt={product.name}
+              width={1000}
+              height={1250}
+              quality={76}
+              sizes="(max-width: 1040px) 100vw, 55vw"
+              priority
             />
           </div>
 
@@ -178,7 +184,15 @@ export const ProductPage = () => {
                   }
                   onClick={() => setActiveImage(imageUrl)}
                 >
-                  <img src={imageUrl} alt={product.name} loading="lazy" />
+                  <Image
+                    src={imageUrl}
+                    alt={product.name}
+                    width={180}
+                    height={180}
+                    quality={68}
+                    sizes="(max-width: 760px) 22vw, 10vw"
+                    loading="lazy"
+                  />
                 </button>
               ))}
             </div>
