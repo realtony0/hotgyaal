@@ -176,11 +176,11 @@ export const HomePage = () => {
             />
 
             <div className="hero-convert__overlay">
-              <p className="hero-convert__kicker">Collection du moment</p>
+              <p className="hero-convert__kicker">NEW IN</p>
               <h1>{activeHero.title}</h1>
 
               <Link href={activeHero.href} className="button hero-convert__cta">
-                Commander maintenant
+                Shop now
               </Link>
             </div>
           </article>
@@ -227,14 +227,14 @@ export const HomePage = () => {
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Nouveautes</p>
+              <p className="eyebrow">New in</p>
               <h2>Les pièces à prendre vite</h2>
             </div>
             <Link href="/boutique">Tout voir</Link>
           </div>
 
           {loading ? (
-            <div className="product-grid">
+            <div className="product-grid product-grid--home-compact">
               {loadingSkeletons.map((key) => (
                 <div key={key} className="product-skeleton-card" aria-hidden="true" />
               ))}
@@ -247,7 +247,7 @@ export const HomePage = () => {
           ) : null}
 
           {!loading && !error ? (
-            <div className="product-grid stagger-grid">
+            <div className="product-grid product-grid--home-compact stagger-grid">
               {newDrops.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -267,7 +267,7 @@ export const HomePage = () => {
           </div>
 
           {loading ? (
-            <div className="product-grid">
+            <div className="product-grid product-grid--home-compact">
               {loadingSkeletons.map((key) => (
                 <div key={`best-${key}`} className="product-skeleton-card" aria-hidden="true" />
               ))}
@@ -275,7 +275,7 @@ export const HomePage = () => {
           ) : null}
 
           {!loading && !error ? (
-            <div className="product-grid stagger-grid">
+            <div className="product-grid product-grid--home-compact stagger-grid">
               {bestSellers.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
