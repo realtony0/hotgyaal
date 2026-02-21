@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { ProductCard } from '../components/ProductCard'
-import { QUICK_CATEGORY_LINKS } from '../constants/quickCategories'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -32,6 +31,17 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
 ]
 
 const HERO_ROTATION_MS = 4200
+
+const FALLBACK_QUICK_CATEGORIES = [
+  { label: 'Vetements Femmes', href: '/boutique?categorie=V%C3%AAtements%20Femmes' },
+  { label: 'Bijoux & Accessoires', href: '/boutique?categorie=Bijoux%20%26%20Accessoires' },
+  { label: 'Chaussures', href: '/boutique?categorie=Chaussures' },
+  { label: 'Telephone & Accessoires', href: '/boutique?categorie=T%C3%A9l%C3%A9phone%20%26%20Accessoires' },
+  { label: 'Sacs & Bagages', href: '/boutique?categorie=Sacs%20%26%20Bagages' },
+  { label: 'Sous-vetements & Pyjamas', href: '/boutique?categorie=Sous-v%C3%AAtements%20%26%20Pyjamas' },
+  { label: 'Home & Living', href: '/boutique?categorie=Home%20%26%20Living' },
+  { label: 'Beaute', href: '/boutique?categorie=Beaut%C3%A9' },
+]
 
 const clampWords = (value: string, limit: number) => {
   const words = value.trim().split(/\s+/)
@@ -136,6 +146,18 @@ export const HomePage = () => {
     [categories],
   )
 
+  const quickCategories = useMemo(() => {
+    const fromStore = categories
+      .filter((category) => category.is_active)
+      .slice(0, 8)
+      .map((category) => ({
+        label: category.name,
+        href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
+      }))
+
+    return fromStore.length ? fromStore : FALLBACK_QUICK_CATEGORIES
+  }, [categories])
+
   const loadingSkeletons = useMemo(
     () => Array.from({ length: 6 }, (_, index) => `skeleton-${index}`),
     [],
@@ -192,11 +214,8 @@ export const HomePage = () => {
           </div>
 
           <div className="quick-categories" role="navigation" aria-label="Acces rapide categories">
-            {QUICK_CATEGORY_LINKS.map((item) => (
+            {quickCategories.map((item) => (
               <Link key={item.label} href={item.href} className="quick-category-pill">
-                <span className="quick-category-pill__icon" aria-hidden="true">
-                  {item.icon}
-                </span>
                 <span>{item.label}</span>
               </Link>
             ))}

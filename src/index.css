@@ -37,6 +37,7 @@ body,
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -186,10 +187,16 @@ textarea:focus {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 main {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .site-header {
@@ -2617,7 +2624,7 @@ body::after {
   }
 
   .product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 0.65rem;
   }
 
@@ -3700,7 +3707,7 @@ body::after {
   }
 
   .product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 0.58rem;
   }
 
@@ -3781,6 +3788,17 @@ body::after {
 
   .account-card__actions .button {
     width: 100%;
+  }
+
+  .app-shell--shopaliwa,
+  .app-shell--shopaliwa .section,
+  .app-shell--shopaliwa .container,
+  .app-shell--shopaliwa .product-grid,
+  .app-shell--shopaliwa .product-card-v2,
+  .app-shell--shopaliwa .product-card-v2--commerce {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
   }
 }
 
