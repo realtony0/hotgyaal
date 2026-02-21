@@ -2437,7 +2437,7 @@ body::after {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   main {
     padding-bottom: 5.2rem;
   }
@@ -3602,7 +3602,7 @@ body::after {
   }
 }
 
-@media (min-width: 761px) {
+@media (min-width: 1025px) {
   .app-shell--shopaliwa .header__content--shopaliwa {
     grid-template-columns: 56px auto auto;
   }
@@ -3648,7 +3648,7 @@ body::after {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .app-shell--shopaliwa main {
     padding-bottom: 5.4rem;
   }
@@ -3790,5 +3790,23 @@ body::after {
 
   .account-card__actions .button {
     width: 100%;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .app-shell--shopaliwa main {
+    padding-bottom: 5.4rem;
+  }
+
+  .app-shell--shopaliwa .header__content--shopaliwa {
+    min-height: 64px;
+  }
+
+  .app-shell--shopaliwa .brand {
+    justify-self: center;
+  }
+
+  .mobile-bottom-nav {
+    display: grid;
   }
 }
