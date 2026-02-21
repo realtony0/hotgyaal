@@ -4,7 +4,7 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react'
 import Head from 'next/head'
@@ -22,14 +22,15 @@ const primaryLinks = [
   { href: '/', label: 'Accueil' },
   { href: '/boutique', label: 'Catalogue' },
   { href: '/contact', label: 'Contact' },
+  { href: '/compte', label: 'Compte' },
   { href: '/faq', label: 'FAQ' },
 ]
 
 const mobileLinks = [
   { href: '/', label: 'Accueil', icon: 'home' },
-  { href: '/boutique', label: 'Shop', icon: 'shop' },
+  { href: '/boutique', label: 'Categories', icon: 'categories' },
   { href: '/panier', label: 'Panier', icon: 'cart' },
-  { href: '/contact', label: 'Contact', icon: 'contact' },
+  { href: '/compte', label: 'Compte', icon: 'account' },
 ] as const
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://hotgyaal.com'
@@ -39,6 +40,23 @@ const readSearchFromPath = (path: string) => {
   const query = path.split('?')[1] ?? ''
   const params = new URLSearchParams(query)
   return (params.get('q') || params.get('recherche') || '').trim()
+}
+
+const normalizeChatNumber = (rawNumber: string) => {
+  const digits = rawNumber.replace(/\D/g, '')
+
+  if (digits.length === 9 && digits.startsWith('7')) {
+    return `221${digits}`
+  }
+
+  if (digits.length === 10 && digits.startsWith('0')) {
+    const local = digits.slice(1)
+    if (local.length === 9 && local.startsWith('7')) {
+      return `221${local}`
+    }
+  }
+
+  return digits
 }
 
 const isPathActive = (href: string, asPath: string) => {
@@ -58,8 +76,7 @@ const getSeoContent = (pathname: string) => {
   if (pathname.startsWith('/boutique')) {
     return {
       title: 'HOTGYAAL | Boutique',
-      description:
-        'Catalogue HOTGYAAL: mode, accessoires, beaute et plus.',
+      description: 'Catalogue HOTGYAAL: mode, accessoires, beaute et plus.',
     }
   }
 
@@ -86,6 +103,13 @@ const getSeoContent = (pathname: string) => {
     }
   }
 
+  if (pathname.startsWith('/compte')) {
+    return {
+      title: 'HOTGYAAL | Compte',
+      description: 'Suivez vos commandes HOTGYAAL et votre espace client.',
+    }
+  }
+
   return {
     title: 'HOTGYAAL | Fashion & Lifestyle',
     description:
@@ -107,6 +131,46 @@ type SearchSuggestion = {
 
 type MobileIconName = (typeof mobileLinks)[number]['icon']
 
+type HeaderIconName = 'menu' | 'search' | 'cart' | 'close'
+
+const HeaderIcon = ({ icon }: { icon: HeaderIconName }) => {
+  if (icon === 'menu') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+        <path d="M4 7.2h16" />
+        <path d="M4 12h16" />
+        <path d="M4 16.8h16" />
+      </svg>
+    )
+  }
+
+  if (icon === 'search') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+        <circle cx="11" cy="11" r="6.4" />
+        <path d="m16 16 4.2 4.2" />
+      </svg>
+    )
+  }
+
+  if (icon === 'cart') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+        <path d="M3.2 4.5h2.6l2.2 10.4h9.6l2-7.1H7.2" />
+        <circle cx="10.4" cy="18.5" r="1.35" />
+        <circle cx="17.1" cy="18.5" r="1.35" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </svg>
+  )
+}
+
 const MobileNavIcon = ({ icon }: { icon: MobileIconName }) => {
   if (icon === 'home') {
     return (
@@ -117,11 +181,13 @@ const MobileNavIcon = ({ icon }: { icon: MobileIconName }) => {
     )
   }
 
-  if (icon === 'shop') {
+  if (icon === 'categories') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-        <path d="M4.5 7.2h15l-1.2 12.3H5.7z" />
-        <path d="M8.2 7.2a3.8 3.8 0 0 1 7.6 0" />
+        <rect x="3.8" y="4" width="6.5" height="6.5" rx="1.4" />
+        <rect x="13.7" y="4" width="6.5" height="6.5" rx="1.4" />
+        <rect x="3.8" y="13.7" width="6.5" height="6.5" rx="1.4" />
+        <rect x="13.7" y="13.7" width="6.5" height="6.5" rx="1.4" />
       </svg>
     )
   }
@@ -151,29 +217,39 @@ export const Layout = ({ children }: LayoutProps) => {
   const { totalItems } = useCart()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchInput, setSearchInput] = useState(() =>
     readSearchFromPath(router.asPath || '/'),
   )
   const [searchableProducts, setSearchableProducts] = useState<Product[]>([])
   const [shouldLoadSearchData, setShouldLoadSearchData] = useState(false)
-  const [isSearchSuggestionsOpen, setIsSearchSuggestionsOpen] = useState(false)
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
-  const desktopSearchRef = useRef<HTMLDivElement | null>(null)
-  const mobileSearchRef = useRef<HTMLDivElement | null>(null)
+
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
 
   const seo = useMemo(() => {
     const currentPath = stripQuery(router.asPath || '/')
     return getSeoContent(currentPath)
   }, [router.asPath])
 
-  const pageUrl = useMemo(
-    () => `${SITE_URL}${router.asPath || '/'}`,
-    [router.asPath],
-  )
+  const pageUrl = useMemo(() => `${SITE_URL}${router.asPath || '/'}`, [router.asPath])
 
   const activeCategories = useMemo(
     () => categories.filter((category) => category.is_active).slice(0, 8),
     [categories],
+  )
+
+  const orderChatNumber = useMemo(
+    () =>
+      normalizeChatNumber(
+        settings.order_chat_number ||
+          (
+            process.env.NEXT_PUBLIC_ORDER_CHAT_NUMBER ??
+            process.env.VITE_ORDER_CHAT_NUMBER ??
+            '221770000000'
+          ).toString(),
+      ),
+    [settings.order_chat_number],
   )
 
   useEffect(() => {
@@ -206,36 +282,50 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [shouldLoadSearchData])
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node | null
+    const syncFromRoute = (nextUrl: string) => {
+      setSearchInput(readSearchFromPath(nextUrl))
+      setIsMenuOpen(false)
+      setIsSearchOpen(false)
+    }
 
-      const isInDesktopSearch = Boolean(
-        target && desktopSearchRef.current?.contains(target),
-      )
-      const isInMobileSearch = Boolean(target && mobileSearchRef.current?.contains(target))
+    router.events.on('routeChangeComplete', syncFromRoute)
+    return () => {
+      router.events.off('routeChangeComplete', syncFromRoute)
+    }
+  }, [router.events])
 
-      if (!isInDesktopSearch && !isInMobileSearch) {
-        setIsSearchSuggestionsOpen(false)
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      mobileSearchInputRef.current?.focus()
+    }, 40)
+
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSearchOpen(false)
       }
     }
 
-    window.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      window.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
+    window.addEventListener('keydown', handleEscape)
 
-  useEffect(() => {
-    const syncSearchFromRoute = (nextUrl: string) => {
-      setSearchInput(readSearchFromPath(nextUrl))
-      setIsSearchSuggestionsOpen(false)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [isSearchOpen])
+
+  const openSearch = () => {
+    if (!shouldLoadSearchData) {
+      setShouldLoadSearchData(true)
     }
 
-    router.events.on('routeChangeComplete', syncSearchFromRoute)
-    return () => {
-      router.events.off('routeChangeComplete', syncSearchFromRoute)
-    }
-  }, [router.events])
+    setIsMenuOpen(false)
+    setIsSearchOpen(true)
+    setHighlightedSuggestionIndex(0)
+  }
 
   const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
     const query = searchInput.trim().toLowerCase()
@@ -276,17 +366,15 @@ export const Layout = ({ children }: LayoutProps) => {
     })
 
     if (!query) {
-      const trendingProducts = baseProductSuggestions
-        .slice(0, 4)
-        .map(({ product }) => ({
-          key: `product-${product.id}`,
-          label: product.name,
-          hint: `${product.main_category} · ${product.sub_category}`,
-          href: `/produit/${product.slug}`,
-          kind: 'product' as const,
-        }))
+      const trendingProducts = baseProductSuggestions.slice(0, 8).map(({ product }) => ({
+        key: `product-${product.id}`,
+        label: product.name,
+        hint: `${product.main_category} · ${product.sub_category}`,
+        href: `/produit/${product.slug}`,
+        kind: 'product' as const,
+      }))
 
-      const trendingCategories = activeCategories.slice(0, 3).map((category) => ({
+      const trendingCategories = activeCategories.slice(0, 4).map((category) => ({
         key: `category-${category.id}`,
         label: category.name,
         hint: 'Categorie',
@@ -300,7 +388,7 @@ export const Layout = ({ children }: LayoutProps) => {
     const productMatches = baseProductSuggestions
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 6)
+      .slice(0, 7)
       .map(({ product }) => ({
         key: `product-${product.id}`,
         label: product.name,
@@ -344,19 +432,18 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const selectSearchSuggestion = (suggestion: SearchSuggestion) => {
     setSearchInput(suggestion.label)
-    setIsSearchSuggestionsOpen(false)
+    setIsSearchOpen(false)
     setIsMenuOpen(false)
     void router.push(suggestion.href)
   }
 
-  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (!searchSuggestions.length) {
       return
     }
 
     if (event.key === 'ArrowDown') {
       event.preventDefault()
-      setIsSearchSuggestionsOpen(true)
       setHighlightedSuggestionIndex((current) =>
         current + 1 >= searchSuggestions.length ? 0 : current + 1,
       )
@@ -365,19 +452,13 @@ export const Layout = ({ children }: LayoutProps) => {
 
     if (event.key === 'ArrowUp') {
       event.preventDefault()
-      setIsSearchSuggestionsOpen(true)
       setHighlightedSuggestionIndex((current) =>
         current - 1 < 0 ? searchSuggestions.length - 1 : current - 1,
       )
       return
     }
 
-    if (event.key === 'Escape') {
-      setIsSearchSuggestionsOpen(false)
-      return
-    }
-
-    if (event.key === 'Enter' && isSearchSuggestionsOpen) {
+    if (event.key === 'Enter') {
       const selected = searchSuggestions[activeSuggestionIndex]
       if (selected) {
         event.preventDefault()
@@ -389,52 +470,22 @@ export const Layout = ({ children }: LayoutProps) => {
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const query = searchInput.trim()
-    setIsMenuOpen(false)
-    setIsSearchSuggestionsOpen(false)
 
     if (!query) {
+      setIsSearchOpen(false)
       void router.push('/boutique')
       return
     }
 
+    setIsSearchOpen(false)
     void router.push({
       pathname: '/boutique',
       query: query ? { q: query } : {},
     })
   }
 
-  const showSearchSuggestions =
-    isSearchSuggestionsOpen && searchSuggestions.length > 0
-
-  const renderSearchSuggestions = () => {
-    if (!showSearchSuggestions) {
-      return null
-    }
-
-    return (
-      <div className="smart-search__panel">
-        {searchSuggestions.map((suggestion, index) => (
-          <button
-            key={suggestion.key}
-            type="button"
-            className={
-              index === activeSuggestionIndex
-                ? 'smart-search__item is-active'
-                : 'smart-search__item'
-            }
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => selectSearchSuggestion(suggestion)}
-          >
-            <span>{suggestion.label}</span>
-            <small>{suggestion.hint}</small>
-          </button>
-        ))}
-      </div>
-    )
-  }
-
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell--shopaliwa">
       <Head>
         <title>{seo.title}</title>
         <meta name="description" content={seo.description} />
@@ -448,25 +499,25 @@ export const Layout = ({ children }: LayoutProps) => {
 
       <header className="site-header">
         <div className="announcement-bar">
-          <div className="container announcement-bar__content">
-            {settings.announcement_text}
-          </div>
+          <div className="container announcement-bar__content">{settings.announcement_text}</div>
         </div>
 
         <div className="header header--primary">
-          <div className="container header__content">
+          <div className="container header__content header__content--shopaliwa">
             <div className="header__left">
               <button
                 type="button"
-                className="menu-toggle"
+                className="icon-button icon-button--header menu-toggle"
                 onClick={() => setIsMenuOpen((current) => !current)}
                 aria-label="Ouvrir le menu"
                 aria-expanded={isMenuOpen}
               >
-                Menu
+                <span className="icon-button__glyph" aria-hidden="true">
+                  <HeaderIcon icon="menu" />
+                </span>
               </button>
 
-              <nav className={`nav ${isMenuOpen ? 'is-open' : ''}`}>
+              <nav className={`nav nav--drawer ${isMenuOpen ? 'is-open' : ''}`}>
                 {primaryLinks.map((link) => (
                   <Link
                     key={link.href}
@@ -488,54 +539,44 @@ export const Layout = ({ children }: LayoutProps) => {
               HOTGYAAL
             </Link>
 
-            <div className="header__actions">
-              <div className="header-search-wrap smart-search" ref={desktopSearchRef}>
-                <form className="header-search" onSubmit={submitSearch}>
-                  <input
-                    type="search"
-                    value={searchInput}
-                    onChange={(event) => {
-                      if (!shouldLoadSearchData) {
-                        setShouldLoadSearchData(true)
-                      }
-                      setSearchInput(event.target.value)
-                      setIsSearchSuggestionsOpen(true)
-                      setHighlightedSuggestionIndex(0)
-                    }}
-                    onFocus={() => {
-                      if (!shouldLoadSearchData) {
-                        setShouldLoadSearchData(true)
-                      }
-                      setIsSearchSuggestionsOpen(true)
-                    }}
-                    onKeyDown={handleSearchKeyDown}
-                    placeholder="Recherche intelligente"
-                    aria-label="Recherche"
-                  />
-                  <button type="submit">Chercher</button>
-                </form>
-                {renderSearchSuggestions()}
-              </div>
+            <div className="header__actions header__actions--shopaliwa">
+              <button
+                type="button"
+                className="icon-button icon-button--header"
+                onClick={openSearch}
+                aria-label="Ouvrir la recherche"
+              >
+                <span className="icon-button__glyph" aria-hidden="true">
+                  <HeaderIcon icon="search" />
+                </span>
+              </button>
 
               <Link
                 href="/panier"
                 className={
                   isPathActive('/panier', router.asPath || '/')
-                    ? 'nav-link is-active'
-                    : 'nav-link'
+                    ? 'icon-button icon-button--header is-active'
+                    : 'icon-button icon-button--header'
                 }
-                onClick={() => setIsMenuOpen(false)}
+                aria-label="Voir le panier"
               >
-                Panier
+                <span className="icon-button__glyph" aria-hidden="true">
+                  <HeaderIcon icon="cart" />
+                </span>
                 {totalItems > 0 ? <span className="cart-count">{totalItems}</span> : null}
               </Link>
             </div>
           </div>
+        </div>
+      </header>
 
-          <div className="container header__mobile-search" ref={mobileSearchRef}>
-            <div className="mobile-search-bar smart-search">
-              <form className="mobile-search-bar__form" onSubmit={submitSearch}>
+      {isSearchOpen ? (
+        <div className="search-overlay" role="dialog" aria-modal="true" aria-label="Recherche produits">
+          <div className="search-overlay__panel container">
+            <form className="search-overlay__form" onSubmit={submitSearch}>
+              <div className="search-overlay__field">
                 <input
+                  ref={mobileSearchInputRef}
                   type="search"
                   value={searchInput}
                   onChange={(event) => {
@@ -543,45 +584,64 @@ export const Layout = ({ children }: LayoutProps) => {
                       setShouldLoadSearchData(true)
                     }
                     setSearchInput(event.target.value)
-                    setIsSearchSuggestionsOpen(true)
                     setHighlightedSuggestionIndex(0)
                   }}
-                  onFocus={() => {
-                    if (!shouldLoadSearchData) {
-                      setShouldLoadSearchData(true)
-                    }
-                    setIsSearchSuggestionsOpen(true)
-                  }}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder="Rechercher produits, categories..."
-                  aria-label="Recherche mobile"
+                  placeholder="Recherche premium: robes, sacs, bijoux..."
+                  aria-label="Recherche premium"
                 />
-                <button type="submit">OK</button>
-              </form>
-              {renderSearchSuggestions()}
+              </div>
+
+              <button
+                type="button"
+                className="icon-button icon-button--close"
+                onClick={() => setIsSearchOpen(false)}
+                aria-label="Fermer la recherche"
+              >
+                <span className="icon-button__glyph" aria-hidden="true">
+                  <HeaderIcon icon="close" />
+                </span>
+              </button>
+            </form>
+
+            <p className="search-overlay__hint">Produits populaires et suggestions intelligentes</p>
+
+            <div className="search-overlay__results">
+              {searchSuggestions.map((suggestion, index) => (
+                <button
+                  key={suggestion.key}
+                  type="button"
+                  className={
+                    index === activeSuggestionIndex
+                      ? 'search-overlay__item is-active'
+                      : 'search-overlay__item'
+                  }
+                  onClick={() => selectSearchSuggestion(suggestion)}
+                >
+                  <span>{suggestion.label}</span>
+                  <small>{suggestion.hint}</small>
+                </button>
+              ))}
             </div>
           </div>
         </div>
-
-        <div className="header header--secondary">
-          <div className="container category-strip" role="navigation" aria-label="Catégories">
-            <Link href="/boutique" className="category-strip__link">
-              Tout voir
-            </Link>
-            {activeCategories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/boutique?categorie=${encodeURIComponent(category.name)}`}
-                className="category-strip__link"
-              >
-                {category.name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </header>
+      ) : null}
 
       <main>{children}</main>
+
+      <a
+        className="floating-whatsapp"
+        href={`https://wa.me/${orderChatNumber}?text=${encodeURIComponent('Bonjour HOTGYAAL, je veux commander.')}`}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Contacter HOTGYAAL"
+      >
+        <span className="floating-whatsapp__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.03 3.23a8.68 8.68 0 0 0-7.5 13.05L3 21l4.85-1.52a8.68 8.68 0 1 0 4.18-16.25Zm0 15.72a7.01 7.01 0 0 1-3.58-.98l-.26-.15-2.88.9.9-2.8-.16-.28a7.02 7.02 0 1 1 5.98 3.31Zm3.85-5.26c-.21-.1-1.23-.61-1.42-.68-.19-.07-.33-.1-.47.1-.14.2-.54.68-.66.82-.12.14-.25.16-.46.05-.21-.1-.88-.32-1.67-1.02-.61-.54-1.03-1.21-1.15-1.41-.12-.2-.01-.31.09-.41.09-.09.21-.24.31-.35.1-.12.14-.2.21-.34.07-.14.03-.26-.02-.36-.05-.1-.47-1.13-.64-1.55-.17-.4-.35-.35-.47-.36h-.4c-.14 0-.36.05-.55.26-.19.21-.72.7-.72 1.71s.74 1.99.84 2.13c.1.14 1.45 2.22 3.52 3.11.49.21.88.34 1.17.44.49.16.94.14 1.29.09.39-.06 1.23-.5 1.4-.98.17-.48.17-.89.12-.98-.05-.09-.19-.14-.4-.24Z" />
+          </svg>
+        </span>
+      </a>
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
         {mobileLinks.map((link) => {
@@ -599,9 +659,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 <span className="mobile-nav-link__icon" aria-hidden="true">
                   <MobileNavIcon icon={link.icon} />
                 </span>
-                {isCart && totalItems > 0 ? (
-                  <strong className="mobile-nav-count">{totalItems}</strong>
-                ) : null}
+                {isCart && totalItems > 0 ? <strong className="mobile-nav-count">{totalItems}</strong> : null}
               </span>
               <span className="mobile-nav-link__label">{link.label}</span>
             </Link>
@@ -626,6 +684,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <nav className="footer-links">
                 <Link href="/">Accueil</Link>
                 <Link href="/boutique">Catalogue</Link>
+                <Link href="/compte">Compte</Link>
                 <Link href="/contact">Contact</Link>
                 <Link href="/faq">FAQ</Link>
                 <Link href="/cgv-retours">Conditions</Link>
@@ -637,13 +696,13 @@ export const Layout = ({ children }: LayoutProps) => {
               <p className="footer-title">Infos boutique</p>
               <p className="footer-note">Selection mode, beaute et accessoires</p>
               <p className="footer-note">Produits importes depuis la Chine</p>
-              <p className="footer-note">Disponibles selon les collections en cours</p>
+              <p className="footer-note">Paiement a la livraison disponible</p>
             </div>
           </div>
         </div>
 
         <div className="container footer__bottom">
-          <p>© {new Date().getFullYear()} HOTGYAAL - Tous droits réservés.</p>
+          <p>© {new Date().getFullYear()} HOTGYAAL - Tous droits reserves.</p>
         </div>
       </footer>
     </div>

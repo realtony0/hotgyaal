@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { ProductCard } from '../components/ProductCard'
+import { QUICK_CATEGORY_LINKS } from '../constants/quickCategories'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -8,10 +9,34 @@ import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
 
-const FALLBACK_HERO_MEDIA = [
-  '/products/chrysalide-nocturne-01.webp',
-  '/products/cape-celeste-01.webp',
+type HeroSlide = {
+  id: string
+  title: string
+  imageUrl: string
+  href: string
+}
+
+const FALLBACK_HERO_SLIDES: HeroSlide[] = [
+  {
+    id: 'fallback-1',
+    title: 'Looks femme qui marquent vite',
+    imageUrl: '/products/chrysalide-nocturne-01.webp',
+    href: '/boutique',
+  },
+  {
+    id: 'fallback-2',
+    title: 'Tenues premium prêtes à commander',
+    imageUrl: '/products/cape-celeste-01.webp',
+    href: '/boutique?categorie=V%C3%AAtements%20Femmes',
+  },
 ]
+
+const HERO_ROTATION_MS = 4200
+
+const clampWords = (value: string, limit: number) => {
+  const words = value.trim().split(/\s+/)
+  return words.slice(0, limit).join(' ')
+}
 
 export const HomePage = () => {
   const { settings } = useStoreSettings()
@@ -19,6 +44,7 @@ export const HomePage = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0)
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -61,73 +87,120 @@ export const HomePage = () => {
     [sortedProducts],
   )
 
-  const bestSellers = useMemo(
-    () => sortedProducts.filter((product) => product.is_best_seller).slice(0, 8),
-    [sortedProducts],
-  )
+  const bestSellers = useMemo(() => {
+    const list = sortedProducts.filter((product) => product.is_best_seller)
+    return (list.length ? list : sortedProducts).slice(0, 8)
+  }, [sortedProducts])
 
-  const editorChoice = useMemo(
-    () => (newDrops.length ? newDrops : sortedProducts).slice(0, 4),
-    [newDrops, sortedProducts],
-  )
+  const heroSlides = useMemo<HeroSlide[]>(() => {
+    const fromProducts = (newDrops.length ? newDrops : sortedProducts)
+      .slice(0, 4)
+      .map((product) => ({
+        id: product.id,
+        title: clampWords(product.name, 6),
+        imageUrl:
+          product.image_url ||
+          'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80',
+        href: `/produit/${product.slug}`,
+      }))
 
-  const heroImages = useMemo(() => {
-    const fromCatalog = sortedProducts
-      .map((product) => product.image_url)
-      .filter((value): value is string => Boolean(value))
-      .slice(0, 2)
+    return fromProducts.length ? fromProducts : FALLBACK_HERO_SLIDES
+  }, [newDrops, sortedProducts])
 
-    if (fromCatalog.length === 2) {
-      return fromCatalog
+  useEffect(() => {
+    if (heroSlides.length <= 1) {
+      return
     }
 
-    return FALLBACK_HERO_MEDIA
-  }, [sortedProducts])
+    const timer = window.setInterval(() => {
+      setActiveHeroIndex((current) => (current + 1) % heroSlides.length)
+    }, HERO_ROTATION_MS)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [heroSlides.length])
+
+  useEffect(() => {
+    if (activeHeroIndex < heroSlides.length) {
+      return
+    }
+
+    setActiveHeroIndex(0)
+  }, [activeHeroIndex, heroSlides.length])
+
+  const activeHero = heroSlides[activeHeroIndex] ?? heroSlides[0]
 
   const activeCategories = useMemo(
     () => categories.filter((category) => category.is_active).slice(0, 6),
     [categories],
   )
 
-  const heroTickerItems = useMemo(() => {
-    const names = activeCategories.map((category) => category.name)
-    return names.length
-      ? names
-      : ['Mode Femme', 'Accessoires', 'Chaussures', 'Beaute']
-  }, [activeCategories])
+  const loadingSkeletons = useMemo(
+    () => Array.from({ length: 6 }, (_, index) => `skeleton-${index}`),
+    [],
+  )
 
   return (
-    <div className="home-v2">
-      <section className="hero-v2">
-        <div className="container hero-v2__grid">
-          <div className="hero-v2__content">
-            <p className="hero-v2__eyebrow">{settings.hero_eyebrow}</p>
-            <h1>{settings.hero_title}</h1>
-            <p>{settings.hero_description}</p>
-            <div className="hero-v2__actions">
-              <Link href="/boutique" className="button">
-                Explorer le catalogue
-              </Link>
-              <Link href="/boutique?categorie=V%C3%AAtements%20Femmes" className="button button--ghost">
-                Voir la mode femme
+    <div className="home-v2 home-v2--mobile-first">
+      <section className="hero-convert">
+        <div className="container">
+          <article className="hero-convert__slide" key={activeHero.id}>
+            <img
+              src={activeHero.imageUrl}
+              alt={activeHero.title}
+              loading="eager"
+              fetchPriority="high"
+            />
+
+            <div className="hero-convert__overlay">
+              <p className="hero-convert__kicker">Collection du moment</p>
+              <h1>{activeHero.title}</h1>
+
+              <Link href={activeHero.href} className="button hero-convert__cta">
+                Commander maintenant
               </Link>
             </div>
+          </article>
+
+          <div className="hero-convert__dots" aria-label="Navigation du slider">
+            {heroSlides.map((slide, index) => (
+              <button
+                key={slide.id}
+                type="button"
+                className={index === activeHeroIndex ? 'is-active' : ''}
+                onClick={() => setActiveHeroIndex(index)}
+                aria-label={`Aller au slide ${index + 1}`}
+              />
+            ))}
           </div>
 
-          <div className="hero-v2__visual">
-            <div className="hero-v2__tile hero-v2__tile--large">
-              <img src={heroImages[0]} alt="Collection HOTGYAAL" fetchPriority="high" />
-            </div>
-            <div className="hero-v2__tile hero-v2__tile--small">
-              <img src={heroImages[1]} alt="Nouveautes HOTGYAAL" fetchPriority="high" />
-            </div>
+          <div className="hero-convert__meta">
+            <span>Livraison partout au Sénégal 🇸🇳</span>
+            <span>Paiement à la livraison disponible</span>
           </div>
         </div>
+      </section>
 
-        <div className="container hero-v2__ticker" aria-label="Categories populaires">
-          {[...heroTickerItems, ...heroTickerItems].map((item, index) => (
-            <span key={`${item}-${index}`}>{item}</span>
-          ))}
+      <section className="section section--quick-categories">
+        <div className="container">
+          <div className="section__header section__header--v2">
+            <div>
+              <p className="eyebrow">Shop rapide</p>
+              <h2>Choisissez votre univers</h2>
+            </div>
+          </div>
+
+          <div className="quick-categories" role="navigation" aria-label="Acces rapide categories">
+            {QUICK_CATEGORY_LINKS.map((item) => (
+              <Link key={item.label} href={item.href} className="quick-category-pill">
+                <span className="quick-category-pill__icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -135,23 +208,32 @@ export const HomePage = () => {
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Nouveautes</p>
-              <h2>Les dernieres arrives</h2>
+              <p className="eyebrow">Nouveautés 🔥</p>
+              <h2>Les pièces à prendre vite</h2>
             </div>
             <Link href="/boutique">Tout voir</Link>
           </div>
 
-          {loading ? <p>Chargement des nouveautés...</p> : null}
+          {loading ? (
+            <div className="product-grid">
+              {loadingSkeletons.map((key) => (
+                <div key={key} className="product-skeleton-card" aria-hidden="true" />
+              ))}
+            </div>
+          ) : null}
+
           {!loading && error ? <p className="error-text">{error}</p> : null}
           {!loading && !error && newDrops.length === 0 ? (
             <p>Aucun produit disponible pour le moment.</p>
           ) : null}
 
-          <div className="product-grid stagger-grid">
-            {newDrops.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {!loading && !error ? (
+            <div className="product-grid stagger-grid">
+              {newDrops.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -159,28 +241,38 @@ export const HomePage = () => {
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Selection HOTGYAAL</p>
-              <h2>Best sellers</h2>
+              <p className="eyebrow">Tendance au Sénégal</p>
+              <h2>Les plus commandés à Dakar</h2>
             </div>
-            <Link href="/boutique">Voir toute la boutique</Link>
+            <Link href="/boutique">Voir la boutique</Link>
           </div>
 
-          <div className="product-grid stagger-grid">
-            {bestSellers.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="product-grid">
+              {loadingSkeletons.map((key) => (
+                <div key={`best-${key}`} className="product-skeleton-card" aria-hidden="true" />
+              ))}
+            </div>
+          ) : null}
+
+          {!loading && !error ? (
+            <div className="product-grid stagger-grid">
+              {bestSellers.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <section className="section section-v2">
+      <section className="section section-v2 section-v2--categories">
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Univers</p>
-              <h2>Shoppez par categorie</h2>
+              <p className="eyebrow">Categories</p>
+              <h2>Decouvrez nos univers</h2>
             </div>
-            <Link href="/boutique">Acceder au catalogue</Link>
+            <Link href="/boutique">Catalogue complet</Link>
           </div>
 
           <div className="category-grid-v2">
@@ -203,7 +295,6 @@ export const HomePage = () => {
                 <div className="category-card-v2__body">
                   <h3>{category.name}</h3>
                   <p>{category.description}</p>
-                  <span>{category.subcategories.slice(0, 2).join(' · ')}</span>
                 </div>
               </Link>
             ))}
@@ -213,61 +304,9 @@ export const HomePage = () => {
         </div>
       </section>
 
-      <section className="section section-v2 section-v2--import">
-        <div className="container import-band">
-          <div>
-            <p className="eyebrow">Import Export</p>
-            <h2>Une selection pensee pour tous les styles</h2>
-            <p>
-              HOTGYAAL source ses produits en Chine puis organise la diffusion des
-              collections avec un suivi commande clair.
-            </p>
-          </div>
-          <div className="import-band__grid">
-            <article>
-              <strong>01</strong>
-              <p>Sourcing des tendances et verification qualite.</p>
-            </article>
-            <article>
-              <strong>02</strong>
-              <p>Mise en catalogue avec photos, tailles et couleurs.</p>
-            </article>
-            <article>
-              <strong>03</strong>
-              <p>Validation panier puis confirmation de commande.</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section className="section section-v2">
-        <div className="container">
-          <div className="section__header section__header--v2">
-            <div>
-              <p className="eyebrow">Lookbook</p>
-              <h2>Selection editoriale</h2>
-            </div>
-            <Link href="/boutique">Acheter maintenant</Link>
-          </div>
-
-          <div className="editor-grid">
-            {editorChoice.map((product) => (
-              <Link key={product.id} href={`/produit/${product.slug}`} className="editor-card">
-                <img
-                  src={
-                    product.image_url ||
-                    'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=900&q=80'
-                  }
-                  alt={product.name}
-                  loading="lazy"
-                />
-                <div className="editor-card__overlay">
-                  <p>{product.main_category}</p>
-                  <h3>{product.name}</h3>
-                </div>
-              </Link>
-            ))}
-          </div>
+      <section className="section section-v2 section-v2--service-note">
+        <div className="container service-note-band">
+          <p>{settings.hero_description}</p>
         </div>
       </section>
     </div>

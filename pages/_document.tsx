@@ -6,7 +6,11 @@ export default function Document() {
       <Head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="shortcut icon" href="/hotgyaal-icon.svg" />
-        <meta name="theme-color" content="#111111" />
+        <link rel="apple-touch-icon" href="/hotgyaal-icon.svg" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#c4879d" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="robots" content="index, follow" />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="HOTGYAAL" />

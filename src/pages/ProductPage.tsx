@@ -25,6 +25,8 @@ export const ProductPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const normalizeSlug = (value: string) => value.trim().toLowerCase()
+
   useEffect(() => {
     const loadProduct = async () => {
       if (!router.isReady) {
@@ -45,12 +47,24 @@ export const ProductPage = () => {
         return
       }
 
+      const normalizedSlug = normalizeSlug(slug)
+      const inMemoryVariant = variants.find(
+        (variant) => normalizeSlug(variant.slug) === normalizedSlug,
+      )
+
+      if (inMemoryVariant) {
+        setProduct(inMemoryVariant)
+        setActiveImage(inMemoryVariant.image_url)
+        setError(null)
+        setLoading(false)
+        return
+      }
+
       try {
         setLoading(true)
         const allProducts = await listProducts()
-        const normalizedSlug = slug.trim().toLowerCase()
         const data =
-          allProducts.find((item) => item.slug.trim().toLowerCase() === normalizedSlug) ??
+          allProducts.find((item) => normalizeSlug(item.slug) === normalizedSlug) ??
           null
 
         if (!data) {
@@ -76,7 +90,7 @@ export const ProductPage = () => {
     }
 
     void loadProduct()
-  }, [router.isReady, slug])
+  }, [router.isReady, slug, variants])
 
   const gallery = useMemo(() => {
     if (!product) {
@@ -114,6 +128,42 @@ export const ProductPage = () => {
     () => (product ? getProductVariantMeta(product) : null),
     [product],
   )
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || variants.length === 0) {
+      return
+    }
+
+    const urls = Array.from(
+      new Set(
+        variants.flatMap((variant) =>
+          [variant.image_url, ...(variant.gallery_urls ?? [])].filter(Boolean),
+        ) as string[],
+      ),
+    )
+
+    urls.forEach((url) => {
+      const image = new window.Image()
+      image.decoding = 'async'
+      image.src = url
+    })
+  }, [variants])
+
+  const handleVariantChange = (variant: Product) => {
+    if (!product || variant.id === product.id) {
+      return
+    }
+
+    setProduct(variant)
+    setActiveImage(variant.image_url)
+    setFeedback(null)
+    setQuantity(1)
+
+    void router.replace(`/produit/${variant.slug}`, undefined, {
+      shallow: true,
+      scroll: false,
+    })
+  }
 
   const handleAddToCart = () => {
     if (!product) {
@@ -164,6 +214,8 @@ export const ProductPage = () => {
                 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80'
               }
               alt={product.name}
+              decoding="async"
+              fetchPriority="high"
             />
           </div>
 
@@ -206,13 +258,14 @@ export const ProductPage = () => {
                 {variants.map((variant) => {
                   const meta = getProductVariantMeta(variant)
                   return (
-                    <Link
+                    <button
+                      type="button"
                       key={variant.id}
-                      href={`/produit/${variant.slug}`}
                       className={variant.id === product.id ? 'chip chip--active' : 'chip'}
+                      onClick={() => handleVariantChange(variant)}
                     >
                       {meta.color || 'Standard'}
-                    </Link>
+                    </button>
                   )
                 })}
               </div>

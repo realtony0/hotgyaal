@@ -1,0 +1,24 @@
+{
+  "name": "HOTGYAAL",
+  "short_name": "HOTGYAAL",
+  "description": "Boutique mobile-first de mode feminine premium.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fdf7fa",
+  "theme_color": "#c4879d",
+  "icons": [
+    {
+      "src": "/hotgyaal-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    }
+  ]
+}
