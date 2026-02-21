@@ -2443,7 +2443,7 @@ body::after {
 
 @media (max-width: 1024px), (hover: none) and (pointer: coarse) {
   main {
-    padding-bottom: 5.2rem;
+    padding-bottom: 0.8rem;
   }
 
   .container {
@@ -3510,7 +3510,7 @@ body::after {
 .floating-whatsapp {
   position: fixed;
   right: 0.72rem;
-  bottom: calc(5.2rem + env(safe-area-inset-bottom));
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
   z-index: 95;
   width: 48px;
   height: 48px;
@@ -3654,7 +3654,7 @@ body::after {
 
 @media (max-width: 1024px), (hover: none) and (pointer: coarse) {
   .app-shell--shopaliwa main {
-    padding-bottom: 5.4rem;
+    padding-bottom: 0.9rem;
   }
 
   .app-shell--shopaliwa .announcement-bar__content {
@@ -3727,20 +3727,7 @@ body::after {
   }
 
   .mobile-bottom-nav {
-    position: fixed;
-    left: 0.55rem;
-    right: 0.55rem;
-    bottom: calc(0.6rem + env(safe-area-inset-bottom));
-    z-index: 94;
-    border: 1px solid #e8d9e1;
-    border-radius: 1.12rem;
-    background: rgba(255, 255, 255, 0.97);
-    backdrop-filter: blur(14px);
-    box-shadow: 0 24px 36px -30px rgba(21, 12, 17, 0.68);
-    padding: 0.3rem;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.22rem;
+    display: none !important;
   }
 
   .mobile-nav-link {
@@ -3799,7 +3786,7 @@ body::after {
 
 @media (hover: none) and (pointer: coarse) {
   .app-shell--shopaliwa main {
-    padding-bottom: 5.4rem;
+    padding-bottom: 0.9rem;
   }
 
   .app-shell--shopaliwa .container {
@@ -3815,6 +3802,6 @@ body::after {
   }
 
   .mobile-bottom-nav {
-    display: grid;
+    display: none !important;
   }
 }

@@ -26,13 +26,6 @@ const primaryLinks = [
   { href: '/faq', label: 'FAQ' },
 ]
 
-const mobileLinks = [
-  { href: '/', label: 'Accueil', icon: 'home' },
-  { href: '/boutique', label: 'Categories', icon: 'categories' },
-  { href: '/panier', label: 'Panier', icon: 'cart' },
-  { href: '/compte', label: 'Compte', icon: 'account' },
-] as const
-
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://hotgyaal.com'
 
 const stripQuery = (path: string) => path.split('?')[0] || '/'
@@ -129,8 +122,6 @@ type SearchSuggestion = {
   kind: 'product' | 'category' | 'query'
 }
 
-type MobileIconName = (typeof mobileLinks)[number]['icon']
-
 type HeaderIconName = 'menu' | 'search' | 'cart' | 'close'
 
 const HeaderIcon = ({ icon }: { icon: HeaderIconName }) => {
@@ -167,45 +158,6 @@ const HeaderIcon = ({ icon }: { icon: HeaderIconName }) => {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
       <path d="M6 6l12 12" />
       <path d="M18 6 6 18" />
-    </svg>
-  )
-}
-
-const MobileNavIcon = ({ icon }: { icon: MobileIconName }) => {
-  if (icon === 'home') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-        <path d="m3 10.4 9-7.2 9 7.2" />
-        <path d="M6.4 9.8V20h11.2V9.8" />
-      </svg>
-    )
-  }
-
-  if (icon === 'categories') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-        <rect x="3.8" y="4" width="6.5" height="6.5" rx="1.4" />
-        <rect x="13.7" y="4" width="6.5" height="6.5" rx="1.4" />
-        <rect x="3.8" y="13.7" width="6.5" height="6.5" rx="1.4" />
-        <rect x="13.7" y="13.7" width="6.5" height="6.5" rx="1.4" />
-      </svg>
-    )
-  }
-
-  if (icon === 'cart') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-        <path d="M3.2 4.5h2.6l2.2 10.4h9.6l2-7.1H7.2" />
-        <circle cx="10.4" cy="18.5" r="1.35" />
-        <circle cx="17.1" cy="18.5" r="1.35" />
-      </svg>
-    )
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-      <path d="M4.2 19.1a7.8 7.8 0 1 1 15.6 0" />
-      <circle cx="12" cy="8.1" r="3.1" />
     </svg>
   )
 }
@@ -642,30 +594,6 @@ export const Layout = ({ children }: LayoutProps) => {
           </svg>
         </span>
       </a>
-
-      <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
-        {mobileLinks.map((link) => {
-          const isActive = isPathActive(link.href, router.asPath || '/')
-          const isCart = link.href === '/panier'
-
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={isActive ? 'mobile-nav-link is-active' : 'mobile-nav-link'}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <span className="mobile-nav-link__icon-wrap">
-                <span className="mobile-nav-link__icon" aria-hidden="true">
-                  <MobileNavIcon icon={link.icon} />
-                </span>
-                {isCart && totalItems > 0 ? <strong className="mobile-nav-count">{totalItems}</strong> : null}
-              </span>
-              <span className="mobile-nav-link__label">{link.label}</span>
-            </Link>
-          )
-        })}
-      </nav>
 
       <footer className="footer">
         <div className="container footer__content footer__content--grid">
