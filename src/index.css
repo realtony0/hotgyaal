@@ -29,10 +29,7 @@ html,
 body,
 #__next {
   min-height: 100%;
-  width: 100%;
-  max-width: 100%;
   margin: 0;
-  overflow-x: hidden;
 }
 
 html {
@@ -183,18 +180,12 @@ textarea:focus {
 
 .app-shell {
   min-height: 100dvh;
-  width: 100%;
-  max-width: 100%;
   display: flex;
   flex-direction: column;
-  overflow-x: clip;
 }
 
 main {
   flex: 1;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: clip;
 }
 
 .site-header {
@@ -2389,7 +2380,7 @@ body::after {
   background: #fdfbfd;
 }
 
-@media (max-width: 1280px), (hover: none) and (pointer: coarse) {
+@media (max-width: 1040px) {
   .product-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -2446,9 +2437,9 @@ body::after {
   }
 }
 
-@media (max-width: 1280px), (hover: none) and (pointer: coarse) {
+@media (max-width: 1024px) {
   main {
-    padding-bottom: 5.2rem;
+    padding-bottom: 0;
   }
 
   .container {
@@ -3515,7 +3506,7 @@ body::after {
 .floating-whatsapp {
   position: fixed;
   right: 0.72rem;
-  bottom: calc(5.2rem + env(safe-area-inset-bottom));
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
   z-index: 95;
   width: 48px;
   height: 48px;
@@ -3611,7 +3602,7 @@ body::after {
   }
 }
 
-@media (min-width: 1281px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 1025px) {
   .app-shell--shopaliwa .header__content--shopaliwa {
     grid-template-columns: 56px auto auto;
   }
@@ -3657,9 +3648,9 @@ body::after {
   }
 }
 
-@media (max-width: 1280px), (hover: none) and (pointer: coarse) {
+@media (max-width: 1024px) {
   .app-shell--shopaliwa main {
-    padding-bottom: 5.4rem;
+    padding-bottom: 0;
   }
 
   .app-shell--shopaliwa .announcement-bar__content {
@@ -3799,23 +3790,5 @@ body::after {
 
   .account-card__actions .button {
     width: 100%;
-  }
-}
-
-@media (hover: none) and (pointer: coarse) {
-  .app-shell--shopaliwa main {
-    padding-bottom: 5.4rem;
-  }
-
-  .app-shell--shopaliwa .header__content--shopaliwa {
-    min-height: 64px;
-  }
-
-  .app-shell--shopaliwa .brand {
-    justify-self: center;
-  }
-
-  .mobile-bottom-nav {
-    display: grid;
   }
 }
