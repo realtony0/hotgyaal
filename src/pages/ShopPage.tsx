@@ -120,9 +120,6 @@ export const ShopPage = () => {
         <div className="quick-categories quick-categories--shop" role="navigation" aria-label="Filtres rapides">
           {QUICK_CATEGORY_LINKS.map((item) => (
             <Link key={`shop-${item.label}`} href={item.href} className="quick-category-pill">
-              <span className="quick-category-pill__icon" aria-hidden="true">
-                {item.icon}
-              </span>
               <span>{item.label}</span>
             </Link>
           ))}

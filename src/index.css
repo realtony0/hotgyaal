@@ -3664,8 +3664,19 @@ body::after {
     padding-bottom: 0.9rem;
   }
 
+  .app-shell--shopaliwa .section {
+    padding-top: 1.35rem;
+    padding-bottom: 1.35rem;
+  }
+
+  .app-shell--shopaliwa .announcement-bar {
+    font-size: 0.52rem;
+    letter-spacing: 0.08em;
+  }
+
   .app-shell--shopaliwa .announcement-bar__content {
     padding: 0.36rem 0;
+    line-height: 1.25;
   }
 
   .app-shell--shopaliwa .container {
@@ -3684,12 +3695,20 @@ body::after {
     min-height: calc(100dvh - 1.7rem);
   }
 
+  .app-shell--shopaliwa .hero-convert {
+    padding-top: 0.72rem;
+  }
+
+  .app-shell--shopaliwa .hero-convert__slide {
+    border-radius: 1rem;
+  }
+
   .hero-convert__overlay {
     padding: 0.92rem 0.72rem 0.75rem;
   }
 
   .hero-convert__overlay h1 {
-    max-width: 14ch;
+    max-width: 18ch;
   }
 
   .hero-convert__cta {
@@ -3702,8 +3721,9 @@ body::after {
   }
 
   .quick-category-pill {
-    min-height: 42px;
-    font-size: 0.69rem;
+    min-height: 40px;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.66rem;
   }
 
   .product-grid {
@@ -3716,9 +3736,26 @@ body::after {
     gap: 0.34rem;
   }
 
+  .product-card-v2--commerce {
+    border-radius: 0.92rem;
+  }
+
+  .product-card-v2--commerce .product-card-v2__media img {
+    aspect-ratio: 3 / 4;
+  }
+
+  .product-card-v2--commerce .product-card-v2__title {
+    min-height: auto;
+    font-size: 0.9rem;
+  }
+
+  .product-card-v2--commerce .product-card-v2__price strong {
+    font-size: 1rem;
+  }
+
   .product-card-v2__add {
-    min-height: 38px;
-    font-size: 0.57rem;
+    min-height: 40px;
+    font-size: 0.6rem;
   }
 
   .section__header {

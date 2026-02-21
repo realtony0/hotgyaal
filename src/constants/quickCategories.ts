@@ -1,38 +1,39 @@
 export type QuickCategoryLink = {
   label: string
-  icon: string
   href: string
 }
 
 export const QUICK_CATEGORY_LINKS: QuickCategoryLink[] = [
   {
-    label: 'Nouveautes',
-    icon: '🔥',
-    href: '/boutique?q=nouveau',
+    label: 'Vetements Femmes',
+    href: '/boutique?categorie=V%C3%AAtements%20Femmes',
   },
   {
-    label: 'Robes',
-    icon: '👗',
-    href: '/boutique?q=robe',
-  },
-  {
-    label: 'Ensembles',
-    icon: '✨',
-    href: '/boutique?q=ensemble',
-  },
-  {
-    label: 'Sacs',
-    icon: '👜',
-    href: '/boutique?categorie=Sacs%20%26%20Bagages',
+    label: 'Bijoux & Accessoires',
+    href: '/boutique?categorie=Bijoux%20%26%20Accessoires',
   },
   {
     label: 'Chaussures',
-    icon: '👠',
     href: '/boutique?categorie=Chaussures',
   },
   {
-    label: 'Bijoux',
-    icon: '💎',
-    href: '/boutique?categorie=Bijoux%20%26%20Accessoires',
+    label: 'Telephone & Accessoires',
+    href: '/boutique?categorie=T%C3%A9l%C3%A9phone%20%26%20Accessoires',
+  },
+  {
+    label: 'Sacs & Bagages',
+    href: '/boutique?categorie=Sacs%20%26%20Bagages',
+  },
+  {
+    label: 'Sous-vetements & Pyjamas',
+    href: '/boutique?categorie=Sous-v%C3%AAtements%20%26%20Pyjamas',
+  },
+  {
+    label: 'Home & Living',
+    href: '/boutique?categorie=Home%20%26%20Living',
+  },
+  {
+    label: 'Beaute',
+    href: '/boutique?categorie=Beaut%C3%A9',
   },
 ]

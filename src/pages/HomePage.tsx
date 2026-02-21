@@ -198,7 +198,7 @@ export const HomePage = () => {
           </div>
 
           <div className="hero-convert__meta">
-            <span>Livraison partout au Sénégal 🇸🇳</span>
+            <span>Livraison partout au Senegal</span>
             <span>Paiement à la livraison disponible</span>
           </div>
         </div>
@@ -227,7 +227,7 @@ export const HomePage = () => {
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Nouveautés 🔥</p>
+              <p className="eyebrow">Nouveautes</p>
               <h2>Les pièces à prendre vite</h2>
             </div>
             <Link href="/boutique">Tout voir</Link>
