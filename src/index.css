@@ -39,6 +39,7 @@ html {
 body {
   font-family: 'Manrope', sans-serif;
   color: var(--text);
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 0% 0%, rgba(198, 150, 167, 0.2), transparent 24%),
     radial-gradient(circle at 100% 0%, rgba(166, 123, 141, 0.14), transparent 26%),
@@ -3796,6 +3797,10 @@ body::after {
 @media (hover: none) and (pointer: coarse) {
   .app-shell--shopaliwa main {
     padding-bottom: 5.4rem;
+  }
+
+  .app-shell--shopaliwa .container {
+    width: min(1180px, calc(100% - 1rem));
   }
 
   .app-shell--shopaliwa .header__content--shopaliwa {
