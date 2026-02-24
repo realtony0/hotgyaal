@@ -16,6 +16,7 @@ import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
+import { getSiteUrl, stripQueryAndHash, toAbsoluteUrl } from '../utils/site'
 
 const primaryLinks = [
   { href: '/', label: 'Accueil' },
@@ -25,9 +26,6 @@ const primaryLinks = [
   { href: '/faq', label: 'FAQ' },
 ]
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://hotgyaal.com'
-
-const stripQuery = (path: string) => path.split('?')[0] || '/'
 const readSearchFromPath = (path: string) => {
   const query = path.split('?')[1] ?? ''
   const params = new URLSearchParams(query)
@@ -56,7 +54,7 @@ const isPathActive = (href: string, asPath: string) => {
     return asPath === href
   }
 
-  const currentPath = stripQuery(asPath)
+  const currentPath = stripQueryAndHash(asPath)
   if (href === '/') {
     return currentPath === '/'
   }
@@ -67,8 +65,9 @@ const isPathActive = (href: string, asPath: string) => {
 const getSeoContent = (pathname: string) => {
   if (pathname.startsWith('/boutique')) {
     return {
-      title: 'HOTGYAAL | Boutique',
-      description: 'Catalogue HOTGYAAL: mode, accessoires, beaute et plus.',
+      title: 'HOTGYAAL | Boutique en ligne',
+      description:
+        'Catalogue HOTGYAAL: mode femme, accessoires et beaute au Senegal avec livraison rapide.',
     }
   }
 
@@ -95,6 +94,30 @@ const getSeoContent = (pathname: string) => {
     }
   }
 
+  if (pathname.startsWith('/faq')) {
+    return {
+      title: 'HOTGYAAL | FAQ',
+      description:
+        'Questions frequentes HOTGYAAL: commandes, livraison, tailles, retours et assistance.',
+    }
+  }
+
+  if (pathname.startsWith('/confidentialite')) {
+    return {
+      title: 'HOTGYAAL | Confidentialite',
+      description:
+        'Politique de confidentialite HOTGYAAL: collecte, usage et protection des donnees clientes.',
+    }
+  }
+
+  if (pathname.startsWith('/cgv-retours')) {
+    return {
+      title: 'HOTGYAAL | Conditions & Retours',
+      description:
+        'Conditions generales de vente HOTGYAAL, politique de retours et informations sur les commandes.',
+    }
+  }
+
   if (pathname.startsWith('/compte')) {
     return {
       title: 'HOTGYAAL | Compte',
@@ -103,9 +126,9 @@ const getSeoContent = (pathname: string) => {
   }
 
   return {
-    title: 'HOTGYAAL | Fashion & Lifestyle',
+    title: 'HOTGYAAL | Mode femme et lifestyle',
     description:
-      'HOTGYAAL propose mode, accessoires, beaute et lifestyle, avec sourcing direct en Chine.',
+      'HOTGYAAL est une boutique en ligne de mode femme au Senegal: vetements, accessoires et beaute.',
   }
 }
 
@@ -176,13 +199,40 @@ export const Layout = ({ children }: LayoutProps) => {
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
 
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
+  const defaultSocialImage = toAbsoluteUrl('/products/chrysalide-nocturne-01.webp')
+
+  const currentPath = useMemo(
+    () => stripQueryAndHash(router.asPath || '/'),
+    [router.asPath],
+  )
+  const currentSearchQuery = useMemo(
+    () => readSearchFromPath(router.asPath || '/'),
+    [router.asPath],
+  )
 
   const seo = useMemo(() => {
-    const currentPath = stripQuery(router.asPath || '/')
     return getSeoContent(currentPath)
-  }, [router.asPath])
+  }, [currentPath])
 
-  const pageUrl = useMemo(() => `${SITE_URL}${router.asPath || '/'}`, [router.asPath])
+  const pageUrl = useMemo(() => toAbsoluteUrl(currentPath), [currentPath])
+
+  const shouldNoindex = useMemo(() => {
+    if (currentPath.startsWith('/panier') || currentPath.startsWith('/compte')) {
+      return true
+    }
+
+    if (currentPath.startsWith('/boutique') && Boolean(currentSearchQuery)) {
+      return true
+    }
+
+    return false
+  }, [currentPath, currentSearchQuery])
+
+  const isProductDetailPage = currentPath.startsWith('/produit/')
+
+  const robotsContent = shouldNoindex
+    ? 'noindex, nofollow, noarchive'
+    : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
 
   const activeCategories = useMemo(
     () => categories.filter((category) => category.is_active).slice(0, 8),
@@ -200,6 +250,48 @@ export const Layout = ({ children }: LayoutProps) => {
           ).toString(),
       ),
     [settings.order_chat_number],
+  )
+  const designerWhatsappNumber = useMemo(
+    () => normalizeChatNumber('774992742'),
+    [],
+  )
+
+  const organizationJsonLd = useMemo(
+    () =>
+      JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'HOTGYAAL',
+        url: getSiteUrl(),
+        logo: toAbsoluteUrl('/hotgyaal-icon.svg'),
+        contactPoint: [
+          {
+            '@type': 'ContactPoint',
+            telephone: `+${orderChatNumber}`,
+            contactType: 'customer service',
+            areaServed: 'SN',
+            availableLanguage: ['fr'],
+            email: settings.contact_email || undefined,
+          },
+        ],
+      }),
+    [orderChatNumber, settings.contact_email],
+  )
+
+  const websiteJsonLd = useMemo(
+    () =>
+      JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'HOTGYAAL',
+        url: getSiteUrl(),
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: toAbsoluteUrl('/boutique?q={search_term_string}'),
+          'query-input': 'required name=search_term_string',
+        },
+      }),
+    [],
   )
 
   useEffect(() => {
@@ -437,14 +529,35 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="app-shell app-shell--shopaliwa">
       <Head>
-        <title>{seo.title}</title>
-        <meta name="description" content={seo.description} />
-        <meta property="og:title" content={seo.title} />
-        <meta property="og:description" content={seo.description} />
-        <meta property="og:url" content={pageUrl} />
-        <meta name="twitter:title" content={seo.title} />
-        <meta name="twitter:description" content={seo.description} />
-        <link rel="canonical" href={pageUrl} />
+        {!isProductDetailPage ? (
+          <>
+            <title>{seo.title}</title>
+            <meta name="description" content={seo.description} />
+            <meta name="robots" content={robotsContent} />
+            <meta property="og:type" content="website" />
+            <meta property="og:site_name" content="HOTGYAAL" />
+            <meta property="og:locale" content="fr_SN" />
+            <meta property="og:title" content={seo.title} />
+            <meta property="og:description" content={seo.description} />
+            <meta property="og:url" content={pageUrl} />
+            <meta property="og:image" content={defaultSocialImage} />
+            <meta name="twitter:card" content="summary_large_image" />
+            <meta name="twitter:title" content={seo.title} />
+            <meta name="twitter:description" content={seo.description} />
+            <meta name="twitter:image" content={defaultSocialImage} />
+            <link rel="canonical" href={pageUrl} />
+          </>
+        ) : null}
+        <script
+          key="schema-organization"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: organizationJsonLd }}
+        />
+        <script
+          key="schema-website"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: websiteJsonLd }}
+        />
       </Head>
 
       <header className="site-header">
@@ -626,7 +739,18 @@ export const Layout = ({ children }: LayoutProps) => {
         </div>
 
         <div className="container footer__bottom">
-          <p>© {new Date().getFullYear()} HOTGYAAL - Tous droits reserves.</p>
+          <p>
+            © {new Date().getFullYear()} HOTGYAAL - Tous droits reserves. Site concu par{' '}
+            <a
+              className="footer-credit-link"
+              href={`https://wa.me/${designerWhatsappNumber}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              MMB
+            </a>
+            .
+          </p>
         </div>
       </footer>
     </div>

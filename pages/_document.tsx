@@ -11,18 +11,6 @@ export default function Document() {
         <meta name="theme-color" content="#c4879d" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="robots" content="index, follow" />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="HOTGYAAL" />
-        <meta
-          property="og:image"
-          content="https://hotgyaal.com/products/chrysalide-nocturne-01.webp"
-        />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:image"
-          content="https://hotgyaal.com/products/chrysalide-nocturne-01.webp"
-        />
       </Head>
       <body>
         <Main />

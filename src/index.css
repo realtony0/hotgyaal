@@ -595,6 +595,17 @@ main {
   color: #7f6972;
 }
 
+.footer-credit-link {
+  color: #4f2f3d;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.footer-credit-link:hover {
+  color: #2f1821;
+}
+
 .section__header {
   display: flex;
   align-items: flex-end;

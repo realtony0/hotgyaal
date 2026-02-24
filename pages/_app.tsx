@@ -19,6 +19,9 @@ export default function App({ Component, pageProps }: AppProps) {
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
+        {isAdminRoute ? (
+          <meta name="robots" content="noindex, nofollow, noarchive" />
+        ) : null}
       </Head>
 
       <AuthProvider>

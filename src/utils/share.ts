@@ -1,4 +1,4 @@
-const DEFAULT_SITE_URL = 'https://hotgyaal.com'
+import { getSiteUrl } from './site'
 
 const withLeadingSlash = (path: string) => (path.startsWith('/') ? path : `/${path}`)
 
@@ -9,8 +9,7 @@ const resolveBaseUrl = () => {
     return removeTrailingSlash(window.location.origin)
   }
 
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL
-  return removeTrailingSlash(configured)
+  return getSiteUrl()
 }
 
 export const buildShareUrl = (path: string) => `${resolveBaseUrl()}${withLeadingSlash(path)}`
