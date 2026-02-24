@@ -7,6 +7,7 @@ import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
 import { getProductVariantMeta, getRelatedVariants } from '../utils/products'
+import { buildShareUrl, shareWithFallback } from '../utils/share'
 
 export const ProductPage = () => {
   const router = useRouter()
@@ -21,6 +22,7 @@ export const ProductPage = () => {
   const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -177,7 +179,35 @@ export const ProductPage = () => {
 
     const size = selectedSize || availableSizes[0] || 'Taille unique'
     addToCart(product, size, quantity)
-    setFeedback(`${quantity} article(s) ajoute(s), taille ${size}.`)
+    setFeedback('Ajoute au panier.')
+  }
+
+  const handleShareProduct = async () => {
+    if (!product) {
+      return
+    }
+
+    const shareResult = await shareWithFallback({
+      title: product.name,
+      text: `Regarde ce produit: ${product.name}`,
+      url: buildShareUrl(`/produit/${product.slug}`),
+    })
+
+    if (shareResult === 'cancelled') {
+      return
+    }
+
+    setShareFeedback(
+      shareResult === 'shared'
+        ? 'Produit partage.'
+        : shareResult === 'copied'
+          ? 'Lien copie.'
+          : 'Partage indisponible sur cet appareil.',
+    )
+
+    window.setTimeout(() => {
+      setShareFeedback(null)
+    }, 2600)
   }
 
   if (loading) {
@@ -308,12 +338,16 @@ export const ProductPage = () => {
             >
               {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
             </button>
+            <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
+              Partager le lien
+            </button>
             <Link href="/panier" className="button button--ghost">
               Aller au panier
             </Link>
           </div>
 
           {feedback ? <p className="success-text">{feedback}</p> : null}
+          {shareFeedback ? <p className="success-text">{shareFeedback}</p> : null}
         </div>
       </div>
     </section>

@@ -199,7 +199,6 @@ export const HomePage = () => {
 
           <div className="hero-convert__meta">
             <span>Livraison partout au Senegal</span>
-            <span>Paiement à la livraison disponible</span>
           </div>
         </div>
       </section>

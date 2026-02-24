@@ -94,9 +94,7 @@ export const ShopPage = () => {
     })
   }, [categoryQuery, searchQuery, sortedProducts])
 
-  const resultsLabel = loadingProducts
-    ? 'Chargement des articles...'
-    : `${visibleProducts.length} article${visibleProducts.length > 1 ? 's' : ''}`
+  const resultsLabel = loadingProducts ? 'Chargement...' : 'Catalogue'
 
   const loadingSkeletons = useMemo(
     () => Array.from({ length: 6 }, (_, index) => `shop-skeleton-${index}`),
@@ -126,7 +124,7 @@ export const ShopPage = () => {
         </div>
 
         {loadingProducts ? (
-          <div className="product-grid">
+          <div className="product-grid product-grid--shop-mobile">
             {loadingSkeletons.map((key) => (
               <div key={key} className="product-skeleton-card" aria-hidden="true" />
             ))}
@@ -139,7 +137,7 @@ export const ShopPage = () => {
         ) : null}
 
         {!loadingProducts && !errorProducts ? (
-          <div className="product-grid stagger-grid">
+          <div className="product-grid product-grid--shop-mobile stagger-grid">
             {visibleProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

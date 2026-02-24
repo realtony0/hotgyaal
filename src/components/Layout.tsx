@@ -10,7 +10,6 @@ import {
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useCart } from '../context/CartContext'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -166,7 +165,6 @@ export const Layout = ({ children }: LayoutProps) => {
   const router = useRouter()
   const { settings } = useStoreSettings()
   const { categories } = useStoreCategories()
-  const { totalItems } = useCart()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -515,7 +513,6 @@ export const Layout = ({ children }: LayoutProps) => {
                 <span className="icon-button__glyph" aria-hidden="true">
                   <HeaderIcon icon="cart" />
                 </span>
-                {totalItems > 0 ? <span className="cart-count">{totalItems}</span> : null}
               </Link>
             </div>
           </div>
@@ -624,7 +621,6 @@ export const Layout = ({ children }: LayoutProps) => {
               <p className="footer-title">Infos boutique</p>
               <p className="footer-note">Selection mode, beaute et accessoires</p>
               <p className="footer-note">Produits importes depuis la Chine</p>
-              <p className="footer-note">Paiement a la livraison disponible</p>
             </div>
           </div>
         </div>

@@ -445,19 +445,6 @@ main {
   background: #fff5fa;
 }
 
-.cart-count {
-  min-width: 1.2rem;
-  height: 1.2rem;
-  border-radius: 999px;
-  margin-left: 0.35rem;
-  display: inline-grid;
-  place-items: center;
-  background: #1e1218;
-  color: #fff;
-  font-size: 0.67rem;
-  font-weight: 700;
-}
-
 .category-strip {
   display: flex;
   align-items: center;
@@ -2628,11 +2615,19 @@ body::after {
     gap: 0.65rem;
   }
 
+  .product-grid.product-grid--shop-mobile {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.48rem;
+  }
+
   .editor-grid,
-  .category-grid-v2,
   .contact-v2__grid,
   .faq-list {
     grid-template-columns: 1fr;
+  }
+
+  .category-grid-v2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .shop-search-v2 {
@@ -3155,18 +3150,6 @@ body::after {
   text-transform: uppercase;
 }
 
-.app-shell--shopaliwa .cart-count {
-  position: absolute;
-  top: -0.34rem;
-  right: -0.3rem;
-  min-width: 1.02rem;
-  height: 1.02rem;
-  border-radius: 999px;
-  border: 2px solid #fff;
-  margin: 0;
-  font-size: 0.52rem;
-}
-
 .search-overlay {
   position: fixed;
   inset: 0;
@@ -3481,6 +3464,32 @@ body::after {
 
 .product-card-v2__add.is-added {
   animation: cart-bounce 0.28s ease;
+}
+
+.product-card-v2__share {
+  border: 1px solid #e2d2db;
+  border-radius: 0.78rem;
+  min-height: 36px;
+  background: #fff;
+  color: #4a2d39;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.58rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.22s ease, background 0.22s ease;
+}
+
+.product-card-v2__share:hover,
+.product-card-v2__share:active {
+  border-color: #cf9eb3;
+  background: #fff4f9;
+}
+
+.product-card-v2__share-note {
+  margin: 0;
+  font-size: 0.66rem;
+  color: #6a535e;
 }
 
 .product-skeleton-card {
