@@ -3477,32 +3477,6 @@ body::after {
   animation: cart-bounce 0.28s ease;
 }
 
-.product-card-v2__share {
-  border: 1px solid #e2d2db;
-  border-radius: 0.78rem;
-  min-height: 36px;
-  background: #fff;
-  color: #4a2d39;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.58rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: border-color 0.22s ease, background 0.22s ease;
-}
-
-.product-card-v2__share:hover,
-.product-card-v2__share:active {
-  border-color: #cf9eb3;
-  background: #fff4f9;
-}
-
-.product-card-v2__share-note {
-  margin: 0;
-  font-size: 0.66rem;
-  color: #6a535e;
-}
-
 .product-skeleton-card {
   border-radius: 1rem;
   border: 1px solid #eadde5;

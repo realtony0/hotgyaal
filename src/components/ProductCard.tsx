@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useCart } from '../context/CartContext'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
-import { buildShareUrl, shareWithFallback } from '../utils/share'
 
 type ProductCardProps = {
   product: Product
@@ -24,7 +23,6 @@ const shortenName = (value: string) => {
 export const ProductCard = ({ product }: ProductCardProps) => {
   const { addToCart } = useCart()
   const [isAdding, setIsAdding] = useState(false)
-  const [shareMessage, setShareMessage] = useState<string | null>(null)
 
   const mainSize = product.sizes[0]?.trim() || FALLBACK_SIZE
   const primaryBadge = product.is_new
@@ -44,30 +42,6 @@ export const ProductCard = ({ product }: ProductCardProps) => {
     window.setTimeout(() => {
       setIsAdding(false)
     }, 320)
-  }
-
-  const handleShare = async () => {
-    const shareResult = await shareWithFallback({
-      title: product.name,
-      text: `Regarde ce produit: ${product.name}`,
-      url: buildShareUrl(`/produit/${product.slug}`),
-    })
-
-    if (shareResult === 'cancelled') {
-      return
-    }
-
-    setShareMessage(
-      shareResult === 'shared'
-        ? 'Produit partage.'
-        : shareResult === 'copied'
-          ? 'Lien copie.'
-          : 'Partage indisponible sur cet appareil.',
-    )
-
-    window.setTimeout(() => {
-      setShareMessage(null)
-    }, 2200)
   }
 
   return (
@@ -107,12 +81,6 @@ export const ProductCard = ({ product }: ProductCardProps) => {
         >
           {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
         </button>
-
-        <button type="button" className="product-card-v2__share" onClick={() => void handleShare()}>
-          Partager le lien
-        </button>
-
-        {shareMessage ? <p className="product-card-v2__share-note">{shareMessage}</p> : null}
       </div>
     </article>
   )

@@ -284,7 +284,7 @@ export const ProductPage = ({
 
     const shareResult = await shareWithFallback({
       title: product.name,
-      text: `Regarde ce produit: ${product.name}`,
+      text: `Regarde cet article: ${product.name}`,
       url: buildShareUrl(`/produit/${product.slug}`),
     })
 
@@ -294,7 +294,7 @@ export const ProductPage = ({
 
     setShareFeedback(
       shareResult === 'shared'
-        ? 'Produit partage.'
+        ? 'Article partage.'
         : shareResult === 'copied'
           ? 'Lien copie.'
           : 'Partage indisponible sur cet appareil.',
@@ -459,7 +459,7 @@ export const ProductPage = ({
                 {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
               </button>
               <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
-                Partager le lien
+                Partager l'article
               </button>
               <Link href="/panier" className="button button--ghost">
                 Aller au panier
