@@ -8,7 +8,7 @@ import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
 import { getProductVariantMeta, getRelatedVariants } from '../utils/products'
-import { buildShareUrl, shareWithFallback } from '../utils/share'
+import { buildShareUrl, copyToClipboard, shareWithFallback } from '../utils/share'
 import { toAbsoluteUrl } from '../utils/site'
 
 const trimMetaDescription = (value: string, maxLength = 160) => {
@@ -305,6 +305,23 @@ export const ProductPage = ({
     }, 2600)
   }
 
+  const handleCopyLink = async () => {
+    if (!product) {
+      return
+    }
+
+    const url = buildShareUrl(`/produit/${product.slug}`)
+    const success = await copyToClipboard(url)
+
+    setShareFeedback(
+      success ? 'Lien copie! Collez-le dans votre story.' : 'Impossible de copier le lien.',
+    )
+
+    window.setTimeout(() => {
+      setShareFeedback(null)
+    }, 2600)
+  }
+
   if (loading) {
     return (
       <section className="section">
@@ -458,9 +475,16 @@ export const ProductPage = ({
               >
                 {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
               </button>
-              <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
-                Partager l'article
-              </button>
+              <div className="product-detail-v2__share-row">
+                <button type="button" className="button button--ghost" onClick={() => void handleCopyLink()}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                  Copier le lien
+                </button>
+                <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
+                  Partager
+                </button>
+              </div>
               <Link href="/panier" className="button button--ghost">
                 Aller au panier
               </Link>

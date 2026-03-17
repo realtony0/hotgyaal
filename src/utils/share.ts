@@ -49,3 +49,20 @@ export const shareWithFallback = async (data: ShareData): Promise<ShareResult> =
 
   return 'failed'
 }
+
+export const copyToClipboard = async (url: string): Promise<boolean> => {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(url)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  return false
+}
