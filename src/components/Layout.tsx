@@ -10,6 +10,7 @@ import {
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useCart } from '../context/CartContext'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -188,6 +189,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const router = useRouter()
   const { settings } = useStoreSettings()
   const { categories } = useStoreCategories()
+  const { totalItems } = useCart()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -626,6 +628,11 @@ export const Layout = ({ children }: LayoutProps) => {
                 <span className="icon-button__glyph" aria-hidden="true">
                   <HeaderIcon icon="cart" />
                 </span>
+                {totalItems > 0 && (
+                  <span className="cart-badge" aria-live="polite">
+                    {totalItems > 99 ? '99+' : totalItems}
+                  </span>
+                )}
               </Link>
             </div>
           </div>
