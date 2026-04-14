@@ -50,7 +50,25 @@ node --env-file=.env.local scripts/backup-storage.mjs
 
 Fichiers de sortie : `./backups/storage/<bucket>/...`
 
-## 3. Export CSV par table (solution de secours)
+## 3. Telecharger les images depuis les URLs du dump SQL (secours CDN)
+
+Quand l'API Storage est bloquee mais que le CDN public continue de servir
+les fichiers en cache edge, cette methode permet souvent de recuperer
+les images sans passer par l'API.
+
+```bash
+node scripts/download-images-from-dump.mjs backups/hotgyaal_full_*.sql
+
+# Avec plus de parallelisme
+CONCURRENCY=8 node scripts/download-images-from-dump.mjs backups/hotgyaal_full_*.sql
+```
+
+Le script est idempotent : relance-le autant de fois que necessaire,
+il reprend la ou il s'est arrete.
+
+Fichiers de sortie : `./backups/storage-from-dump/<bucket>/...`
+
+## 4. Export CSV par table (solution de secours)
 
 Utile si `pg_dump` echoue pour une raison X ou si tu veux des CSV
 pour Excel/Google Sheets.
