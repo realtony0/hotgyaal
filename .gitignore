@@ -17,6 +17,12 @@ out
 .env.*
 !.env.example
 
+# Supabase backups (peuvent contenir des donnees sensibles)
+backups/
+
+# TypeScript
+tsconfig.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
