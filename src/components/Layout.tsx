@@ -144,7 +144,7 @@ type SearchSuggestion = {
   kind: 'product' | 'category' | 'query'
 }
 
-type HeaderIconName = 'menu' | 'search' | 'cart' | 'close'
+type HeaderIconName = 'menu' | 'search' | 'cart' | 'close' | 'account'
 
 const HeaderIcon = ({ icon }: { icon: HeaderIconName }) => {
   if (icon === 'menu') {
@@ -172,6 +172,15 @@ const HeaderIcon = ({ icon }: { icon: HeaderIconName }) => {
         <path d="M3.2 4.5h2.6l2.2 10.4h9.6l2-7.1H7.2" />
         <circle cx="10.4" cy="18.5" r="1.35" />
         <circle cx="17.1" cy="18.5" r="1.35" />
+      </svg>
+    )
+  }
+
+  if (icon === 'account') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8.5" r="3.6" />
+        <path d="M4.8 20c1.3-3.8 4.1-5.6 7.2-5.6s5.9 1.8 7.2 5.6" />
       </svg>
     )
   }
@@ -613,6 +622,20 @@ export const Layout = ({ children }: LayoutProps) => {
                   <HeaderIcon icon="search" />
                 </span>
               </button>
+
+              <Link
+                href="/compte"
+                className={
+                  isPathActive('/compte', router.asPath || '/')
+                    ? 'icon-button icon-button--header is-active'
+                    : 'icon-button icon-button--header'
+                }
+                aria-label="Mon compte"
+              >
+                <span className="icon-button__glyph" aria-hidden="true">
+                  <HeaderIcon icon="account" />
+                </span>
+              </Link>
 
               <Link
                 href="/panier"
