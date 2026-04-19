@@ -110,15 +110,12 @@ begin
   values (v_customer_id)
   returning customer_sessions.token into v_token;
 
-  return query
-    select
-      v_token,
-      c.id,
-      c.phone,
-      c.full_name,
-      c.points_balance
-    from public.customers c
-    where c.id = v_customer_id;
+  token := v_token;
+  customer_id := v_customer_id;
+  phone := v_phone;
+  full_name := nullif(trim(p_full_name), '');
+  points_balance := 0;
+  return next;
 end;
 $$;
 
@@ -142,34 +139,38 @@ set search_path = public
 as $$
 declare
   v_phone text;
-  v_customer public.customers%rowtype;
+  v_id uuid;
+  v_phone_stored text;
+  v_full_name text;
+  v_points integer;
+  v_pin_hash text;
   v_token uuid;
 begin
   v_phone := public.normalize_phone(p_phone);
 
-  select * into v_customer
-  from public.customers
-  where phone = v_phone;
+  select c.id, c.phone, c.full_name, c.points_balance, c.pin_hash
+    into v_id, v_phone_stored, v_full_name, v_points, v_pin_hash
+  from public.customers c
+  where c.phone = v_phone;
 
   if not found then
     raise exception 'Numero ou PIN incorrect';
   end if;
 
-  if v_customer.pin_hash <> crypt(p_pin, v_customer.pin_hash) then
+  if v_pin_hash <> crypt(p_pin, v_pin_hash) then
     raise exception 'Numero ou PIN incorrect';
   end if;
 
   insert into public.customer_sessions (customer_id)
-  values (v_customer.id)
+  values (v_id)
   returning customer_sessions.token into v_token;
 
-  return query
-    select
-      v_token,
-      v_customer.id,
-      v_customer.phone,
-      v_customer.full_name,
-      v_customer.points_balance;
+  token := v_token;
+  customer_id := v_id;
+  phone := v_phone_stored;
+  full_name := v_full_name;
+  points_balance := v_points;
+  return next;
 end;
 $$;
 
