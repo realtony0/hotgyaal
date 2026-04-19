@@ -3909,3 +3909,285 @@ body::after {
     display: none !important;
   }
 }
+
+/* -------------------------------------------------- */
+/* Auth client (telephone + PIN) et programme fidelite */
+/* -------------------------------------------------- */
+.account-grid {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: 1fr;
+}
+
+.auth-card {
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+.auth-intro {
+  color: var(--text-soft);
+  margin: 0.2rem 0 1.4rem;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  background: var(--surface-soft);
+  padding: 0.3rem;
+  border-radius: 999px;
+  margin-bottom: 1.4rem;
+}
+
+.auth-tab {
+  border: none;
+  background: transparent;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-soft);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.auth-tab.is-active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  color: var(--text-soft);
+}
+
+.auth-field span {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.auth-field input {
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+}
+
+.auth-error {
+  background: #fdecec;
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.auth-success {
+  background: #e8f5ee;
+  color: var(--success);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  margin-top: 0.8rem;
+}
+
+.auth-help {
+  margin-top: 1.4rem;
+  font-size: 0.88rem;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.auth-help a {
+  color: var(--accent-soft);
+  font-weight: 600;
+}
+
+.loyalty-card {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(198, 150, 167, 0.28), transparent 35%),
+    linear-gradient(135deg, #ffffff 0%, #faf5f7 100%);
+}
+
+.loyalty-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+  margin-top: 0.6rem;
+}
+
+.loyalty-points-label {
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-soft);
+  margin: 0;
+}
+
+.loyalty-points-value {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  color: var(--accent);
+  display: block;
+  line-height: 1;
+  margin: 0.3rem 0 0.6rem;
+}
+
+.loyalty-points-hint {
+  color: var(--text-soft);
+  margin: 0;
+}
+
+.loyalty-rules {
+  background: var(--surface-soft);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+}
+
+.loyalty-rules h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.loyalty-rules ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.profile-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.profile-card__header h2 {
+  margin: 0.2rem 0 0.15rem;
+}
+
+.profile-phone {
+  color: var(--text-soft);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.history-item > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-item strong {
+  font-size: 1rem;
+}
+
+.history-item span {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+.history-item--credit strong {
+  color: var(--success);
+}
+
+.history-item--debit strong {
+  color: var(--danger);
+}
+
+.history-item time {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+}
+
+.history-empty {
+  color: var(--text-soft);
+  margin: 0.4rem 0 0;
+}
+
+.loyalty-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(198, 150, 167, 0.18), rgba(166, 123, 141, 0.12));
+  border: 1px solid rgba(157, 100, 120, 0.22);
+  border-radius: var(--radius-md);
+  padding: 0.8rem 0.95rem;
+  margin: 0.7rem 0 0.3rem;
+}
+
+.loyalty-banner__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.loyalty-banner strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.loyalty-banner small {
+  display: block;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
+.loyalty-banner a {
+  color: var(--accent-soft);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (min-width: 768px) {
+  .loyalty-hero {
+    grid-template-columns: 1.15fr 1fr;
+    align-items: center;
+  }
+}

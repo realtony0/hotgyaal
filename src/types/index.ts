@@ -141,3 +141,24 @@ export type StoreSettings = {
 }
 
 export type StoreSettingsPayload = Omit<StoreSettings, 'id' | 'updated_at'>
+
+export type Customer = {
+  customer_id: string
+  phone: string
+  full_name: string | null
+  points_balance: number
+}
+
+export type CustomerSession = Customer & {
+  token: string
+}
+
+export type LoyaltyTransactionKind = 'credit' | 'debit' | 'adjustment'
+
+export type LoyaltyTransaction = {
+  id: string
+  amount: number
+  kind: LoyaltyTransactionKind
+  reason: string | null
+  created_at: string
+}

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { useCustomerAuth } from '../context/CustomerAuthContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { createOrder } from '../services/orders'
@@ -116,6 +117,7 @@ const buildOrderMessage = (
 
 export const CartPage = () => {
   const { user } = useAuth()
+  const { customer: loyaltyCustomer } = useCustomerAuth()
   const { settings } = useStoreSettings()
   const { items, subtotal, removeFromCart, updateQuantity, clearCart } = useCart()
 
@@ -305,6 +307,28 @@ export const CartPage = () => {
               </dd>
             </div>
           </dl>
+
+          {subtotal > 0 ? (
+            <div className="loyalty-banner">
+              <span className="loyalty-banner__icon" aria-hidden="true">
+                ★
+              </span>
+              <div>
+                <strong>
+                  Gagnez {Math.floor(subtotal / 100).toLocaleString('fr-FR')} points
+                </strong>
+                <small>
+                  {loyaltyCustomer
+                    ? `Solde actuel : ${loyaltyCustomer.points_balance.toLocaleString('fr-FR')} pts`
+                    : (
+                        <>
+                          <Link href="/compte">Creez un compte</Link> pour cumuler et utiliser vos points.
+                        </>
+                      )}
+                </small>
+              </div>
+            </div>
+          ) : null}
 
           <p className="shipping-note">
             Le cout final du transit est confirme apres verification du poids ou du volume.

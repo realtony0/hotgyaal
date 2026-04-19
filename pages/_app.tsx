@@ -5,6 +5,7 @@ import { Layout } from '../src/components/Layout'
 import { StoreCategoriesProvider } from '../src/context/StoreCategoriesContext'
 import { AuthProvider } from '../src/context/AuthContext'
 import { CartProvider } from '../src/context/CartContext'
+import { CustomerAuthProvider } from '../src/context/CustomerAuthContext'
 import { StoreSettingsProvider } from '../src/context/StoreSettingsContext'
 import '../src/index.css'
 
@@ -25,19 +26,21 @@ export default function App({ Component, pageProps }: AppProps) {
       </Head>
 
       <AuthProvider>
-        <StoreSettingsProvider>
-          <StoreCategoriesProvider>
-            <CartProvider>
-              {isAdminRoute ? (
-                <Component {...pageProps} />
-              ) : (
-                <Layout>
+        <CustomerAuthProvider>
+          <StoreSettingsProvider>
+            <StoreCategoriesProvider>
+              <CartProvider>
+                {isAdminRoute ? (
                   <Component {...pageProps} />
-                </Layout>
-              )}
-            </CartProvider>
-          </StoreCategoriesProvider>
-        </StoreSettingsProvider>
+                ) : (
+                  <Layout>
+                    <Component {...pageProps} />
+                  </Layout>
+                )}
+              </CartProvider>
+            </StoreCategoriesProvider>
+          </StoreSettingsProvider>
+        </CustomerAuthProvider>
       </AuthProvider>
     </>
   )
