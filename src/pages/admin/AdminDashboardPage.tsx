@@ -8,6 +8,11 @@ import {
   upsertCategory,
   uploadCategoryImage,
 } from '../../services/categories'
+import {
+  adminAdjustPoints,
+  adminCustomerHistory,
+  adminListCustomers,
+} from '../../services/loyalty'
 import { listOrders, updateOrderStatus } from '../../services/orders'
 import {
   listProducts,
@@ -16,6 +21,8 @@ import {
   uploadProductImage,
 } from '../../services/products'
 import type {
+  AdminCustomerRow,
+  AdminLoyaltyTransaction,
   Order,
   OrderStatus,
   Product,
@@ -28,7 +35,26 @@ import { formatCurrency, formatDate } from '../../utils/format'
 import { dedupeProductsBySlug } from '../../utils/products'
 import { toSlug } from '../../utils/slug'
 
-type AdminTab = 'pages' | 'categories' | 'products' | 'orders'
+type AdminTab = 'pages' | 'categories' | 'products' | 'orders' | 'loyalty'
+
+type AdjustForm = {
+  amount: string
+  reason: string
+}
+
+const INITIAL_ADJUST_FORM: AdjustForm = { amount: '', reason: '' }
+
+const formatPhone = (raw: string) => {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length >= 11 && digits.startsWith('221')) {
+    const local = digits.slice(3)
+    return `+221 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5, 9)}`
+  }
+  if (digits.length === 9) {
+    return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 9)}`
+  }
+  return raw
+}
 
 type CategoryOption = {
   key: string
@@ -241,6 +267,22 @@ export const AdminDashboardPage = () => {
   const [clothingTypeInput, setClothingTypeInput] = useState('')
   const [savingClothingTypes, setSavingClothingTypes] = useState(false)
 
+  const [loyaltyCustomers, setLoyaltyCustomers] = useState<AdminCustomerRow[]>([])
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false)
+  const [loyaltyError, setLoyaltyError] = useState<string | null>(null)
+  const [loyaltySearch, setLoyaltySearch] = useState('')
+  const [loyaltyExpandedId, setLoyaltyExpandedId] = useState<string | null>(null)
+  const [loyaltyHistory, setLoyaltyHistory] = useState<
+    Record<string, AdminLoyaltyTransaction[]>
+  >({})
+  const [loyaltyHistoryLoading, setLoyaltyHistoryLoading] = useState<string | null>(
+    null,
+  )
+  const [adjustCustomerId, setAdjustCustomerId] = useState<string | null>(null)
+  const [adjustForm, setAdjustForm] = useState<AdjustForm>(INITIAL_ADJUST_FORM)
+  const [adjustMode, setAdjustMode] = useState<'credit' | 'debit'>('credit')
+  const [adjustSaving, setAdjustSaving] = useState(false)
+
   const categoryOptions = useMemo(
     () => buildCategoryOptions(categories),
     [categories],
@@ -419,6 +461,116 @@ export const AdminDashboardPage = () => {
   const refreshOrders = async () => {
     const data = await listOrders()
     setOrders(data)
+  }
+
+  const refreshLoyalty = async (search?: string) => {
+    setLoyaltyLoading(true)
+    setLoyaltyError(null)
+    try {
+      const rows = await adminListCustomers(search ?? loyaltySearch, 100, 0)
+      setLoyaltyCustomers(rows)
+    } catch (error) {
+      setLoyaltyError(
+        error instanceof Error
+          ? error.message
+          : 'Impossible de charger les clients fidelite.',
+      )
+    } finally {
+      setLoyaltyLoading(false)
+    }
+  }
+
+  const handleLoyaltyTabOpen = () => {
+    setActiveTab('loyalty')
+    if (loyaltyCustomers.length === 0) {
+      void refreshLoyalty('')
+    }
+  }
+
+  const handleLoyaltySearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    void refreshLoyalty(loyaltySearch)
+  }
+
+  const openAdjust = (customerId: string, mode: 'credit' | 'debit') => {
+    setAdjustCustomerId(customerId)
+    setAdjustMode(mode)
+    setAdjustForm(INITIAL_ADJUST_FORM)
+  }
+
+  const closeAdjust = () => {
+    setAdjustCustomerId(null)
+    setAdjustForm(INITIAL_ADJUST_FORM)
+  }
+
+  const submitAdjust = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!adjustCustomerId) return
+
+    const parsed = Number.parseInt(adjustForm.amount, 10)
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setErrorMessage('Montant de points invalide.')
+      return
+    }
+
+    const signed = adjustMode === 'credit' ? parsed : -parsed
+    setAdjustSaving(true)
+    try {
+      const newBalance = await adminAdjustPoints(
+        adjustCustomerId,
+        signed,
+        adjustForm.reason,
+      )
+      setLoyaltyCustomers((current) =>
+        current.map((row) =>
+          row.customer_id === adjustCustomerId
+            ? { ...row, points_balance: newBalance }
+            : row,
+        ),
+      )
+      setStatusMessage(
+        adjustMode === 'credit'
+          ? `+${parsed} points credites.`
+          : `-${parsed} points debites.`,
+      )
+      if (loyaltyExpandedId === adjustCustomerId) {
+        try {
+          const rows = await adminCustomerHistory(adjustCustomerId)
+          setLoyaltyHistory((prev) => ({ ...prev, [adjustCustomerId]: rows }))
+        } catch {
+          // ignore
+        }
+      }
+      closeAdjust()
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Ajustement impossible.',
+      )
+    } finally {
+      setAdjustSaving(false)
+    }
+  }
+
+  const toggleLoyaltyHistory = async (customerId: string) => {
+    if (loyaltyExpandedId === customerId) {
+      setLoyaltyExpandedId(null)
+      return
+    }
+
+    setLoyaltyExpandedId(customerId)
+    if (loyaltyHistory[customerId]) return
+
+    setLoyaltyHistoryLoading(customerId)
+    try {
+      const rows = await adminCustomerHistory(customerId)
+      setLoyaltyHistory((prev) => ({ ...prev, [customerId]: rows }))
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Historique indisponible.',
+      )
+    } finally {
+      setLoyaltyHistoryLoading(null)
+    }
   }
 
   const resetCategoryForm = () => {
@@ -1095,6 +1247,13 @@ export const AdminDashboardPage = () => {
               onClick={() => setActiveTab('orders')}
             >
               Commandes
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'loyalty' ? 'chip chip--active' : 'chip'}
+              onClick={handleLoyaltyTabOpen}
+            >
+              Fidelite
             </button>
           </div>
 
@@ -2164,6 +2323,207 @@ export const AdminDashboardPage = () => {
                   </article>
                 ))}
               </div>
+            </article>
+          ) : null}
+
+          {activeTab === 'loyalty' ? (
+            <article className="admin-card">
+              <div className="admin-toolbar">
+                <h2>Programme fidelite ({loyaltyCustomers.length})</h2>
+
+                <form className="admin-toolbar-actions" onSubmit={handleLoyaltySearch}>
+                  <label className="admin-search">
+                    Rechercher
+                    <input
+                      type="search"
+                      placeholder="Telephone ou nom"
+                      value={loyaltySearch}
+                      onChange={(event) => setLoyaltySearch(event.target.value)}
+                    />
+                  </label>
+                  <button type="submit" className="button button--ghost">
+                    Filtrer
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => {
+                      setLoyaltySearch('')
+                      void refreshLoyalty('')
+                    }}
+                  >
+                    Reinitialiser
+                  </button>
+                </form>
+              </div>
+
+              {loyaltyError ? <p className="admin-error">{loyaltyError}</p> : null}
+              {loyaltyLoading ? <p>Chargement des clients...</p> : null}
+              {!loyaltyLoading && loyaltyCustomers.length === 0 && !loyaltyError ? (
+                <p>Aucun client enregistre pour le moment.</p>
+              ) : null}
+
+              <div className="loyalty-admin-list">
+                {loyaltyCustomers.map((row) => {
+                  const history = loyaltyHistory[row.customer_id] ?? null
+                  const expanded = loyaltyExpandedId === row.customer_id
+
+                  return (
+                    <article key={row.customer_id} className="loyalty-admin-row">
+                      <div className="loyalty-admin-row__main">
+                        <div>
+                          <strong>{row.full_name || 'Client sans nom'}</strong>
+                          <p className="loyalty-admin-row__phone">
+                            {formatPhone(row.phone)}
+                          </p>
+                          <p className="loyalty-admin-row__meta">
+                            Inscrit le {formatDate(row.created_at)}
+                            {row.last_transaction_at
+                              ? ` · derniere transaction ${formatDate(row.last_transaction_at)}`
+                              : ''}
+                          </p>
+                        </div>
+
+                        <div className="loyalty-admin-row__balance">
+                          <span>Solde</span>
+                          <strong>{row.points_balance.toLocaleString('fr-FR')} pts</strong>
+                          <p className="loyalty-admin-row__stats">
+                            +{row.total_credited.toLocaleString('fr-FR')} / -
+                            {row.total_debited.toLocaleString('fr-FR')}
+                          </p>
+                        </div>
+
+                        <div className="loyalty-admin-row__actions">
+                          <button
+                            type="button"
+                            className="button"
+                            onClick={() => openAdjust(row.customer_id, 'credit')}
+                          >
+                            + Credit
+                          </button>
+                          <button
+                            type="button"
+                            className="button button--ghost"
+                            onClick={() => openAdjust(row.customer_id, 'debit')}
+                          >
+                            - Debit
+                          </button>
+                          <button
+                            type="button"
+                            className="button button--ghost"
+                            onClick={() => void toggleLoyaltyHistory(row.customer_id)}
+                          >
+                            {expanded ? 'Masquer' : 'Historique'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {expanded ? (
+                        <div className="loyalty-admin-row__history">
+                          {loyaltyHistoryLoading === row.customer_id ? (
+                            <p>Chargement de l&apos;historique...</p>
+                          ) : history && history.length > 0 ? (
+                            <ul className="history-list">
+                              {history.map((tx) => (
+                                <li
+                                  key={tx.id}
+                                  className={`history-item history-item--${tx.kind}`}
+                                >
+                                  <div>
+                                    <strong>
+                                      {tx.kind === 'credit' ? '+' : '-'}
+                                      {Math.abs(tx.amount).toLocaleString('fr-FR')} pts
+                                    </strong>
+                                    <span>
+                                      {tx.reason ||
+                                        (tx.kind === 'credit'
+                                          ? 'Credit'
+                                          : tx.kind === 'adjustment'
+                                            ? 'Ajustement'
+                                            : 'Debit')}
+                                      {tx.order_id ? ' · commande' : ''}
+                                    </span>
+                                  </div>
+                                  <time dateTime={tx.created_at}>
+                                    {formatDate(tx.created_at)}
+                                  </time>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p>Aucune transaction pour ce client.</p>
+                          )}
+                        </div>
+                      ) : null}
+                    </article>
+                  )
+                })}
+              </div>
+
+              {adjustCustomerId ? (
+                <div
+                  className="loyalty-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={closeAdjust}
+                >
+                  <form
+                    className="loyalty-modal__card"
+                    onClick={(event) => event.stopPropagation()}
+                    onSubmit={submitAdjust}
+                  >
+                    <h3>
+                      {adjustMode === 'credit' ? 'Crediter des points' : 'Debiter des points'}
+                    </h3>
+
+                    <label className="auth-field">
+                      <span>Nombre de points</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        required
+                        value={adjustForm.amount}
+                        onChange={(event) =>
+                          setAdjustForm((form) => ({
+                            ...form,
+                            amount: event.target.value,
+                          }))
+                        }
+                        placeholder="Ex : 100"
+                      />
+                    </label>
+
+                    <label className="auth-field">
+                      <span>Raison (optionnel)</span>
+                      <input
+                        type="text"
+                        value={adjustForm.reason}
+                        onChange={(event) =>
+                          setAdjustForm((form) => ({
+                            ...form,
+                            reason: event.target.value,
+                          }))
+                        }
+                        placeholder="Ex : geste commercial, retour produit..."
+                      />
+                    </label>
+
+                    <div className="profile-actions">
+                      <button type="submit" className="button" disabled={adjustSaving}>
+                        {adjustSaving ? 'Enregistrement...' : 'Valider'}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--ghost"
+                        onClick={closeAdjust}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : null}
             </article>
           ) : null}
         </div>

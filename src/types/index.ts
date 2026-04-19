@@ -162,3 +162,18 @@ export type LoyaltyTransaction = {
   reason: string | null
   created_at: string
 }
+
+export type AdminCustomerRow = {
+  customer_id: string
+  phone: string
+  full_name: string | null
+  points_balance: number
+  total_credited: number
+  total_debited: number
+  last_transaction_at: string | null
+  created_at: string
+}
+
+export type AdminLoyaltyTransaction = LoyaltyTransaction & {
+  order_id: string | null
+}

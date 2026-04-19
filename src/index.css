@@ -4191,3 +4191,127 @@ body::after {
     align-items: center;
   }
 }
+
+/* -------------------------------------------------- */
+/* Admin : tableau fidelite, lignes client, modal     */
+/* -------------------------------------------------- */
+.loyalty-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.loyalty-admin-row {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+}
+
+.loyalty-admin-row__main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.loyalty-admin-row__phone {
+  color: var(--text-soft);
+  margin: 0.2rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.loyalty-admin-row__meta {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  margin: 0.25rem 0 0;
+}
+
+.loyalty-admin-row__balance {
+  background: var(--surface-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  text-align: center;
+}
+
+.loyalty-admin-row__balance span {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.loyalty-admin-row__balance strong {
+  display: block;
+  font-size: 1.25rem;
+  color: var(--accent);
+  font-family: 'Playfair Display', Georgia, serif;
+  margin-top: 0.2rem;
+}
+
+.loyalty-admin-row__stats {
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  margin: 0.2rem 0 0;
+}
+
+.loyalty-admin-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-start;
+}
+
+.loyalty-admin-row__actions .button {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.loyalty-admin-row__history {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed var(--line);
+}
+
+.loyalty-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(29, 17, 23, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.loyalty-modal__card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.loyalty-modal__card h3 {
+  margin: 0;
+}
+
+.admin-error {
+  background: #fdecec;
+  color: var(--danger);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  margin: 0.5rem 0;
+}
+
+@media (min-width: 720px) {
+  .loyalty-admin-row__main {
+    grid-template-columns: 1.6fr 0.9fr auto;
+  }
+}

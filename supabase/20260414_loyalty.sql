@@ -350,6 +350,146 @@ alter table public.loyalty_transactions enable row level security;
 -- Les admins peuvent quand meme consulter via le service role.
 
 -- -----------------------------------------------------------------------------
+-- RPC admin : lister les clients avec recherche par telephone ou nom
+-- (protection cote frontend via code admin, pas de check serveur)
+-- -----------------------------------------------------------------------------
+create or replace function public.admin_list_customers(
+  p_search text default null,
+  p_limit integer default 50,
+  p_offset integer default 0
+)
+returns table (
+  customer_id uuid,
+  phone text,
+  full_name text,
+  points_balance integer,
+  total_credited integer,
+  total_debited integer,
+  last_transaction_at timestamptz,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_search text;
+begin
+  v_search := nullif(trim(coalesce(p_search, '')), '');
+
+  return query
+  with stats as (
+    select
+      t.customer_id,
+      coalesce(sum(case when t.kind = 'credit' then t.amount else 0 end), 0)::integer as total_credited,
+      coalesce(sum(case when t.kind = 'debit' then t.amount else 0 end), 0)::integer as total_debited,
+      max(t.created_at) as last_transaction_at
+    from public.loyalty_transactions t
+    group by t.customer_id
+  )
+  select
+    c.id,
+    c.phone,
+    c.full_name,
+    c.points_balance,
+    coalesce(s.total_credited, 0) as total_credited,
+    coalesce(s.total_debited, 0) as total_debited,
+    s.last_transaction_at,
+    c.created_at
+  from public.customers c
+  left join stats s on s.customer_id = c.id
+  where
+    v_search is null
+    or c.phone ilike '%' || v_search || '%'
+    or c.full_name ilike '%' || v_search || '%'
+  order by c.created_at desc
+  limit greatest(1, least(coalesce(p_limit, 50), 200))
+  offset greatest(0, coalesce(p_offset, 0));
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- RPC admin : ajuster le solde de points d'un client (credit ou debit)
+-- p_amount peut etre positif (credit) ou negatif (debit)
+-- -----------------------------------------------------------------------------
+create or replace function public.admin_adjust_points(
+  p_customer_id uuid,
+  p_amount integer,
+  p_reason text default null
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_kind text;
+  v_abs integer;
+  v_new_balance integer;
+begin
+  if p_amount = 0 then
+    raise exception 'Le montant doit etre different de zero';
+  end if;
+
+  if p_amount > 0 then
+    v_kind := 'credit';
+  else
+    v_kind := 'debit';
+  end if;
+
+  v_abs := abs(p_amount);
+
+  update public.customers
+  set points_balance = greatest(0, points_balance + p_amount)
+  where id = p_customer_id
+  returning points_balance into v_new_balance;
+
+  if not found then
+    raise exception 'Client introuvable';
+  end if;
+
+  insert into public.loyalty_transactions (customer_id, amount, kind, reason)
+  values (
+    p_customer_id,
+    v_abs,
+    case when v_kind = 'credit' then 'credit' else 'adjustment' end,
+    nullif(trim(coalesce(p_reason, '')), '')
+  );
+
+  return v_new_balance;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- RPC admin : historique complet d'un client (sans token, par id)
+-- -----------------------------------------------------------------------------
+create or replace function public.admin_customer_history(
+  p_customer_id uuid,
+  p_limit integer default 100
+)
+returns table (
+  id uuid,
+  amount integer,
+  kind text,
+  reason text,
+  order_id uuid,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query
+  select t.id, t.amount, t.kind, t.reason, t.order_id, t.created_at
+  from public.loyalty_transactions t
+  where t.customer_id = p_customer_id
+  order by t.created_at desc
+  limit greatest(1, least(coalesce(p_limit, 100), 500));
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
 -- Permissions d'execution des RPC pour les anonymes et authentifies
 -- -----------------------------------------------------------------------------
 grant execute on function public.customer_register(text, text, text) to anon, authenticated;
@@ -358,3 +498,6 @@ grant execute on function public.customer_logout(uuid) to anon, authenticated;
 grant execute on function public.customer_me(uuid) to anon, authenticated;
 grant execute on function public.customer_update_profile(uuid, text, text) to anon, authenticated;
 grant execute on function public.customer_loyalty_history(uuid, integer) to anon, authenticated;
+grant execute on function public.admin_list_customers(text, integer, integer) to anon, authenticated;
+grant execute on function public.admin_adjust_points(uuid, integer, text) to anon, authenticated;
+grant execute on function public.admin_customer_history(uuid, integer) to anon, authenticated;
