@@ -98,7 +98,7 @@ begin
     raise exception 'Le code PIN doit contenir 4 a 6 chiffres';
   end if;
 
-  if exists (select 1 from public.customers where phone = v_phone) then
+  if exists (select 1 from public.customers c where c.phone = v_phone) then
     raise exception 'Un compte existe deja avec ce numero';
   end if;
 
