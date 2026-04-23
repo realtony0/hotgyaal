@@ -81,7 +81,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_phone text;
@@ -135,7 +135,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_phone text;
@@ -181,7 +181,7 @@ create or replace function public.customer_logout(p_token uuid)
 returns boolean
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 begin
   delete from public.customer_sessions where token = p_token;
@@ -201,7 +201,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_customer_id uuid;
@@ -232,7 +232,7 @@ create or replace function public.customer_update_profile(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_customer_id uuid;
@@ -270,7 +270,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_customer_id uuid;
@@ -371,7 +371,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_search text;
@@ -421,7 +421,7 @@ create or replace function public.admin_adjust_points(
 returns integer
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_kind text;
@@ -478,7 +478,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 begin
   return query
