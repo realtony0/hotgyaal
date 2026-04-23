@@ -4315,3 +4315,50 @@ body::after {
     grid-template-columns: 1.6fr 0.9fr auto;
   }
 }
+
+/* Selecteur de pays pour le telephone */
+.phone-field {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.35rem;
+  align-items: stretch;
+}
+
+.phone-field__country {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 0 0.5rem;
+  font-size: 0.9rem;
+  max-width: 120px;
+  cursor: pointer;
+}
+
+.phone-field__dial {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.6rem;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-field__input {
+  width: 100%;
+}
+
+@media (max-width: 480px) {
+  .phone-field {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+  }
+
+  .phone-field__country {
+    grid-column: 1 / -1;
+    max-width: none;
+    padding: 0.55rem 0.7rem;
+  }
+}

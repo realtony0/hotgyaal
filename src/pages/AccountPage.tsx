@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useCustomerAuth } from '../context/CustomerAuthContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
+import {
+  COUNTRIES,
+  DEFAULT_COUNTRY_CODE,
+  findCountryByDialCode,
+} from '../constants/countries'
 import type { LoyaltyTransaction } from '../types'
 
 type Tab = 'login' | 'register'
@@ -13,10 +18,14 @@ const sanitizePin = (raw: string) => raw.replace(/\D/g, '').slice(0, 6)
 
 const formatPhone = (raw: string) => {
   const digits = sanitizePhone(raw)
-  if (digits.length >= 11 && digits.startsWith('221')) {
-    const local = digits.slice(3)
-    return `+221 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5, 9)}`
+  const country = findCountryByDialCode(digits)
+
+  if (country) {
+    const local = digits.slice(country.dialCode.length)
+    const chunks = local.match(/.{1,2}/g) ?? [local]
+    return `+${country.dialCode} ${chunks.join(' ')}`.trim()
   }
+
   return digits.replace(/(\d{2})(\d{3})(\d{2})(\d{2})/, '$1 $2 $3 $4')
 }
 
@@ -41,6 +50,7 @@ export const AccountPage = () => {
   } = useCustomerAuth()
 
   const [tab, setTab] = useState<Tab>('login')
+  const [countryCode, setCountryCode] = useState<string>(DEFAULT_COUNTRY_CODE)
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
@@ -99,15 +109,27 @@ export const AccountPage = () => {
     resetFormFields()
   }
 
+  const selectedCountry = useMemo(
+    () =>
+      COUNTRIES.find((country) => country.code === countryCode) ?? COUNTRIES[0],
+    [countryCode],
+  )
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setFormError(null)
 
-    const trimmedPhone = sanitizePhone(phone)
-    if (trimmedPhone.length < 8) {
+    const localDigits = sanitizePhone(phone).replace(
+      new RegExp(`^${selectedCountry.dialCode}`),
+      '',
+    )
+
+    if (localDigits.length < 6) {
       setFormError('Numero de telephone invalide.')
       return
     }
+
+    const fullPhone = `${selectedCountry.dialCode}${localDigits}`
 
     if (pin.length < 4) {
       setFormError('Le code PIN doit contenir au moins 4 chiffres.')
@@ -120,9 +142,9 @@ export const AccountPage = () => {
           setFormError('Les deux codes PIN ne correspondent pas.')
           return
         }
-        await register({ phone: trimmedPhone, pin, fullName })
+        await register({ phone: fullPhone, pin, fullName })
       } else {
-        await login({ phone: trimmedPhone, pin })
+        await login({ phone: fullPhone, pin })
       }
       resetFormFields()
     } catch (error) {
@@ -217,15 +239,31 @@ export const AccountPage = () => {
 
               <label className="auth-field">
                 <span>Numero de telephone</span>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  required
-                  value={phone}
-                  onChange={(event) => setPhone(sanitizePhone(event.target.value))}
-                  placeholder="77 123 45 67"
-                />
+                <div className="phone-field">
+                  <select
+                    className="phone-field__country"
+                    value={countryCode}
+                    onChange={(event) => setCountryCode(event.target.value)}
+                    aria-label="Choisir le pays"
+                  >
+                    {COUNTRIES.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.flag} {country.name} (+{country.dialCode})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="phone-field__dial">+{selectedCountry.dialCode}</span>
+                  <input
+                    className="phone-field__input"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    required
+                    value={phone}
+                    onChange={(event) => setPhone(sanitizePhone(event.target.value))}
+                    placeholder="77 123 45 67"
+                  />
+                </div>
               </label>
 
               <label className="auth-field">
