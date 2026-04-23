@@ -277,6 +277,20 @@ export const ProductPage = ({
     setFeedback('Ajoute au panier.')
   }
 
+  const handleCopyLink = async () => {
+    if (!product) return
+
+    const url = buildShareUrl(`/produit/${product.slug}`)
+    try {
+      await navigator.clipboard.writeText(url)
+      setShareFeedback('Lien copie !')
+    } catch {
+      setShareFeedback('Impossible de copier le lien.')
+    }
+
+    window.setTimeout(() => setShareFeedback(null), 2500)
+  }
+
   const handleShareProduct = async () => {
     if (!product) {
       return
@@ -458,8 +472,11 @@ export const ProductPage = ({
               >
                 {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
               </button>
+              <button type="button" className="button button--ghost" onClick={() => void handleCopyLink()}>
+                Copier le lien
+              </button>
               <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
-                Partager l'article
+                Partager
               </button>
               <Link href="/panier" className="button button--ghost">
                 Aller au panier
