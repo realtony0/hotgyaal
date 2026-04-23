@@ -4316,147 +4316,30 @@ body::after {
   }
 }
 
-/* Selecteur de pays + numero de telephone */
-.phone-field {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.4rem;
-  align-items: stretch;
-}
-
-.phone-field__input {
+/* Pays + numero de telephone */
+.country-select {
   width: 100%;
 }
 
-.country-picker {
-  position: relative;
-  display: inline-flex;
+.phone-field {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
 }
 
-.country-picker__trigger {
+.phone-field__prefix {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.7rem;
-  height: 100%;
-  min-height: 42px;
+  padding: 0 0.75rem;
+  background: var(--surface-soft);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.95rem;
-  color: var(--text);
-  transition: border-color 0.15s ease;
-}
-
-.country-picker__trigger:hover {
-  border-color: var(--accent-soft);
-}
-
-.country-picker__trigger:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.country-picker__flag {
-  font-size: 1.15rem;
-  line-height: 1;
-}
-
-.country-picker__dial {
+  border-right: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.country-picker__caret {
-  color: var(--text-soft);
-  font-size: 0.72rem;
-  margin-left: 0.1rem;
-}
-
-.country-picker__panel {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  width: min(320px, 80vw);
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  padding: 0.6rem;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.country-picker__search {
-  width: 100%;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 0.92rem;
-}
-
-.country-picker__search:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.country-picker__list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.country-picker__item button {
-  width: 100%;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.6rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  border-radius: var(--radius-sm);
-  font-size: 0.92rem;
-  color: var(--text);
-}
-
-.country-picker__item button:hover,
-.country-picker__item button:focus-visible {
-  background: var(--surface-soft);
-  outline: none;
-}
-
-.country-picker__item.is-selected button {
-  background: var(--accent);
-  color: #fff;
-}
-
-.country-picker__item.is-selected .country-picker__item-dial {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.country-picker__name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.country-picker__item-dial {
-  color: var(--text-soft);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.88rem;
-}
-
-.country-picker__empty {
-  text-align: center;
-  color: var(--text-soft);
-  padding: 0.8rem 0;
-  font-size: 0.9rem;
+.phone-field__input {
+  flex: 1;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }

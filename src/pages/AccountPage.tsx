@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { CountryPicker } from '../components/CountryPicker'
 import { useCustomerAuth } from '../context/CustomerAuthContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import {
@@ -239,9 +238,26 @@ export const AccountPage = () => {
               ) : null}
 
               <label className="auth-field">
+                <span>Pays</span>
+                <select
+                  className="country-select"
+                  value={countryCode}
+                  onChange={(event) => setCountryCode(event.target.value)}
+                >
+                  {COUNTRIES.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.name} (+{country.dialCode})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="auth-field">
                 <span>Numero de telephone</span>
                 <div className="phone-field">
-                  <CountryPicker value={countryCode} onChange={setCountryCode} />
+                  <span className="phone-field__prefix">
+                    +{selectedCountry.dialCode}
+                  </span>
                   <input
                     className="phone-field__input"
                     type="tel"
