@@ -28,3 +28,5 @@ out
 *.sln
 *.sw?
 tmp_preview
+storage_backup/
+*.zip
