@@ -75,3 +75,12 @@ export const updateOrderStatus = async (
     throw new Error(error.message)
   }
 }
+
+export const deleteOrder = async (orderId: string): Promise<void> => {
+  const client = getSupabase()
+  const { error } = await client.from('orders').delete().eq('id', orderId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}

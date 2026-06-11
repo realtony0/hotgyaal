@@ -138,6 +138,15 @@ textarea:focus {
   box-shadow: 0 12px 20px -18px rgba(51, 29, 40, 0.45);
 }
 
+.button--danger {
+  background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+  color: #fff;
+}
+
+.button--danger:hover {
+  box-shadow: 0 12px 24px -18px rgba(220, 38, 38, 0.5);
+}
+
 .chip {
   border: 1px solid #e0d4db;
   border-radius: 999px;
@@ -1842,6 +1851,18 @@ main {
   font-size: 0.82rem;
   color: #68535d;
   font-style: normal;
+}
+
+.order-card__actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.order-card__actions .admin-search {
+  flex: 1;
+  min-width: 160px;
 }
 
 .danger {
