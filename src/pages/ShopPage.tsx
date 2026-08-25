@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import { ProductCard } from '../components/ProductCard'
 import { QUICK_CATEGORY_LINKS } from '../constants/quickCategories'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
@@ -18,9 +18,7 @@ export const ShopPage = () => {
     const loadProducts = async () => {
       if (!isSupabaseConfigured) {
         setProducts([])
-        setErrorProducts(
-          "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-        )
+        setErrorProducts(resolveCatalogErrorMessage('Supabase non configure'))
         setLoadingProducts(false)
         return
       }
@@ -32,11 +30,7 @@ export const ShopPage = () => {
         setErrorProducts(null)
       } catch (loadError) {
         setProducts([])
-        setErrorProducts(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Impossible de charger les produits depuis Supabase.',
-        )
+        setErrorProducts(resolveCatalogErrorMessage(loadError))
       } finally {
         setLoadingProducts(false)
       }

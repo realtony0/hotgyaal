@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured, resolveOrderErrorMessage } from '../lib/supabase'
 import { createOrder } from '../services/orders'
 import type { CartItem } from '../types'
 import { formatCurrency } from '../utils/format'
@@ -156,9 +156,7 @@ export const CartPage = () => {
     }
 
     if (!isSupabaseConfigured) {
-      setError(
-        "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-      )
+      setError(resolveOrderErrorMessage('Supabase non configure'))
       return
     }
 
@@ -212,7 +210,7 @@ export const CartPage = () => {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : 'Impossible de finaliser la commande.',
+          : resolveOrderErrorMessage(submitError),
       )
     } finally {
       setLoading(false)

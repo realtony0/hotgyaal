@@ -3,7 +3,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
@@ -85,9 +85,7 @@ export const ProductPage = ({
       setProduct(null)
       setVariants([])
       setLoading(false)
-      setError(
-        "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-      )
+      setError(resolveCatalogErrorMessage('Supabase non configure'))
       return
     }
 
@@ -120,11 +118,7 @@ export const ProductPage = ({
         if (!ignore) {
           setProduct(null)
           setVariants([])
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'Impossible de charger ce produit depuis Supabase.',
-          )
+          setError(resolveCatalogErrorMessage(loadError))
         }
       } finally {
         if (!ignore) {

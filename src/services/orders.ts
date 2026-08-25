@@ -1,4 +1,4 @@
-import { getSupabase } from '../lib/supabase'
+import { getSupabase, resolveOrderErrorMessage } from '../lib/supabase'
 import type { CheckoutPayload, Order, OrderStatus } from '../types'
 
 export const listOrders = async (): Promise<Order[]> => {
@@ -42,7 +42,7 @@ export const createOrder = async (payload: CheckoutPayload): Promise<Order> => {
     .single()
 
   if (orderError) {
-    throw new Error(orderError.message)
+    throw new Error(resolveOrderErrorMessage(orderError))
   }
 
   const orderItems = payload.items.map((item) => ({
@@ -58,7 +58,7 @@ export const createOrder = async (payload: CheckoutPayload): Promise<Order> => {
   const { error: itemsError } = await client.from('order_items').insert(orderItems)
 
   if (itemsError) {
-    throw new Error(itemsError.message)
+    throw new Error(resolveOrderErrorMessage(itemsError))
   }
 
   return order as Order
