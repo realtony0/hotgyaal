@@ -36,7 +36,7 @@ export const getSupabase = () => {
 }
 
 export const CATALOG_UNAVAILABLE_MESSAGE =
-  'Notre catalogue est momentanement indisponible. Nos equipes travaillent au retablissement, merci de reessayer dans quelques instants.'
+  'Notre catalogue est momentanément indisponible. Nos équipes travaillent au rétablissement, merci de réessayer dans quelques instants.'
 
 /**
  * Convertit une erreur technique en message client lisible. Les details bruts
@@ -51,7 +51,7 @@ export const resolveCatalogErrorMessage = (error: unknown): string => {
 }
 
 export const ORDER_UNAVAILABLE_MESSAGE =
-  "Votre commande n'a pas pu etre enregistree pour le moment. Merci de reessayer dans quelques instants ou de nous contacter directement."
+  "Votre commande n'a pas pu être enregistrée pour le moment. Merci de réessayer dans quelques instants ou de nous contacter directement."
 
 /**
  * Meme principe que resolveCatalogErrorMessage, cote commande: le client voit

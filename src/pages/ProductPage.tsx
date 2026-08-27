@@ -355,7 +355,7 @@ export const ProductPage = ({
               <img
                 src={
                   activeImage ||
-                  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80'
+                  '/placeholder-produit.svg'
                 }
                 alt={product.name}
                 decoding="async"
@@ -433,17 +433,34 @@ export const ProductPage = ({
             </div>
 
             <div className="product-detail-v2__actions">
-              <label>
-                Quantite
+              <div className="quantity-stepper" role="group" aria-label="Quantité">
+                <button
+                  type="button"
+                  className="quantity-stepper__button"
+                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                  disabled={quantity <= 1}
+                  aria-label="Diminuer la quantité"
+                >
+                  &minus;
+                </button>
                 <input
                   type="number"
                   min={1}
                   value={quantity}
+                  aria-label="Quantité"
                   onChange={(event) =>
                     setQuantity(Math.max(1, Number(event.target.value) || 1))
                   }
                 />
-              </label>
+                <button
+                  type="button"
+                  className="quantity-stepper__button"
+                  onClick={() => setQuantity((value) => value + 1)}
+                  aria-label="Augmenter la quantité"
+                >
+                  +
+                </button>
+              </div>
               <button
                 type="button"
                 className="button"
@@ -452,13 +469,26 @@ export const ProductPage = ({
               >
                 {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
               </button>
-              <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
-                Partager l'article
+            </div>
+
+            <div className="product-detail-v2__links">
+              <button
+                type="button"
+                className="link-action"
+                onClick={() => void handleShareProduct()}
+              >
+                Partager
               </button>
-              <Link href="/panier" className="button button--ghost">
-                Aller au panier
+              <Link href="/panier" className="link-action">
+                Voir mon panier
               </Link>
             </div>
+
+            <ul className="product-reassurance">
+              <li>Livraison partout au Sénégal</li>
+              <li>Paiement à la livraison à Dakar</li>
+              <li>Conseil taille et couleur sur WhatsApp</li>
+            </ul>
 
             {feedback ? <p className="success-text">{feedback}</p> : null}
             {shareFeedback ? <p className="success-text">{shareFeedback}</p> : null}

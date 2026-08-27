@@ -25,7 +25,7 @@ const normalizeCategory = (raw: StoreCategory): StoreCategory => {
     ...raw,
     subcategories,
     image_url: raw.image_url || null,
-    description: raw.description?.trim() || 'Categorie HOTGYAAL',
+    description: raw.description?.trim() || 'Catégorie HOTGYAAL',
     display_order:
       typeof raw.display_order === 'number' ? raw.display_order : Number.MAX_SAFE_INTEGER,
     is_active: raw.is_active !== false,
@@ -95,7 +95,7 @@ export const upsertCategory = async (
   if (error) {
     if (isMissingCategoriesTableError(error)) {
       throw new Error(
-        'Table store_categories manquante. Lancez le SQL full_setup.sql mis a jour.',
+        'Table store_categories manquante. Lancez le SQL full_setup.sql mis à jour.',
       )
     }
 
@@ -112,7 +112,7 @@ export const removeCategory = async (categoryId: string): Promise<void> => {
   if (error) {
     if (isMissingCategoriesTableError(error)) {
       throw new Error(
-        'Table store_categories manquante. Lancez le SQL full_setup.sql mis a jour.',
+        'Table store_categories manquante. Lancez le SQL full_setup.sql mis à jour.',
       )
     }
 

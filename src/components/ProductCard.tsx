@@ -25,11 +25,26 @@ export const ProductCard = ({ product }: ProductCardProps) => {
   const [isAdding, setIsAdding] = useState(false)
 
   const mainSize = product.sizes[0]?.trim() || FALLBACK_SIZE
-  const primaryBadge = product.is_new
-    ? 'New'
-    : product.is_best_seller
-      ? 'Populaire'
-      : null
+
+  const hasDiscount =
+    typeof product.compare_price === 'number' && product.compare_price > product.price
+  const discountPercent = hasDiscount
+    ? Math.round((1 - product.price / (product.compare_price as number)) * 100)
+    : 0
+
+  /*
+   * Une seule etiquette par carte, par ordre de priorite.
+   * Empiler "Nouveau" et "Tendance" sur chaque produit vidait les deux de leur sens.
+   */
+  const badge = product.is_out_of_stock
+    ? { label: 'Rupture', tone: 'is-dark' }
+    : hasDiscount
+      ? { label: `-${discountPercent}%`, tone: 'is-sale' }
+      : product.is_best_seller
+        ? { label: 'Populaire', tone: 'is-trend' }
+        : product.is_new
+          ? { label: 'Nouveau', tone: '' }
+          : null
 
   const handleQuickAdd = () => {
     if (product.is_out_of_stock) {
@@ -50,18 +65,18 @@ export const ProductCard = ({ product }: ProductCardProps) => {
         <img
           src={
             product.image_url ||
-            'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80'
+            '/placeholder-produit.svg'
           }
           alt={product.name}
           loading="lazy"
           decoding="async"
         />
 
-        <div className="product-card-v2__badges">
-          {primaryBadge ? <span>{primaryBadge}</span> : null}
-          {product.is_best_seller ? <span className="is-trend">Tendance au Senegal</span> : null}
-          {product.is_out_of_stock ? <span className="is-dark">Rupture</span> : null}
-        </div>
+        {badge ? (
+          <div className="product-card-v2__badges">
+            <span className={badge.tone}>{badge.label}</span>
+          </div>
+        ) : null}
       </Link>
 
       <div className="product-card-v2__body">
@@ -71,6 +86,11 @@ export const ProductCard = ({ product }: ProductCardProps) => {
 
         <div className="product-card-v2__price">
           <strong>{formatCurrency(product.price)}</strong>
+          {hasDiscount ? (
+            <span className="product-card-v2__compare">
+              {formatCurrency(product.compare_price as number)}
+            </span>
+          ) : null}
         </div>
 
         <button

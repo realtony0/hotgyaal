@@ -595,7 +595,7 @@ export const AdminDashboardPage = () => {
         await upsertCategory({
           slug: buildUniqueSlug(WOMEN_CATEGORY_SLUG, usedSlugs),
           name: WOMEN_CATEGORY_NAME,
-          description: 'Selection mode femme HOTGYAAL.',
+          description: 'Sélection mode femme HOTGYAAL.',
           image_url: null,
           subcategories,
           is_active: true,
@@ -605,13 +605,13 @@ export const AdminDashboardPage = () => {
 
       await refreshCategories()
       await refreshProducts()
-      setStatusMessage('Types de vetements mis a jour.')
+      setStatusMessage('Types de vêtements mis à jour.')
       setClothingTypeInput('')
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Impossible de sauvegarder les types de vetements.',
+          : 'Impossible de sauvegarder les types de vêtements.',
       )
     } finally {
       setSavingClothingTypes(false)
@@ -626,16 +626,16 @@ export const AdminDashboardPage = () => {
       setSavingCategory(true)
 
       const name = categoryForm.name.trim()
-      const description = categoryForm.description.trim() || 'Categorie HOTGYAAL'
+      const description = categoryForm.description.trim() || 'Catégorie HOTGYAAL'
       const displayOrder = Number(categoryForm.display_order)
       const subcategories = parseCsv(categoryForm.subcategories)
 
       if (!name) {
-        throw new Error('Nom de categorie requis.')
+        throw new Error('Nom de catégorie requis.')
       }
 
       if (!subcategories.length) {
-        throw new Error('Ajoutez au moins une sous-categorie.')
+        throw new Error('Ajoutez au moins une sous-catégorie.')
       }
 
       if (!Number.isFinite(displayOrder) || displayOrder < 0) {
@@ -649,14 +649,14 @@ export const AdminDashboardPage = () => {
 
       const generated = toSlug(categoryForm.slug.trim() || name)
       if (!generated) {
-        throw new Error('Slug categorie invalide.')
+        throw new Error('Slug catégorie invalide.')
       }
 
       let imageUrl = editingCategory?.image_url ?? null
       if (selectedCategoryImage) {
         imageUrl = await uploadCategoryImage(selectedCategoryImage)
       } else if (!editingCategory) {
-        throw new Error('Ajoutez une image de categorie.')
+        throw new Error('Ajoutez une image de catégorie.')
       }
 
       await upsertCategory(
@@ -692,13 +692,13 @@ export const AdminDashboardPage = () => {
 
       await refreshCategories()
       await refreshProducts()
-      setStatusMessage(editingCategory ? 'Categorie mise a jour.' : 'Categorie ajoutee.')
+      setStatusMessage(editingCategory ? 'Catégorie mise à jour.' : 'Catégorie ajoutée.')
       resetCategoryForm()
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Impossible de sauvegarder la categorie.',
+          : 'Impossible de sauvegarder la catégorie.',
       )
     } finally {
       setSavingCategory(false)
@@ -729,12 +729,12 @@ export const AdminDashboardPage = () => {
         category.id,
       )
       await refreshCategories()
-      setStatusMessage(category.is_active ? 'Categorie desactivee.' : 'Categorie activee.')
+      setStatusMessage(category.is_active ? 'Catégorie désactivée.' : 'Catégorie activée.')
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Impossible de changer le statut de la categorie.',
+          : 'Impossible de changer le statut de la catégorie.',
       )
     }
   }
@@ -746,7 +746,7 @@ export const AdminDashboardPage = () => {
 
     if (usedByProducts) {
       setErrorMessage(
-        'Cette categorie est liee a des produits. Reclasser les produits avant suppression.',
+        'Cette catégorie est liée à des produits. Reclassez les produits avant suppression.',
       )
       return
     }
@@ -760,7 +760,7 @@ export const AdminDashboardPage = () => {
       resetMessages()
       await removeCategory(category.id)
       await refreshCategories()
-      setStatusMessage('Categorie supprimee.')
+      setStatusMessage('Catégorie supprimée.')
       if (editingCategory?.id === category.id) {
         resetCategoryForm()
       }
@@ -768,7 +768,7 @@ export const AdminDashboardPage = () => {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Impossible de supprimer cette categorie.',
+          : 'Impossible de supprimer cette catégorie.',
       )
     }
   }
@@ -912,7 +912,7 @@ export const AdminDashboardPage = () => {
       )
 
       await refreshProducts()
-      setStatusMessage(editingProduct ? 'Produit mis a jour.' : 'Produit ajoute.')
+      setStatusMessage(editingProduct ? 'Produit mis à jour.' : 'Produit ajouté.')
       resetProductForm()
     } catch (error) {
       setErrorMessage(
@@ -959,7 +959,7 @@ export const AdminDashboardPage = () => {
       resetMessages()
       await removeProduct(product.id)
       await refreshProducts()
-      setStatusMessage('Produit supprime.')
+      setStatusMessage('Produit supprimé.')
       if (editingProduct?.id === product.id) {
         resetProductForm()
       }
@@ -981,7 +981,7 @@ export const AdminDashboardPage = () => {
       setUpdatingOrderIds((current) => new Set(current).add(orderId))
       await updateOrderStatus(orderId, status)
       await refreshOrders()
-      setStatusMessage('Statut commande mis a jour.')
+      setStatusMessage('Statut commande mis à jour.')
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -999,19 +999,19 @@ export const AdminDashboardPage = () => {
 
   const quickSteps = [
     {
-      title: 'Etape 1 · Pages',
+      title: 'Étape 1 · Pages',
       description: 'Renseigner les textes Accueil, Contact et Footer.',
     },
     {
-      title: 'Etape 2 · Categories',
-      description: 'Definir les categories et les types de vetements.',
+      title: 'Étape 2 · Catégories',
+      description: 'Définir les catégories et les types de vêtements.',
     },
     {
-      title: 'Etape 3 · Produits',
+      title: 'Étape 3 · Produits',
       description: 'Ajouter les articles, tailles, couleurs et photos.',
     },
     {
-      title: 'Etape 4 · Commandes',
+      title: 'Étape 4 · Commandes',
       description: 'Suivre les commandes puis mettre le statut a jour.',
     },
   ]
@@ -1049,7 +1049,7 @@ export const AdminDashboardPage = () => {
               <span>{orderStats.pending} en attente</span>
             </article>
             <article className="admin-kpi-card">
-              <p>Categories</p>
+              <p>Catégories</p>
               <strong>{categories.length}</strong>
               <span>
                 {categories.filter((category) => category.is_active).length} actives
@@ -1274,7 +1274,7 @@ export const AdminDashboardPage = () => {
           {activeTab === 'categories' ? (
             <>
               <article className="admin-card">
-                <h2>Types de vetements (Vêtements Femmes)</h2>
+                <h2>Types de vêtements (Vêtements Femmes)</h2>
                 <p className="admin-help">
                   Gestion simplifiee: ajoutez, retirez ou reordonnez les types en un clic.
                 </p>
@@ -1282,7 +1282,7 @@ export const AdminDashboardPage = () => {
                 <form className="admin-form admin-form--single" onSubmit={handleSaveClothingTypes}>
                   <div className="admin-clothing-manager full-width">
                     <div className="admin-clothing-manager__head">
-                      <p>Types de vetements</p>
+                      <p>Types de vêtements</p>
                       <strong>{clothingTypesDraft.length}</strong>
                     </div>
 
@@ -1399,8 +1399,8 @@ export const AdminDashboardPage = () => {
               </article>
 
               <article className="admin-card">
-                <h2>{editingCategory ? 'Modifier categorie' : 'Ajouter categorie'}</h2>
-                {loadingCategories ? <p className="admin-help">Chargement categories...</p> : null}
+                <h2>{editingCategory ? 'Modifier catégorie' : 'Ajouter catégorie'}</h2>
+                {loadingCategories ? <p className="admin-help">Chargement catégories...</p> : null}
 
                 <form className="admin-form" onSubmit={handleSaveCategory}>
                   <label>
@@ -1499,7 +1499,7 @@ export const AdminDashboardPage = () => {
                         ? 'Enregistrement...'
                         : editingCategory
                           ? 'Mettre a jour'
-                          : 'Ajouter categorie'}
+                          : 'Ajouter catégorie'}
                     </button>
                     {editingCategory ? (
                       <button
@@ -1532,7 +1532,7 @@ export const AdminDashboardPage = () => {
                       <img
                         src={
                           category.image_url ||
-                          'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=600&q=80'
+                          '/placeholder-produit.svg'
                         }
                         alt={category.name}
                         loading="lazy"
@@ -1708,7 +1708,7 @@ export const AdminDashboardPage = () => {
                             const nextMain = event.target.value
                             const firstSub =
                               categoryOptions.find((entry) => entry.main === nextMain)?.sub ||
-                              'General'
+                              'Général'
 
                             setProductForm((state) => ({
                               ...state,
@@ -1953,7 +1953,7 @@ export const AdminDashboardPage = () => {
                       Recherche
                       <input
                         type="search"
-                        placeholder="Nom, slug, categorie"
+                        placeholder="Nom, slug, catégorie"
                         value={productSearch}
                         onChange={(event) => setProductSearch(event.target.value)}
                       />
@@ -1989,7 +1989,7 @@ export const AdminDashboardPage = () => {
                       <img
                         src={
                           product.image_url ||
-                          'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=500&q=80'
+                          '/placeholder-produit.svg'
                         }
                         alt={product.name}
                         loading="lazy"
@@ -2041,7 +2041,7 @@ export const AdminDashboardPage = () => {
                                 setErrorMessage(
                                   error instanceof Error
                                     ? error.message
-                                    : 'Mise a jour stock impossible.',
+                                    : 'Mise à jour stock impossible.',
                                 ),
                               )
                           }
@@ -2074,7 +2074,7 @@ export const AdminDashboardPage = () => {
                     Recherche
                     <input
                       type="search"
-                      placeholder="Numero, client, telephone"
+                      placeholder="Numéro, client, téléphone"
                       value={ordersSearch}
                       onChange={(event) => setOrdersSearch(event.target.value)}
                     />
@@ -2111,7 +2111,7 @@ export const AdminDashboardPage = () => {
                       <div>
                         <strong>{order.order_number}</strong>
                         <p>
-                          {order.customer_name} · {order.customer_phone || 'Sans numero'}
+                          {order.customer_name} · {order.customer_phone || 'Sans numéro'}
                         </p>
                       </div>
 

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
@@ -27,28 +27,43 @@ const initialCheckoutState: CheckoutFormState = {
 type ShippingOption = {
   id: string
   name: string
+  ratePerKg: number | null
   priceLabel: string
   timeline: string
+  summary: string
 }
+
+/*
+ * Poids moyen retenu par article pour estimer le transit.
+ * Il sert uniquement a donner une fourchette a la cliente avant confirmation :
+ * le montant definitif est arrete apres pesee reelle du colis.
+ */
+const ESTIMATED_ITEM_WEIGHT_KG = 0.5
 
 const SHIPPING_OPTIONS: ShippingOption[] = [
   {
     id: 'gp-express',
-    name: 'Gp Express',
-    priceLabel: '10.000 FCFA / kg',
+    name: 'GP Express',
+    ratePerKg: 10000,
+    priceLabel: '10 000 FCFA / kg',
     timeline: '7 jours',
+    summary: 'Le plus rapide, idéal pour une ou deux pièces.',
   },
   {
     id: 'freight-aerien',
-    name: 'Freight aerien',
-    priceLabel: '7.000 FCFA / kg',
-    timeline: '10-12 jours',
+    name: 'Fret aérien',
+    ratePerKg: 7000,
+    priceLabel: '7 000 FCFA / kg',
+    timeline: '10 a 12 jours',
+    summary: 'Le meilleur rapport délai/prix pour une commande moyenne.',
   },
   {
     id: 'container',
-    name: 'Contener',
-    priceLabel: '117.000 FCFA / CBM',
-    timeline: '1-2 mois',
+    name: 'Conteneur',
+    ratePerKg: null,
+    priceLabel: '117 000 FCFA / m³',
+    timeline: '1 a 2 mois',
+    summary: 'Réservé aux gros volumes, sur devis après échange.',
   },
 ]
 
@@ -84,13 +99,15 @@ const buildOrderMessage = (
   subtotal: number,
   shippingOption: ShippingOption,
   orderNumber: string | null,
+  estimatedTransit: number | null,
+  estimatedWeightKg: number,
 ) => {
   const lines = [
     'Nouvelle commande HOTGYAAL',
-    orderNumber ? `Reference: ${orderNumber}` : 'Reference: En attente',
+    orderNumber ? `Référence: ${orderNumber}` : 'Référence: En attente',
     '',
     `Nom: ${formState.customerName}`,
-    `Telephone: ${formState.customerPhone || 'Non renseigne'}`,
+    `Téléphone: ${formState.customerPhone || 'Non renseigné'}`,
     '',
     'Articles:',
   ]
@@ -104,7 +121,15 @@ const buildOrderMessage = (
   lines.push('')
   lines.push(`Sous-total produits: ${formatCurrency(subtotal)}`)
   lines.push(`Option transit choisie: ${shippingOption.name} (${shippingOption.timeline})`)
-  lines.push('Tarif transit confirme apres verification poids/volume.')
+  lines.push(
+    estimatedTransit === null
+      ? 'Transit: sur devis (volume à estimer ensemble).'
+      : `Transit estimé: ${formatCurrency(estimatedTransit)} pour environ ${estimatedWeightKg.toFixed(1).replace('.', ',')} kg`,
+  )
+  if (estimatedTransit !== null) {
+    lines.push(`Total estimé: ${formatCurrency(subtotal + estimatedTransit)}`)
+  }
+  lines.push('Montant du transit confirmé après pesée réelle du colis.')
   lines.push('')
   lines.push(`Adresse: ${formState.line1}, ${formState.city}`)
   if (formState.note.trim()) {
@@ -119,6 +144,15 @@ export const CartPage = () => {
   const { settings } = useStoreSettings()
   const { items, subtotal, removeFromCart, updateQuantity, clearCart } = useCart()
 
+  const estimatedWeightKg = useMemo(
+    () =>
+      items.reduce((total, item) => total + item.quantity * ESTIMATED_ITEM_WEIGHT_KG, 0),
+    [items],
+  )
+
+  const estimateTransit = (option: ShippingOption) =>
+    option.ratePerKg === null ? null : Math.round(option.ratePerKg * estimatedWeightKg)
+
   const [formState, setFormState] = useState<CheckoutFormState>(
     initialCheckoutState,
   )
@@ -128,6 +162,9 @@ export const CartPage = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const selectedShippingOption = getShippingOptionById(selectedShippingId)
+  const estimatedTransit = selectedShippingOption
+    ? estimateTransit(selectedShippingOption)
+    : null
   const orderChatNumber = normalizeChatNumber(
     settings.order_chat_number ||
       (
@@ -151,7 +188,7 @@ export const CartPage = () => {
     }
 
     if (!orderChatNumber) {
-      setError('Le numero de confirmation est absent.')
+      setError('Le numéro de confirmation est absent.')
       return
     }
 
@@ -194,6 +231,8 @@ export const CartPage = () => {
         subtotal,
         selectedShippingOption,
         order.order_number,
+        estimatedTransit,
+        estimatedWeightKg,
       )
 
       clearCart()
@@ -224,7 +263,7 @@ export const CartPage = () => {
           <div className="section__header section__header--v2">
             <div>
               <p className="eyebrow">Panier</p>
-              <h1>Votre selection</h1>
+              <h1>Votre sélection</h1>
             </div>
             <Link href="/boutique">Continuer mes achats</Link>
           </div>
@@ -242,8 +281,7 @@ export const CartPage = () => {
                 <article className="cart-item" key={item.line_id}>
                   <img
                     src={
-                      item.product.image_url ||
-                      'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=500&q=80'
+                      item.product.image_url || '/placeholder-produit.svg'
                     }
                     alt={item.product.name}
                     loading="lazy"
@@ -260,7 +298,7 @@ export const CartPage = () => {
 
                   <div className="quantity-actions">
                     <label>
-                      Qte
+                      Qté
                       <input
                         type="number"
                         min={1}
@@ -287,25 +325,44 @@ export const CartPage = () => {
           )}
         </div>
 
+        {items.length ? (
         <aside className="checkout-card checkout-card-v2">
           <h2>Finaliser</h2>
           <dl>
             <div>
-              <dt>Sous-total</dt>
+              <dt>Sous-total produits</dt>
               <dd>{formatCurrency(subtotal)}</dd>
             </div>
             <div>
-              <dt>Transit</dt>
+              <dt>
+                Transit estimé
+                {estimatedWeightKg > 0 ? (
+                  <small>
+                    {' '}
+                    · environ {estimatedWeightKg.toFixed(1).replace('.', ',')} kg
+                  </small>
+                ) : null}
+              </dt>
               <dd>
-                {selectedShippingOption
-                  ? `${selectedShippingOption.name} (${selectedShippingOption.timeline})`
-                  : 'A choisir'}
+                {!selectedShippingOption
+                  ? 'À choisir'
+                  : estimatedTransit === null
+                    ? 'Sur devis'
+                    : formatCurrency(estimatedTransit)}
               </dd>
             </div>
+            {estimatedTransit !== null ? (
+              <div className="checkout-total">
+                <dt>Total estimé</dt>
+                <dd>{formatCurrency(subtotal + estimatedTransit)}</dd>
+              </div>
+            ) : null}
           </dl>
 
           <p className="shipping-note">
-            Le cout final du transit est confirme apres verification du poids ou du volume.
+            Le transit est facturé au poids réel du colis. Le montant ci-dessus est une
+            estimation basée sur votre sélection&nbsp;; nous vous confirmons le montant
+            exact sur WhatsApp après pesée, avant tout paiement.
           </p>
 
           <form className="checkout-form checkout-form--simple" onSubmit={handleSubmit}>
@@ -329,11 +386,19 @@ export const CartPage = () => {
                       checked={selectedShippingId === option.id}
                       onChange={(event) => setSelectedShippingId(event.target.value)}
                     />
-                    <span>
-                      <strong>{option.name}</strong>
+                    <span className="shipping-option__body">
+                      <span className="shipping-option__head">
+                        <strong>{option.name}</strong>
+                        <span className="shipping-option__estimate">
+                          {estimateTransit(option) === null
+                            ? 'Sur devis'
+                            : `≈ ${formatCurrency(estimateTransit(option) as number)}`}
+                        </span>
+                      </span>
                       <small>
-                        {option.priceLabel} ({option.timeline})
+                        {option.priceLabel} · {option.timeline}
                       </small>
+                      <small className="shipping-option__summary">{option.summary}</small>
                     </span>
                   </label>
                 ))}
@@ -395,6 +460,7 @@ export const CartPage = () => {
             </button>
           </form>
         </aside>
+        ) : null}
       </div>
     </section>
   )

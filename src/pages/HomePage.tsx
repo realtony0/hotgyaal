@@ -33,14 +33,14 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
 const HERO_ROTATION_MS = 4200
 
 const FALLBACK_QUICK_CATEGORIES = [
-  { label: 'Vetements Femmes', href: '/boutique?categorie=V%C3%AAtements%20Femmes' },
+  { label: 'Vêtements Femmes', href: '/boutique?categorie=V%C3%AAtements%20Femmes' },
   { label: 'Bijoux & Accessoires', href: '/boutique?categorie=Bijoux%20%26%20Accessoires' },
   { label: 'Chaussures', href: '/boutique?categorie=Chaussures' },
-  { label: 'Telephone & Accessoires', href: '/boutique?categorie=T%C3%A9l%C3%A9phone%20%26%20Accessoires' },
+  { label: 'Téléphone & Accessoires', href: '/boutique?categorie=T%C3%A9l%C3%A9phone%20%26%20Accessoires' },
   { label: 'Sacs & Bagages', href: '/boutique?categorie=Sacs%20%26%20Bagages' },
-  { label: 'Sous-vetements & Pyjamas', href: '/boutique?categorie=Sous-v%C3%AAtements%20%26%20Pyjamas' },
+  { label: 'Sous-vêtements & Pyjamas', href: '/boutique?categorie=Sous-v%C3%AAtements%20%26%20Pyjamas' },
   { label: 'Home & Living', href: '/boutique?categorie=Home%20%26%20Living' },
-  { label: 'Beaute', href: '/boutique?categorie=Beaut%C3%A9' },
+  { label: 'Beauté', href: '/boutique?categorie=Beaut%C3%A9' },
 ]
 
 const clampWords = (value: string, limit: number) => {
@@ -86,6 +86,22 @@ export const HomePage = () => {
     [products],
   )
 
+  // Les categories n'ont pas toutes une image en base : on emprunte alors la
+  // photo d'un produit de la categorie plutot que d'afficher un cadre vide.
+  const categoryFallbackImages = useMemo(() => {
+    const byCategory = new Map<string, string>()
+
+    sortedProducts.forEach((product) => {
+      const key = product.main_category?.trim().toLowerCase()
+      if (!key || byCategory.has(key) || !product.image_url) {
+        return
+      }
+      byCategory.set(key, product.image_url)
+    })
+
+    return byCategory
+  }, [sortedProducts])
+
   const newDrops = useMemo(
     () => sortedProducts.filter((product) => product.is_new).slice(0, 8),
     [sortedProducts],
@@ -104,7 +120,7 @@ export const HomePage = () => {
         title: clampWords(product.name, 6),
         imageUrl:
           product.image_url ||
-          'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80',
+          '/placeholder-produit.svg',
         href: `/produit/${product.slug}`,
       }))
 
@@ -170,11 +186,11 @@ export const HomePage = () => {
             />
 
             <div className="hero-convert__overlay">
-              <p className="hero-convert__kicker">NEW IN</p>
+              <p className="hero-convert__kicker">Nouveautés</p>
               <h1>{activeHero.title}</h1>
 
               <Link href={activeHero.href} className="button hero-convert__cta">
-                Shop now
+                Découvrir
               </Link>
             </div>
           </article>
@@ -192,7 +208,7 @@ export const HomePage = () => {
           </div>
 
           <div className="hero-convert__meta">
-            <span>Livraison partout au Senegal</span>
+            <span>Livraison partout au Sénégal</span>
           </div>
         </div>
       </section>
@@ -201,12 +217,12 @@ export const HomePage = () => {
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Shop rapide</p>
+              <p className="eyebrow">Nos univers</p>
               <h2>Choisissez votre univers</h2>
             </div>
           </div>
 
-          <div className="quick-categories" role="navigation" aria-label="Acces rapide categories">
+          <div className="quick-categories" role="navigation" aria-label="Accès rapide catégories">
             {quickCategories.map((item) => (
               <Link key={item.label} href={item.href} className="quick-category-pill">
                 <span>{item.label}</span>
@@ -220,7 +236,7 @@ export const HomePage = () => {
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">New in</p>
+              <p className="eyebrow">Nouveautés</p>
               <h2>Les pièces à prendre vite</h2>
             </div>
             <Link href="/boutique">Tout voir</Link>
@@ -281,8 +297,8 @@ export const HomePage = () => {
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Categories</p>
-              <h2>Decouvrez nos univers</h2>
+              <p className="eyebrow">Catégories</p>
+              <h2>Découvrez nos univers</h2>
             </div>
             <Link href="/boutique">Catalogue complet</Link>
           </div>
@@ -298,7 +314,8 @@ export const HomePage = () => {
                   <img
                     src={
                       category.image_url ||
-                      'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80'
+                      categoryFallbackImages.get(category.name.trim().toLowerCase()) ||
+                      '/placeholder-produit.svg'
                     }
                     alt={category.name}
                     loading="lazy"
@@ -312,7 +329,7 @@ export const HomePage = () => {
             ))}
           </div>
 
-          {loadingCategories ? <p>Chargement des categories...</p> : null}
+          {loadingCategories ? <p>Chargement des catégories...</p> : null}
         </div>
       </section>
 
