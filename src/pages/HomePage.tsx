@@ -51,7 +51,7 @@ const clampWords = (value: string, limit: number) => {
 
 export const HomePage = () => {
   const { settings } = useStoreSettings()
-  const { categories, loading: loadingCategories } = useStoreCategories()
+  const { categories } = useStoreCategories()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -109,9 +109,16 @@ export const HomePage = () => {
   )
 
   const bestSellers = useMemo(() => {
-    const list = sortedProducts.filter((product) => product.is_best_seller)
-    return (list.length ? list : sortedProducts).slice(0, 8)
-  }, [sortedProducts])
+    // Deux grilles identiques a la suite n'apportent rien : on ecarte ce qui
+    // vient d'etre montre dans les nouveautes avant de completer.
+    const shown = new Set(newDrops.map((product) => product.id))
+    const favourites = sortedProducts.filter(
+      (product) => product.is_best_seller && !shown.has(product.id),
+    )
+    const filler = sortedProducts.filter((product) => !shown.has(product.id))
+
+    return (favourites.length ? favourites : filler).slice(0, 8)
+  }, [newDrops, sortedProducts])
 
   const heroSlides = useMemo<HeroSlide[]>(() => {
     const fromProducts = (newDrops.length ? newDrops : sortedProducts)
@@ -216,14 +223,7 @@ export const HomePage = () => {
 
       <section className="section section--quick-categories">
         <div className="container">
-          <div className="section__header section__header--v2">
-            <div>
-              <p className="eyebrow">Nos univers</p>
-              <h2>Choisissez votre univers</h2>
-            </div>
-          </div>
-
-          <div className="quick-categories" role="navigation" aria-label="Accès rapide catégories">
+          <div className="quick-categories" role="navigation" aria-label="Accès rapide aux catégories">
             {quickCategories.map((item) => (
               <Link key={item.label} href={item.href} className="quick-category-pill">
                 <span>{item.label}</span>
@@ -270,34 +270,7 @@ export const HomePage = () => {
         </div>
       </section>
 
-      <section className="section section-v2 section-v2--soft">
-        <div className="container">
-          <div className="section__header section__header--v2">
-            <div>
-              <p className="eyebrow">Tendance au Sénégal</p>
-              <h2>Les plus commandés à Dakar</h2>
-            </div>
-            <Link href="/boutique">Voir la boutique</Link>
-          </div>
-
-          {loading ? (
-            <div className="product-grid product-grid--home-compact">
-              {loadingSkeletons.map((key) => (
-                <div key={`best-${key}`} className="product-skeleton-card" aria-hidden="true" />
-              ))}
-            </div>
-          ) : null}
-
-          {!loading && !error ? (
-            <div className="product-grid product-grid--home-compact stagger-grid">
-              {bestSellers.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
-
+      {activeCategories.length ? (
       <section className="section section-v2 section-v2--categories">
         <div className="container">
           <div className="section__header section__header--v2">
@@ -334,13 +307,56 @@ export const HomePage = () => {
             ))}
           </div>
 
-          {loadingCategories ? <p>Chargement des catégories...</p> : null}
+        </div>
+      </section>
+      ) : null}
+
+      <section className="section section-v2 section-v2--soft">
+        <div className="container">
+          <div className="section__header section__header--v2">
+            <div>
+              <p className="eyebrow">Tendance au Sénégal</p>
+              <h2>Les plus commandés à Dakar</h2>
+            </div>
+            <Link href="/boutique">Voir la boutique</Link>
+          </div>
+
+          {loading ? (
+            <div className="product-grid product-grid--home-compact">
+              {loadingSkeletons.map((key) => (
+                <div key={`best-${key}`} className="product-skeleton-card" aria-hidden="true" />
+              ))}
+            </div>
+          ) : null}
+
+          {!loading && !error ? (
+            <div className="product-grid product-grid--home-compact stagger-grid">
+              {bestSellers.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
       <section className="section section-v2 section-v2--service-note">
-        <div className="container service-note-band">
-          <p>{settings.hero_description}</p>
+        <div className="container">
+          <p className="service-note-lead">{settings.hero_description}</p>
+
+          <ul className="service-promises">
+            <li>
+              <strong>Livraison partout au Sénégal</strong>
+              <span>Dakar et régions, suivi assuré jusqu&apos;à la remise.</span>
+            </li>
+            <li>
+              <strong>Paiement à la livraison</strong>
+              <span>Vous réglez à Dakar une fois votre commande entre les mains.</span>
+            </li>
+            <li>
+              <strong>Conseil sur WhatsApp</strong>
+              <span>Une question de taille ou de coloris ? On vous répond dans la journée.</span>
+            </li>
+          </ul>
         </div>
       </section>
     </div>

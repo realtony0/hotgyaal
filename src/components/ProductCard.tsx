@@ -11,6 +11,21 @@ type ProductCardProps = {
 const MAX_NAME_WORDS = 6
 const FALLBACK_SIZE = 'Taille unique'
 
+/*
+ * Le drapeau is_new est pose sur la quasi-totalite du catalogue, ce qui vide
+ * l'etiquette de son sens. On la reserve donc aux fiches reellement recentes :
+ * le drapeau doit etre actif ET la fiche avoir ete creee dans la fenetre
+ * ci-dessous.
+ */
+const NEW_WINDOW_DAYS = 30
+
+const isRecent = (createdAt: string | null | undefined) => {
+  if (!createdAt) return false
+  const created = new Date(createdAt).getTime()
+  if (Number.isNaN(created)) return false
+  return Date.now() - created < NEW_WINDOW_DAYS * 24 * 60 * 60 * 1000
+}
+
 const shortenName = (value: string) => {
   const words = value.trim().split(/\s+/)
   if (words.length <= MAX_NAME_WORDS) {
@@ -42,7 +57,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
       ? { label: `-${discountPercent}%`, tone: 'is-sale' }
       : product.is_best_seller
         ? { label: 'Populaire', tone: 'is-trend' }
-        : product.is_new
+        : product.is_new && isRecent(product.created_at)
           ? { label: 'Nouveau', tone: '' }
           : null
 
