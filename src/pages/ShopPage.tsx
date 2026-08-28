@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
+import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
 import { QUICK_CATEGORY_LINKS } from '../constants/quickCategories'
 import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
@@ -127,7 +128,19 @@ export const ShopPage = () => {
 
         {!loadingProducts && errorProducts ? <p className="error-text">{errorProducts}</p> : null}
         {!loadingProducts && !errorProducts && visibleProducts.length === 0 ? (
-          <p>Aucun produit disponible.</p>
+          products.length ? (
+            <EmptyState
+              title="Aucun article ne correspond"
+              description="Essayez une autre catégorie, ou parcourez l'ensemble du catalogue."
+              action={{ label: 'Voir tout le catalogue', href: '/boutique' }}
+            />
+          ) : (
+            <EmptyState
+              title="La collection arrive"
+              description="Les premières pièces sont en cours de préparation. Revenez très vite, ou écrivez-nous pour être prévenue en avant-première."
+              action={{ label: 'Nous contacter', href: '/contact' }}
+            />
+          )
         ) : null}
 
         {!loadingProducts && !errorProducts ? (

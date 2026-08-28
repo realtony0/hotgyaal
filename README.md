@@ -41,19 +41,40 @@ NEXT_PUBLIC_ADMIN_ACCESS_CODE=142022
 ## Configuration Supabase
 
 1. Ouvrir Supabase SQL Editor.
-2. Exécuter `/Users/admin/Desktop/Housegyaal/supabase/schema.sql`.
-3. (Optionnel) Exécuter `/Users/admin/Desktop/Housegyaal/supabase/seed.sql` pour des produits de démo.
-4. (Si base deja creee) Exécuter `/Users/admin/Desktop/Housegyaal/supabase/unlock_admin_policies.sql` pour retirer l'exigence `role='admin'`.
+2. Exécuter `supabase/schema.sql`.
+3. (Optionnel) Exécuter `supabase/seed.sql` pour des produits de démo.
+4. (Si base deja creee) Exécuter `supabase/unlock_admin_policies.sql` pour retirer l'exigence `role='admin'`.
 
 ## Import d'images locales
 
-Les images présentes à la racine ont été copiées vers `/Users/admin/Desktop/Housegyaal/public/products` et référencées dans le seed.
+Les images présentes à la racine ont été copiées vers `public/products` et référencées dans le seed.
 
 Pour régénérer automatiquement les produits à partir des images locales:
 
 ```bash
 node scripts/import-local-products.mjs
 ```
+
+## Stockage des images (Cloudflare R2)
+
+Les visuels ne sont pas stockes dans Supabase: son quota d'egress avait fini
+par suspendre le projet. Ils vivent sur Cloudflare R2, qui ne facture pas la
+bande passante sortante. La base ne conserve que leur URL.
+
+Mise en place:
+
+1. Creer un bucket R2 dans le tableau de bord Cloudflare.
+2. Lui rattacher un domaine public (par exemple `img.hotgyaal.com`).
+3. Creer un jeton d'API R2 avec les droits de lecture et d'ecriture.
+4. Renseigner les cinq variables `R2_*` (voir `.env.example`) dans Vercel.
+
+Tant que ces variables sont absentes, la route `/api/upload` repond `501` et
+l'envoi bascule automatiquement sur le stockage Supabase: la boutique
+fonctionne, mais le quota d'egress reste expose.
+
+Les photos sont redimensionnees et converties en WebP dans le navigateur avant
+l'envoi (voir `src/utils/image.ts`), afin d'eviter les fichiers demesures
+venant des telephones.
 
 ## Monnaie
 

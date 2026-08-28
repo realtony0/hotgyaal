@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
@@ -252,7 +253,11 @@ export const HomePage = () => {
 
           {!loading && error ? <p className="error-text">{error}</p> : null}
           {!loading && !error && newDrops.length === 0 ? (
-            <p>Aucun produit disponible pour le moment.</p>
+            <EmptyState
+              title="La collection arrive"
+              description="Les premières pièces sont en cours de préparation. Écrivez-nous sur WhatsApp pour être prévenue dès leur mise en ligne."
+              action={{ label: 'Nous contacter', href: '/contact' }}
+            />
           ) : null}
 
           {!loading && !error ? (

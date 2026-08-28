@@ -1,4 +1,6 @@
 import { getSupabase } from '../lib/supabase'
+import { compressImageFile } from '../utils/image'
+import { StorageNotConfiguredError, uploadToR2 } from './storage'
 import type { Product, ProductPayload } from '../types'
 
 const PRODUCT_BUCKET = 'product-images'
@@ -218,13 +220,23 @@ export const removeProduct = async (productId: string): Promise<void> => {
 }
 
 export const uploadProductImage = async (file: File): Promise<string> => {
+  try {
+    return await uploadToR2(file, 'products')
+  } catch (error) {
+    // Repli sur le stockage Supabase tant que R2 n'est pas configure.
+    if (!(error instanceof StorageNotConfiguredError)) {
+      throw error
+    }
+  }
+
   const client = getSupabase()
-  const extension = file.name.split('.').pop() ?? 'jpg'
+  const optimized = await compressImageFile(file)
+  const extension = optimized.name.split('.').pop() ?? 'jpg'
   const filePath = `products/${createFileToken()}.${extension}`
 
   const { error: uploadError } = await client.storage
     .from(PRODUCT_BUCKET)
-    .upload(filePath, file, {
+    .upload(filePath, optimized, {
       upsert: false,
       cacheControl: '3600',
     })

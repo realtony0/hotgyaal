@@ -1,3 +1,19 @@
+-- ATTENTION - MODELE DE SECURITE RETENU
+--
+-- L'administration ecrit dans la base depuis le navigateur avec la cle
+-- publique du site. Les regles ci-dessous accordent donc au public les droits
+-- d'ecriture sur products, store_categories et store_settings, ainsi que la
+-- lecture des commandes.
+--
+-- Consequence assumee : toute personne capable de lire le code source d'une
+-- page peut recuperer la cle publique, donc modifier le catalogue et consulter
+-- les commandes clientes (nom, telephone, adresse).
+--
+-- L'acces admin par code (voir AuthContext) masque l'interface, il ne protege
+-- pas la base. Pour refermer ces droits il faudrait faire passer les ecritures
+-- par des routes serveur avec la cle de service, ce qui suppose de changer le
+-- mode de connexion de l'administration.
+
 -- HOTGYAAL full setup: schema + seed
 
 create extension if not exists pgcrypto;
