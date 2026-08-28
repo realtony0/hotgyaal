@@ -71,6 +71,21 @@ node scripts/export-catalogue.mjs
 Les commandes ne sont pas exportees: elles contiennent des donnees personnelles
 clientes qui n'ont pas a etre versionnees.
 
+Rejouer une sauvegarde dans un autre projet Supabase (apres avoir execute
+`supabase/full_setup.sql` dans le SQL Editor du nouveau projet):
+
+```bash
+node scripts/import-catalogue.mjs backup/ --dry-run
+node scripts/import-catalogue.mjs backup/
+```
+
+L'import est en upsert sur l'identifiant: le relancer met a jour au lieu de
+dupliquer, donc une interruption se rattrape en relancant.
+
+Variante hors ligne, si vous preferez passer par le SQL Editor plutot que par
+l'API: `node scripts/build-import-sql.mjs backup/ > import.sql` produit un
+fichier a coller ou a jouer avec `psql`.
+
 Deplacer les visuels de Supabase Storage vers R2, puis reecrire les URLs en
 base. Le script est relancable et ignore ce qui est deja sur R2:
 
