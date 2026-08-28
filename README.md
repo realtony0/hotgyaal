@@ -55,6 +55,30 @@ Pour régénérer automatiquement les produits à partir des images locales:
 node scripts/import-local-products.mjs
 ```
 
+## Sauvegarde et reprise du catalogue
+
+Le projet Supabase a deja ete suspendu une fois pour depassement du quota
+d'egress, rendant le catalogue inaccessible. Deux scripts permettent d'en
+garder la maitrise.
+
+Exporter le catalogue vers `backup/` (produits, categories, reglages, plus la
+liste des visuels references):
+
+```bash
+node scripts/export-catalogue.mjs
+```
+
+Les commandes ne sont pas exportees: elles contiennent des donnees personnelles
+clientes qui n'ont pas a etre versionnees.
+
+Deplacer les visuels de Supabase Storage vers R2, puis reecrire les URLs en
+base. Le script est relancable et ignore ce qui est deja sur R2:
+
+```bash
+node scripts/migrate-images-to-r2.mjs --dry-run --limit 10   # verification
+node scripts/migrate-images-to-r2.mjs                        # migration reelle
+```
+
 ## Stockage des images (Cloudflare R2)
 
 Les visuels ne sont pas stockes dans Supabase: son quota d'egress avait fini
