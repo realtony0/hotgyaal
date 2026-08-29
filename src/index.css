@@ -4469,3 +4469,30 @@ body {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* --- Compteur du panier -------------------------------------------------- */
+
+.icon-button--header {
+  position: relative;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--ink-invert);
+  font-size: 0.66rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  /* Un liseré de la couleur du fond detache la pastille de l'icone */
+  box-shadow: 0 0 0 2px var(--paper);
+  pointer-events: none;
+}

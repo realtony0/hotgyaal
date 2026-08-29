@@ -10,6 +10,7 @@ import {
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useCart } from '../context/CartContext'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -188,6 +189,9 @@ export const Layout = ({ children }: LayoutProps) => {
   const router = useRouter()
   const { settings } = useStoreSettings()
   const { categories } = useStoreCategories()
+  // Le panier est restaure apres l'hydratation : le compteur vaut donc 0 au
+  // premier rendu, cote serveur comme cote client, puis se met a jour.
+  const { totalItems: cartCount } = useCart()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -621,11 +625,21 @@ export const Layout = ({ children }: LayoutProps) => {
                     ? 'icon-button icon-button--header is-active'
                     : 'icon-button icon-button--header'
                 }
-                aria-label="Voir le panier"
+                aria-label={
+                  cartCount
+                    ? `Voir le panier, ${cartCount} article${cartCount > 1 ? 's' : ''}`
+                    : 'Voir le panier'
+                }
               >
                 <span className="icon-button__glyph" aria-hidden="true">
                   <HeaderIcon icon="cart" />
                 </span>
+
+                {cartCount ? (
+                  <span className="cart-badge" aria-hidden="true">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                ) : null}
               </Link>
             </div>
           </div>
