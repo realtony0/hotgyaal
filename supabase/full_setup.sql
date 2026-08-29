@@ -384,6 +384,12 @@ create policy "orders_public_update"
   using (true)
   with check (true);
 
+drop policy if exists "orders_public_delete" on public.orders;
+create policy "orders_public_delete"
+  on public.orders
+  for delete
+  using (true);
+
 drop policy if exists "order_items_insert_public" on public.order_items;
 create policy "order_items_insert_public"
   on public.order_items
@@ -395,6 +401,12 @@ drop policy if exists "order_items_public_select" on public.order_items;
 create policy "order_items_public_select"
   on public.order_items
   for select
+  using (true);
+
+drop policy if exists "order_items_public_delete" on public.order_items;
+create policy "order_items_public_delete"
+  on public.order_items
+  for delete
   using (true);
 
 drop policy if exists "store_settings_public_select" on public.store_settings;

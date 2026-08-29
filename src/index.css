@@ -4438,3 +4438,34 @@ body {
   font-size: 0.9rem;
   line-height: 1.55;
 }
+
+/* --- Actions sur une commande ------------------------------------------- */
+
+.order-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.order-card__actions .admin-search {
+  flex: 1 1 12rem;
+}
+
+/* Action destructive : lisible, mais jamais aussi engageante qu'une action
+   principale. Le contour reste sobre tant que la souris n'est pas dessus. */
+.button--danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--ink-invert);
+}
+
+.button--danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

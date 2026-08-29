@@ -75,3 +75,31 @@ export const updateOrderStatus = async (
     throw new Error(error.message)
   }
 }
+
+/**
+ * Supprime une commande et, par cascade, ses lignes (order_items.order_id est
+ * declare `on delete cascade`).
+ *
+ * Attention : sans politique de suppression cote base, PostgREST repond
+ * malgre tout 204 sans rien effacer. On verifie donc que la ligne a bien
+ * disparu, plutot que de laisser croire a une reussite.
+ */
+export const removeOrder = async (orderId: string): Promise<void> => {
+  const client = getSupabase()
+
+  const { data, error } = await client
+    .from('orders')
+    .delete()
+    .eq('id', orderId)
+    .select('id')
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!data?.length) {
+    throw new Error(
+      "La commande n'a pas pu etre supprimee : la base a refuse l'operation. Appliquez la politique de suppression (voir supabase/full_setup.sql).",
+    )
+  }
+}

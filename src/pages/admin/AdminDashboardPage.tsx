@@ -8,7 +8,7 @@ import {
   upsertCategory,
   uploadCategoryImage,
 } from '../../services/categories'
-import { listOrders, updateOrderStatus } from '../../services/orders'
+import { listOrders, removeOrder, updateOrderStatus } from '../../services/orders'
 import {
   listProducts,
   removeProduct,
@@ -992,6 +992,35 @@ export const AdminDashboardPage = () => {
       setUpdatingOrderIds((current) => {
         const next = new Set(current)
         next.delete(orderId)
+        return next
+      })
+    }
+  }
+
+  const handleDeleteOrder = async (order: Order) => {
+    const confirmed = window.confirm(
+      `Supprimer definitivement la commande ${order.order_number} de ${order.customer_name} ?\n\n` +
+        'Les articles associes seront effaces avec elle. Cette action est irreversible.',
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      resetMessages()
+      setUpdatingOrderIds((current) => new Set(current).add(order.id))
+      await removeOrder(order.id)
+      await refreshOrders()
+      setStatusMessage(`Commande ${order.order_number} supprimée.`)
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Impossible de supprimer cette commande.',
+      )
+    } finally {
+      setUpdatingOrderIds((current) => {
+        const next = new Set(current)
+        next.delete(order.id)
         return next
       })
     }
@@ -2142,25 +2171,36 @@ export const AdminDashboardPage = () => {
                       , {order.shipping_address.city}, {order.shipping_address.country}
                     </address>
 
-                    <label className="admin-search">
-                      Statut commande
-                      <select
-                        value={order.status}
+                    <div className="order-card__actions">
+                      <label className="admin-search">
+                        Statut commande
+                        <select
+                          value={order.status}
+                          disabled={updatingOrderIds.has(order.id)}
+                          onChange={(event) =>
+                            void handleUpdateOrderStatus(
+                              order.id,
+                              event.target.value as OrderStatus,
+                            )
+                          }
+                        >
+                          {ORDER_STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <button
+                        type="button"
+                        className="button button--danger"
                         disabled={updatingOrderIds.has(order.id)}
-                        onChange={(event) =>
-                          void handleUpdateOrderStatus(
-                            order.id,
-                            event.target.value as OrderStatus,
-                          )
-                        }
+                        onClick={() => void handleDeleteOrder(order)}
                       >
-                        {ORDER_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        {updatingOrderIds.has(order.id) ? 'Suppression...' : 'Supprimer'}
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
