@@ -1,9 +1,24 @@
 import { getSupabase } from '../lib/supabase'
+import { getProductVariantMeta } from '../utils/products'
 import { compressImageFile } from '../utils/image'
 import { StorageNotConfiguredError, uploadToR2 } from './storage'
 import type { Product, ProductPayload } from '../types'
 
 const PRODUCT_BUCKET = 'product-images'
+
+/*
+ * Colonnes chargees pour les grilles. La galerie n'y sert jamais - seule la
+ * fiche produit l'affiche - et elle pese pres de 15 % de la reponse. La retirer
+ * allege chaque chargement de page, ce qui compte sur une connexion mobile.
+ */
+/*
+ * Un nom de produit peut contenir % ou _, qui sont les jokers de LIKE.
+ * Sans echappement, "100% coton" ramenerait n'importe quoi.
+ */
+const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, '\\$&')
+
+const LIST_COLUMNS =
+  'id,name,slug,description,price,compare_price,stock,main_category,sub_category,image_url,sizes,is_out_of_stock,is_new,is_best_seller,created_at,updated_at'
 const DEFAULT_SIZE = 'Taille unique'
 const PRODUCT_CACHE_KEY = 'hotgyaal_products_cache_v1'
 const PRODUCT_CACHE_TTL_MS = 1000 * 60 * 10
@@ -151,7 +166,7 @@ export const listProducts = async (
   const client = getSupabase()
   const { data, error } = await client
     .from('products')
-    .select('*')
+    .select(LIST_COLUMNS)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -180,11 +195,60 @@ export const getProductBySlug = async (slug: string): Promise<Product | null> =>
     return null
   }
 
-  const products = await listProducts()
-  return (
-    products.find((product) => product.slug.trim().toLowerCase() === normalizedSlug) ??
-    null
-  )
+  const client = getSupabase()
+  const { data, error } = await client
+    .from('products')
+    .select('*')
+    .eq('slug', normalizedSlug)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data ? normalizeProduct(data as Product) : null
+}
+
+/**
+ * Fiche produit et ses declinaisons de couleur, en deux requetes ciblees.
+ *
+ * Les variantes se reconnaissent au nom : "Top Azur - Noir" et
+ * "Top Azur - Blanc" partagent la base "Top Azur". On interroge donc ce
+ * prefixe plutot que de charger les 600 fiches du catalogue pour en retenir
+ * deux ou trois.
+ */
+export const getProductWithVariants = async (
+  slug: string,
+): Promise<{ product: Product | null; variants: Product[] }> => {
+  const product = await getProductBySlug(slug)
+  if (!product) {
+    return { product: null, variants: [] }
+  }
+
+  const { baseName } = getProductVariantMeta(product)
+  const client = getSupabase()
+
+  const { data, error } = await client
+    .from('products')
+    .select('*')
+    .eq('main_category', product.main_category)
+    .ilike('name', `${escapeLikePattern(baseName)}%`)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    // Une variante manquante ne doit pas empecher d'afficher la fiche.
+    console.error('[hotgyaal] chargement des déclinaisons impossible', error)
+    return { product, variants: [product] }
+  }
+
+  // `ilike` ramene aussi les noms qui commencent pareil sans etre des
+  // declinaisons ("Top Azur Long" face a "Top Azur") : on ne garde que
+  // celles dont la base correspond exactement.
+  const variants = ((data ?? []) as Product[])
+    .map(normalizeProduct)
+    .filter((candidate) => getProductVariantMeta(candidate).baseName === baseName)
+
+  return { product, variants: variants.length ? variants : [product] }
 }
 
 export const upsertProduct = async (

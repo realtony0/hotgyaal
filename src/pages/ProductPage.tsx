@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
 import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
-import { listProducts } from '../services/products'
+import { getProductWithVariants } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
-import { getProductVariantMeta, getRelatedVariants } from '../utils/products'
+import { getProductVariantMeta } from '../utils/products'
 import { buildShareUrl, shareWithFallback } from '../utils/share'
 import { toAbsoluteUrl } from '../utils/site'
 
@@ -94,14 +94,13 @@ export const ProductPage = ({
     const loadProduct = async () => {
       try {
         setLoading(true)
-        const allProducts = await listProducts({ forceFresh: true })
+        // Deux requetes ciblees : la fiche et ses declinaisons. Avant, la page
+        // rapatriait les 600 produits du catalogue pour n'en afficher qu'un.
+        const { product: data, variants: related } =
+          await getProductWithVariants(normalizedSlug)
         if (ignore) {
           return
         }
-
-        const data =
-          allProducts.find((item) => normalizeSlug(item.slug) === normalizedSlug) ??
-          null
 
         if (!data) {
           setProduct(null)
@@ -111,7 +110,7 @@ export const ProductPage = ({
         }
 
         setProduct(data)
-        setVariants(getRelatedVariants(allProducts, data))
+        setVariants(related)
         setActiveImage(data.image_url)
         setError(null)
       } catch (loadError) {
