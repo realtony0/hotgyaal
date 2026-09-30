@@ -99,8 +99,6 @@ const buildOrderMessage = (
   subtotal: number,
   shippingOption: ShippingOption,
   orderNumber: string | null,
-  estimatedTransit: number | null,
-  estimatedWeightKg: number,
 ) => {
   const lines = [
     'Nouvelle commande HOTGYAAL',
@@ -121,14 +119,6 @@ const buildOrderMessage = (
   lines.push('')
   lines.push(`Sous-total produits: ${formatCurrency(subtotal)}`)
   lines.push(`Option transit choisie: ${shippingOption.name} (${shippingOption.timeline})`)
-  lines.push(
-    estimatedTransit === null
-      ? 'Transit: sur devis (volume à estimer ensemble).'
-      : `Transit estimé: ${formatCurrency(estimatedTransit)} pour environ ${estimatedWeightKg.toFixed(1).replace('.', ',')} kg`,
-  )
-  if (estimatedTransit !== null) {
-    lines.push(`Total estimé: ${formatCurrency(subtotal + estimatedTransit)}`)
-  }
   lines.push('Montant du transit confirmé après pesée réelle du colis.')
   lines.push('')
   lines.push(`Adresse: ${formState.line1}, ${formState.city}`)
@@ -231,8 +221,6 @@ export const CartPage = () => {
         subtotal,
         selectedShippingOption,
         order.order_number,
-        estimatedTransit,
-        estimatedWeightKg,
       )
 
       clearCart()
