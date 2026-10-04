@@ -8,7 +8,13 @@ import { getProductWithVariants } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
 import { getProductVariantMeta } from '../utils/products'
-import { buildShareUrl, shareWithFallback } from '../utils/share'
+import {
+  buildShareUrl,
+  buildWhatsAppShareUrl,
+  canUseNativeShare,
+  copyToClipboard,
+  shareWithFallback,
+} from '../utils/share'
 import { toAbsoluteUrl } from '../utils/site'
 
 const trimMetaDescription = (value: string, maxLength = 160) => {
@@ -270,32 +276,53 @@ export const ProductPage = ({
     setFeedback('Ajoute au panier.')
   }
 
+  const announceShare = (message: string) => {
+    setShareFeedback(message)
+    window.setTimeout(() => {
+      setShareFeedback(null)
+    }, 2600)
+  }
+
+  const handleCopyLink = async () => {
+    if (!product) {
+      return
+    }
+
+    const url = buildShareUrl(`/produit/${product.slug}`)
+    const copied = await copyToClipboard(url)
+
+    announceShare(
+      copied ? 'Lien copié.' : 'Copie impossible. Copiez le lien depuis la barre d’adresse.',
+    )
+  }
+
   const handleShareProduct = async () => {
     if (!product) {
       return
     }
 
-    const shareResult = await shareWithFallback({
-      title: product.name,
-      text: `Regarde cet article: ${product.name}`,
-      url: buildShareUrl(`/produit/${product.slug}`),
-    })
+    const url = buildShareUrl(`/produit/${product.slug}`)
+    const text = `Regarde cet article : ${product.name}`
 
-    if (shareResult === 'cancelled') {
-      return
+    /*
+     * Sur mobile, le menu de partage du systeme couvre WhatsApp, les SMS et le
+     * reste. Ailleurs il n'existe pas : on ouvre alors directement WhatsApp,
+     * qui est le canal de la boutique.
+     */
+    if (canUseNativeShare()) {
+      const shareResult = await shareWithFallback({ title: product.name, text, url })
+
+      if (shareResult === 'cancelled') {
+        return
+      }
+
+      if (shareResult === 'shared') {
+        announceShare('Article partagé.')
+        return
+      }
     }
 
-    setShareFeedback(
-      shareResult === 'shared'
-        ? 'Article partage.'
-        : shareResult === 'copied'
-          ? 'Lien copie.'
-          : 'Partage indisponible sur cet appareil.',
-    )
-
-    window.setTimeout(() => {
-      setShareFeedback(null)
-    }, 2600)
+    window.open(buildWhatsAppShareUrl(text, url), '_blank', 'noopener,noreferrer')
   }
 
   if (loading) {
@@ -474,9 +501,16 @@ export const ProductPage = ({
               <button
                 type="button"
                 className="link-action"
+                onClick={() => void handleCopyLink()}
+              >
+                Copier le lien
+              </button>
+              <button
+                type="button"
+                className="link-action"
                 onClick={() => void handleShareProduct()}
               >
-                Partager
+                Envoyer
               </button>
               <Link href="/panier" className="link-action">
                 Voir mon panier
