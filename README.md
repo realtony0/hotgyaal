@@ -42,18 +42,8 @@ NEXT_PUBLIC_ADMIN_ACCESS_CODE=142022
 
 1. Ouvrir Supabase SQL Editor.
 2. Exécuter `supabase/schema.sql`.
-3. (Optionnel) Exécuter `supabase/seed.sql` pour des produits de démo.
 4. (Si base deja creee) Exécuter `supabase/unlock_admin_policies.sql` pour retirer l'exigence `role='admin'`.
 
-## Import d'images locales
-
-Les images présentes à la racine ont été copiées vers `public/products` et référencées dans le seed.
-
-Pour régénérer automatiquement les produits à partir des images locales:
-
-```bash
-node scripts/import-local-products.mjs
-```
 
 ## Sauvegarde et reprise du catalogue
 

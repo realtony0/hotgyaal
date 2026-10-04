@@ -179,7 +179,7 @@ export const ProductPage = ({
     const url = toAbsoluteUrl(productPath)
     const image = product.image_url
       ? toAbsoluteUrl(product.image_url)
-      : toAbsoluteUrl('/products/chrysalide-nocturne-01.webp')
+      : toAbsoluteUrl('/og-hotgyaal.png')
     const title = `${productMeta?.baseName ?? product.name} | HOTGYAAL`
     const description = trimMetaDescription(
       product.description ||

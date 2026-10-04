@@ -203,7 +203,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
 
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
-  const defaultSocialImage = toAbsoluteUrl('/products/chrysalide-nocturne-01.webp')
+  const defaultSocialImage = toAbsoluteUrl('/og-hotgyaal.png')
 
   const currentPath = useMemo(
     () => stripQueryAndHash(router.asPath || '/'),

@@ -16,33 +16,7 @@ type HeroSlide = {
   href: string
 }
 
-const FALLBACK_HERO_SLIDES: HeroSlide[] = [
-  {
-    id: 'fallback-1',
-    title: 'Looks femme qui marquent vite',
-    imageUrl: '/products/chrysalide-nocturne-01.webp',
-    href: '/boutique',
-  },
-  {
-    id: 'fallback-2',
-    title: 'Tenues premium prêtes à commander',
-    imageUrl: '/products/cape-celeste-01.webp',
-    href: '/boutique?categorie=V%C3%AAtements%20Femmes',
-  },
-]
-
 const HERO_ROTATION_MS = 4200
-
-const FALLBACK_QUICK_CATEGORIES = [
-  { label: 'Vêtements Femmes', href: '/boutique?categorie=V%C3%AAtements%20Femmes' },
-  { label: 'Bijoux & Accessoires', href: '/boutique?categorie=Bijoux%20%26%20Accessoires' },
-  { label: 'Chaussures', href: '/boutique?categorie=Chaussures' },
-  { label: 'Téléphone & Accessoires', href: '/boutique?categorie=T%C3%A9l%C3%A9phone%20%26%20Accessoires' },
-  { label: 'Sacs & Bagages', href: '/boutique?categorie=Sacs%20%26%20Bagages' },
-  { label: 'Sous-vêtements & Pyjamas', href: '/boutique?categorie=Sous-v%C3%AAtements%20%26%20Pyjamas' },
-  { label: 'Home & Living', href: '/boutique?categorie=Home%20%26%20Living' },
-  { label: 'Beauté', href: '/boutique?categorie=Beaut%C3%A9' },
-]
 
 const clampWords = (value: string, limit: number) => {
   const words = value.trim().split(/\s+/)
@@ -132,7 +106,7 @@ export const HomePage = () => {
         href: `/produit/${product.slug}`,
       }))
 
-    return fromProducts.length ? fromProducts : FALLBACK_HERO_SLIDES
+    return fromProducts
   }, [newDrops, sortedProducts])
 
   useEffect(() => {
@@ -157,7 +131,7 @@ export const HomePage = () => {
     setActiveHeroIndex(0)
   }, [activeHeroIndex, heroSlides.length])
 
-  const activeHero = heroSlides[activeHeroIndex] ?? heroSlides[0]
+  const activeHero = heroSlides[activeHeroIndex] ?? heroSlides[0] ?? null
 
   const activeCategories = useMemo(
     () => categories.filter((category) => category.is_active).slice(0, 6),
@@ -173,7 +147,7 @@ export const HomePage = () => {
         href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
       }))
 
-    return fromStore.length ? fromStore : FALLBACK_QUICK_CATEGORIES
+    return fromStore
   }, [categories])
 
   const loadingSkeletons = useMemo(
@@ -183,6 +157,15 @@ export const HomePage = () => {
 
   return (
     <div className="home-v2 home-v2--mobile-first">
+      {loading ? (
+        <section className="hero-convert">
+          <div className="container">
+            <div className="hero-convert__placeholder" aria-hidden="true" />
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && activeHero ? (
       <section className="hero-convert">
         <div className="container">
           <article className="hero-convert__slide" key={activeHero.id}>
@@ -220,7 +203,9 @@ export const HomePage = () => {
           </div>
         </div>
       </section>
+      ) : null}
 
+      {quickCategories.length ? (
       <section className="section section--quick-categories">
         <div className="container">
           <div className="quick-categories" role="navigation" aria-label="Accès rapide aux catégories">
@@ -232,6 +217,7 @@ export const HomePage = () => {
           </div>
         </div>
       </section>
+      ) : null}
 
       <section className="section section-v2">
         <div className="container">

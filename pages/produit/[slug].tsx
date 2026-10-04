@@ -1,22 +1,15 @@
 import type { GetServerSideProps } from 'next'
-import { LOCAL_PRODUCTS } from '../../src/data/localProducts'
 import { isSupabaseConfigured } from '../../src/lib/supabase'
 import { ProductPage } from '../../src/pages/ProductPage'
 import { getProductWithVariants } from '../../src/services/products'
 import type { Product } from '../../src/types'
 
 type ProductRouteProps = {
-  initialProduct: Product
+  initialProduct: Product | null
   initialVariants: Product[]
 }
 
 const normalizeSlug = (value: string) => value.trim().toLowerCase()
-
-const resolveFromLocal = (slug: string) => {
-  const product =
-    LOCAL_PRODUCTS.find((item) => normalizeSlug(item.slug) === normalizeSlug(slug)) ?? null
-  return { product, variants: product ? [product] : [] }
-}
 
 export const getServerSideProps: GetServerSideProps<ProductRouteProps> = async ({
   params,
@@ -28,30 +21,28 @@ export const getServerSideProps: GetServerSideProps<ProductRouteProps> = async (
     return { notFound: true }
   }
 
-  let resolved: { product: Product | null; variants: Product[] }
-
+  /*
+   * Quand la base est injoignable, on rend la page sans produit plutot que de
+   * presenter un article de substitution : le client recharge la fiche et
+   * affiche un message clair s'il n'y arrive pas non plus. Mieux vaut une page
+   * en attente qu'un faux produit.
+   */
   if (!isSupabaseConfigured) {
-    resolved = resolveFromLocal(slug)
-  } else {
-    try {
-      resolved = await getProductWithVariants(normalizeSlug(slug))
-      if (!resolved.product) {
-        resolved = resolveFromLocal(slug)
-      }
-    } catch {
-      resolved = resolveFromLocal(slug)
+    return { props: { initialProduct: null, initialVariants: [] } }
+  }
+
+  try {
+    const { product, variants } = await getProductWithVariants(normalizeSlug(slug))
+
+    // Base joignable et slug inconnu : c'est une vraie page inexistante.
+    if (!product) {
+      return { notFound: true }
     }
-  }
 
-  if (!resolved.product) {
-    return { notFound: true }
-  }
-
-  return {
-    props: {
-      initialProduct: resolved.product,
-      initialVariants: resolved.variants,
-    },
+    return { props: { initialProduct: product, initialVariants: variants } }
+  } catch (error) {
+    console.error('[hotgyaal] fiche produit indisponible au rendu serveur', error)
+    return { props: { initialProduct: null, initialVariants: [] } }
   }
 }
 

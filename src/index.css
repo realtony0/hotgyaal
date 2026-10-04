@@ -4496,3 +4496,20 @@ body {
   box-shadow: 0 0 0 2px var(--paper);
   pointer-events: none;
 }
+
+/* Heros en attente : un bloc neutre, jamais une photo de demonstration.
+   Il occupe la meme place que la vraie diapositive pour que la page ne
+   sursaute pas quand les produits arrivent. */
+.hero-convert__placeholder {
+  aspect-ratio: 4 / 5;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--ground-alt);
+}
+
+@media (min-width: 900px) {
+  .hero-convert__placeholder {
+    aspect-ratio: 16 / 9;
+    max-height: 78vh;
+  }
+}
