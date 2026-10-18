@@ -16,7 +16,7 @@ export const ContactPage = () => {
           <article className="contact-v2__card">
             <h2>Coordonnees</h2>
             <p>
-              <strong>Telephone</strong>
+              <strong>Téléphone</strong>
               <span>{settings.contact_phone}</span>
             </p>
             <p>
@@ -24,7 +24,7 @@ export const ContactPage = () => {
               <span>{settings.contact_email}</span>
             </p>
             <p>
-              <strong>Disponibilite</strong>
+              <strong>Disponibilité</strong>
               <span>{settings.contact_hours}</span>
             </p>
           </article>

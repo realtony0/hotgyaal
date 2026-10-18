@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" role="img" aria-label="Visuel indisponible">
+  <rect width="400" height="500" fill="#f3efec"/>
+  <g fill="none" stroke="#d6cec8" stroke-width="2">
+    <rect x="140" y="190" width="120" height="120" rx="8"/>
+    <path d="M140 272l34-34 30 30 26-26 30 30"/>
+  </g>
+  <circle cx="176" cy="222" r="10" fill="#d6cec8"/>
+  <text x="200" y="352" text-anchor="middle" font-family="system-ui, sans-serif" font-size="15" fill="#9a9099">Visuel bientôt disponible</text>
+</svg>

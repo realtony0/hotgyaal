@@ -49,7 +49,7 @@ export const StoreCategoriesProvider = ({
       setError(
         loadError instanceof Error
           ? loadError.message
-          : 'Impossible de charger les categories.',
+          : 'Impossible de charger les catégories.',
       )
     } finally {
       setLoading(false)
@@ -82,7 +82,7 @@ export const useStoreCategories = () => {
 
   if (!context) {
     throw new Error(
-      'useStoreCategories doit etre utilise dans StoreCategoriesProvider.',
+      'useStoreCategories doit être utilisé dans StoreCategoriesProvider.',
     )
   }
 

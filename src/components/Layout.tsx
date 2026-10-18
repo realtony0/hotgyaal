@@ -10,6 +10,7 @@ import {
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useCart } from '../context/CartContext'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -67,7 +68,7 @@ const getSeoContent = (pathname: string) => {
     return {
       title: 'HOTGYAAL | Boutique en ligne',
       description:
-        'Catalogue HOTGYAAL: mode femme, accessoires et beaute au Senegal avec livraison rapide.',
+        'Catalogue HOTGYAAL: mode femme, accessoires et beauté au Sénégal avec livraison rapide.',
     }
   }
 
@@ -128,7 +129,7 @@ const getSeoContent = (pathname: string) => {
   return {
     title: 'HOTGYAAL | Mode femme et lifestyle',
     description:
-      'HOTGYAAL est une boutique en ligne de mode femme au Senegal: vetements, accessoires et beaute.',
+      'HOTGYAAL est une boutique en ligne de mode femme au Sénégal: vêtements, accessoires et beauté.',
   }
 }
 
@@ -188,6 +189,9 @@ export const Layout = ({ children }: LayoutProps) => {
   const router = useRouter()
   const { settings } = useStoreSettings()
   const { categories } = useStoreCategories()
+  // Le panier est restaure apres l'hydratation : le compteur vaut donc 0 au
+  // premier rendu, cote serveur comme cote client, puis se met a jour.
+  const { totalItems: cartCount } = useCart()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -199,7 +203,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
 
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
-  const defaultSocialImage = toAbsoluteUrl('/products/chrysalide-nocturne-01.webp')
+  const defaultSocialImage = toAbsoluteUrl('/og-hotgyaal.png')
 
   const currentPath = useMemo(
     () => stripQueryAndHash(router.asPath || '/'),
@@ -419,7 +423,7 @@ export const Layout = ({ children }: LayoutProps) => {
       const trendingCategories = activeCategories.slice(0, 4).map((category) => ({
         key: `category-${category.id}`,
         label: category.name,
-        hint: 'Categorie',
+        hint: 'Catégorie',
         href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
         kind: 'category' as const,
       }))
@@ -445,7 +449,7 @@ export const Layout = ({ children }: LayoutProps) => {
       .map((category) => ({
         key: `category-${category.id}`,
         label: category.name,
-        hint: 'Categorie',
+        hint: 'Catégorie',
         href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
         kind: 'category' as const,
       }))
@@ -457,7 +461,7 @@ export const Layout = ({ children }: LayoutProps) => {
         {
           key: `query-${query}`,
           label: `Rechercher "${searchInput.trim()}"`,
-          hint: 'Voir les resultats',
+          hint: 'Voir les résultats',
           href: `/boutique?q=${encodeURIComponent(searchInput.trim())}`,
           kind: 'query',
         },
@@ -527,7 +531,7 @@ export const Layout = ({ children }: LayoutProps) => {
   }
 
   return (
-    <div className="app-shell app-shell--shopaliwa">
+    <div className="app-shell app-shell--hotgyaal">
       <Head>
         {!isProductDetailPage ? (
           <>
@@ -566,7 +570,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </div>
 
         <div className="header header--primary">
-          <div className="container header__content header__content--shopaliwa">
+          <div className="container header__content header__content--hotgyaal">
             <div className="header__left">
               <button
                 type="button"
@@ -602,7 +606,7 @@ export const Layout = ({ children }: LayoutProps) => {
               HOTGYAAL
             </Link>
 
-            <div className="header__actions header__actions--shopaliwa">
+            <div className="header__actions header__actions--hotgyaal">
               <button
                 type="button"
                 className="icon-button icon-button--header"
@@ -621,11 +625,21 @@ export const Layout = ({ children }: LayoutProps) => {
                     ? 'icon-button icon-button--header is-active'
                     : 'icon-button icon-button--header'
                 }
-                aria-label="Voir le panier"
+                aria-label={
+                  cartCount
+                    ? `Voir le panier, ${cartCount} article${cartCount > 1 ? 's' : ''}`
+                    : 'Voir le panier'
+                }
               >
                 <span className="icon-button__glyph" aria-hidden="true">
                   <HeaderIcon icon="cart" />
                 </span>
+
+                {cartCount ? (
+                  <span className="cart-badge" aria-hidden="true">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                ) : null}
               </Link>
             </div>
           </div>
@@ -731,16 +745,17 @@ export const Layout = ({ children }: LayoutProps) => {
             </div>
 
             <div className="footer-column">
-              <p className="footer-title">Infos boutique</p>
-              <p className="footer-note">Selection mode, beaute et accessoires</p>
-              <p className="footer-note">Produits importes depuis la Chine</p>
+              <p className="footer-title">Service client</p>
+              <p className="footer-note">Livraison partout au Sénégal</p>
+              <p className="footer-note">Conseil et suivi sur WhatsApp</p>
+              <p className="footer-note">Paiement à la livraison à Dakar</p>
             </div>
           </div>
         </div>
 
         <div className="container footer__bottom">
           <p>
-            © {new Date().getFullYear()} HOTGYAAL - Tous droits reserves. Site concu par{' '}
+            © {new Date().getFullYear()} HOTGYAAL - Tous droits réservés. Site conçu par{' '}
             <a
               className="footer-credit-link"
               href={`https://wa.me/${designerWhatsappNumber}`}
