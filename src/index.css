@@ -4105,25 +4105,11 @@ body {
   min-width: 0;
 }
 
-.shipping-option__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.shipping-option__head strong {
+.shipping-option__body strong {
   font-size: 0.95rem;
   letter-spacing: 0.01em;
 }
 
-.shipping-option__estimate {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--accent);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
 
 .shipping-option__body small {
   color: var(--ink-soft);

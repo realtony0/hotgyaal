@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
@@ -27,24 +27,15 @@ const initialCheckoutState: CheckoutFormState = {
 type ShippingOption = {
   id: string
   name: string
-  ratePerKg: number | null
   priceLabel: string
   timeline: string
   summary: string
 }
 
-/*
- * Poids moyen retenu par article pour estimer le transit.
- * Il sert uniquement a donner une fourchette a la cliente avant confirmation :
- * le montant definitif est arrete apres pesee reelle du colis.
- */
-const ESTIMATED_ITEM_WEIGHT_KG = 0.5
-
 const SHIPPING_OPTIONS: ShippingOption[] = [
   {
     id: 'gp-express',
     name: 'GP Express',
-    ratePerKg: 10000,
     priceLabel: '10 000 FCFA / kg',
     timeline: '7 jours',
     summary: 'Le plus rapide, idéal pour une ou deux pièces.',
@@ -52,17 +43,15 @@ const SHIPPING_OPTIONS: ShippingOption[] = [
   {
     id: 'freight-aerien',
     name: 'Fret aérien',
-    ratePerKg: 7000,
     priceLabel: '7 000 FCFA / kg',
-    timeline: '10 a 12 jours',
+    timeline: '10 à 12 jours',
     summary: 'Le meilleur rapport délai/prix pour une commande moyenne.',
   },
   {
     id: 'container',
     name: 'Conteneur',
-    ratePerKg: null,
     priceLabel: '117 000 FCFA / m³',
-    timeline: '1 a 2 mois',
+    timeline: '1 à 2 mois',
     summary: 'Réservé aux gros volumes, sur devis après échange.',
   },
 ]
@@ -134,15 +123,6 @@ export const CartPage = () => {
   const { settings } = useStoreSettings()
   const { items, subtotal, removeFromCart, updateQuantity, clearCart } = useCart()
 
-  const estimatedWeightKg = useMemo(
-    () =>
-      items.reduce((total, item) => total + item.quantity * ESTIMATED_ITEM_WEIGHT_KG, 0),
-    [items],
-  )
-
-  const estimateTransit = (option: ShippingOption) =>
-    option.ratePerKg === null ? null : Math.round(option.ratePerKg * estimatedWeightKg)
-
   const [formState, setFormState] = useState<CheckoutFormState>(
     initialCheckoutState,
   )
@@ -152,9 +132,6 @@ export const CartPage = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const selectedShippingOption = getShippingOptionById(selectedShippingId)
-  const estimatedTransit = selectedShippingOption
-    ? estimateTransit(selectedShippingOption)
-    : null
   const orderChatNumber = normalizeChatNumber(
     settings.order_chat_number ||
       (
@@ -322,35 +299,16 @@ export const CartPage = () => {
               <dd>{formatCurrency(subtotal)}</dd>
             </div>
             <div>
-              <dt>
-                Transit estimé
-                {estimatedWeightKg > 0 ? (
-                  <small>
-                    {' '}
-                    · environ {estimatedWeightKg.toFixed(1).replace('.', ',')} kg
-                  </small>
-                ) : null}
-              </dt>
+              <dt>Transit</dt>
               <dd>
-                {!selectedShippingOption
-                  ? 'À choisir'
-                  : estimatedTransit === null
-                    ? 'Sur devis'
-                    : formatCurrency(estimatedTransit)}
+                {selectedShippingOption ? selectedShippingOption.name : 'À choisir'}
               </dd>
             </div>
-            {estimatedTransit !== null ? (
-              <div className="checkout-total">
-                <dt>Total estimé</dt>
-                <dd>{formatCurrency(subtotal + estimatedTransit)}</dd>
-              </div>
-            ) : null}
           </dl>
 
           <p className="shipping-note">
-            Le transit est facturé au poids réel du colis. Le montant ci-dessus est une
-            estimation basée sur votre sélection&nbsp;; nous vous confirmons le montant
-            exact sur WhatsApp après pesée, avant tout paiement.
+            Le transit est facturé au poids réel du colis. Nous vous confirmons son
+            montant sur WhatsApp après pesée, avant tout paiement.
           </p>
 
           <form className="checkout-form checkout-form--simple" onSubmit={handleSubmit}>
@@ -375,14 +333,7 @@ export const CartPage = () => {
                       onChange={(event) => setSelectedShippingId(event.target.value)}
                     />
                     <span className="shipping-option__body">
-                      <span className="shipping-option__head">
-                        <strong>{option.name}</strong>
-                        <span className="shipping-option__estimate">
-                          {estimateTransit(option) === null
-                            ? 'Sur devis'
-                            : `≈ ${formatCurrency(estimateTransit(option) as number)}`}
-                        </span>
-                      </span>
+                      <strong>{option.name}</strong>
                       <small>
                         {option.priceLabel} · {option.timeline}
                       </small>
@@ -406,7 +357,7 @@ export const CartPage = () => {
             </label>
 
             <label>
-              Telephone
+              Téléphone
               <input
                 required
                 value={formState.customerPhone}
