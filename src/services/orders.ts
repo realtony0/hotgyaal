@@ -1,6 +1,9 @@
 import { getSupabase, resolveOrderErrorMessage } from '../lib/supabase'
 import type { CheckoutPayload, Order, OrderStatus } from '../types'
 
+/** Code Postgres d'une violation de cle etrangere. */
+const FOREIGN_KEY_VIOLATION = '23503'
+
 export const listOrders = async (): Promise<Order[]> => {
   const client = getSupabase()
   const { data, error } = await client
@@ -45,19 +48,58 @@ export const createOrder = async (payload: CheckoutPayload): Promise<Order> => {
     throw new Error(resolveOrderErrorMessage(orderError))
   }
 
-  const orderItems = payload.items.map((item) => ({
-    order_id: order.id,
-    product_id: item.product.id,
-    product_name: item.product.name,
-    selected_size: item.selected_size,
-    unit_price: item.product.price,
-    quantity: item.quantity,
-    subtotal: item.quantity * item.product.price,
-  }))
+  const buildItems = (keepProductLink: (productId: string) => boolean) =>
+    payload.items.map((item) => ({
+      order_id: order.id,
+      // Le lien vers la fiche n'est qu'un confort : le nom, la taille et le
+      // prix sont copies dans la ligne, donc une commande reste exploitable
+      // meme si l'article a disparu du catalogue entre-temps.
+      product_id: keepProductLink(item.product.id) ? item.product.id : null,
+      product_name: item.product.name,
+      selected_size: item.selected_size,
+      unit_price: item.product.price,
+      quantity: item.quantity,
+      subtotal: item.quantity * item.product.price,
+    }))
 
-  const { error: itemsError } = await client.from('order_items').insert(orderItems)
+  /*
+   * Le panier vit dans le navigateur de la cliente : il peut contenir un
+   * article retire du catalogue depuis. La cle etrangere refusait alors
+   * l'insertion et la commande entiere echouait, alors que la commande elle
+   * meme etait deja creee. On verifie donc quels articles existent encore.
+   */
+  const productIds = Array.from(new Set(payload.items.map((item) => item.product.id)))
+  const { data: knownProducts } = await client
+    .from('products')
+    .select('id')
+    .in('id', productIds)
+
+  const known = knownProducts
+    ? new Set((knownProducts as { id: string }[]).map((row) => row.id))
+    : null
+
+  // Verification impossible (reseau) : on tente avec les liens d'origine.
+  let { error: itemsError } = await client
+    .from('order_items')
+    .insert(buildItems((id) => (known ? known.has(id) : true)))
+
+  // Filet de securite : un article supprime entre la verification et
+  // l'insertion ne doit pas davantage faire perdre la commande.
+  if (itemsError?.code === FOREIGN_KEY_VIOLATION) {
+    ;({ error: itemsError } = await client
+      .from('order_items')
+      .insert(buildItems(() => false)))
+  }
 
   if (itemsError) {
+    // Sans ses lignes, la commande n'a aucune valeur : on evite de laisser une
+    // coquille vide dans le back-office.
+    await client
+      .from('orders')
+      .delete()
+      .eq('id', order.id)
+      .then(undefined, () => undefined)
+
     throw new Error(resolveOrderErrorMessage(itemsError))
   }
 
