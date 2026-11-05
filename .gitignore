@@ -28,3 +28,6 @@ out
 *.sln
 *.sw?
 tmp_preview
+
+# Artefacts de compilation TypeScript
+tsconfig.tsbuildinfo

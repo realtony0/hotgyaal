@@ -5,7 +5,7 @@ export type QuickCategoryLink = {
 
 export const QUICK_CATEGORY_LINKS: QuickCategoryLink[] = [
   {
-    label: 'Vetements Femmes',
+    label: 'Vêtements Femmes',
     href: '/boutique?categorie=V%C3%AAtements%20Femmes',
   },
   {
@@ -17,7 +17,7 @@ export const QUICK_CATEGORY_LINKS: QuickCategoryLink[] = [
     href: '/boutique?categorie=Chaussures',
   },
   {
-    label: 'Telephone & Accessoires',
+    label: 'Téléphone & Accessoires',
     href: '/boutique?categorie=T%C3%A9l%C3%A9phone%20%26%20Accessoires',
   },
   {
@@ -25,7 +25,7 @@ export const QUICK_CATEGORY_LINKS: QuickCategoryLink[] = [
     href: '/boutique?categorie=Sacs%20%26%20Bagages',
   },
   {
-    label: 'Sous-vetements & Pyjamas',
+    label: 'Sous-vêtements & Pyjamas',
     href: '/boutique?categorie=Sous-v%C3%AAtements%20%26%20Pyjamas',
   },
   {
@@ -33,7 +33,7 @@ export const QUICK_CATEGORY_LINKS: QuickCategoryLink[] = [
     href: '/boutique?categorie=Home%20%26%20Living',
   },
   {
-    label: 'Beaute',
+    label: 'Beauté',
     href: '/boutique?categorie=Beaut%C3%A9',
   },
 ]

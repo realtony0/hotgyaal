@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
 import type { CartItem, Product } from '../types'
@@ -103,8 +104,24 @@ const getInitialCart = (): CartItem[] => {
   }
 }
 
+const subscribeToNothing = () => () => {}
+
 export function CartProvider({ children }: CartProviderProps) {
   const [items, setItems] = useState<CartItem[]>(getInitialCart)
+
+  /*
+   * Le panier vit dans le localStorage, donc absent du rendu serveur.
+   * Ce drapeau vaut false pendant l'hydratation et true ensuite : le premier
+   * rendu client reproduit ainsi exactement le HTML serveur (panier vide),
+   * ce qui evite l'erreur d'hydratation de React, puis le contenu apparait.
+   */
+  const hydrated = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  )
+
+  const visibleItems = hydrated ? items : []
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
@@ -159,14 +176,14 @@ export function CartProvider({ children }: CartProviderProps) {
     setItems([])
   }
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
-  const subtotal = items.reduce(
+  const totalItems = visibleItems.reduce((sum, item) => sum + item.quantity, 0)
+  const subtotal = visibleItems.reduce(
     (sum, item) => sum + item.quantity * item.product.price,
     0,
   )
 
   const value: CartContextValue = {
-    items,
+    items: visibleItems,
     totalItems,
     subtotal,
     addToCart,

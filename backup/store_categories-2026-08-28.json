@@ -1,0 +1,125 @@
+[
+  {
+    "id": "a42af49d-e05f-4214-9cd0-9e8a1052b38f",
+    "slug": "bijoux-accessoires",
+    "name": "Bijoux & Accessoires",
+    "description": "Touches premium qui signent un look.",
+    "image_url": "/categories/jewelry-accessories.webp",
+    "subcategories": [
+      "Colliers",
+      "Bracelets",
+      "Boucles d'oreilles",
+      "Bagues",
+      "Montres",
+      "Chapeaux",
+      "Echarpes",
+      "Ceintures",
+      "Lunettes",
+      "Sacs"
+    ],
+    "is_active": true,
+    "display_order": 1,
+    "created_at": "2026-02-13T16:30:57.669711+00:00",
+    "updated_at": "2026-02-13T16:30:57.669711+00:00"
+  },
+  {
+    "id": "c77da14c-c781-4522-a8e7-71905c56400f",
+    "slug": "chaussures",
+    "name": "Chaussures",
+    "description": "Du confort sport aux pieces statement.",
+    "image_url": "/categories/shoes.webp",
+    "subcategories": [
+      "Baskets",
+      "Bottes",
+      "Sandales & Crocs",
+      "Talons",
+      "Plates",
+      "Sport",
+      "Mocassins",
+      "Interieur",
+      "Enfants"
+    ],
+    "is_active": true,
+    "display_order": 2,
+    "created_at": "2026-02-13T16:30:57.669711+00:00",
+    "updated_at": "2026-02-13T16:30:57.669711+00:00"
+  },
+  {
+    "id": "d740b6c3-6228-4122-a6fd-5f1db848d845",
+    "slug": "sacs-bagages",
+    "name": "Sacs & Bagages",
+    "description": "Capsules pratiques pour ville et voyage.",
+    "image_url": "/categories/bags-luggage.webp",
+    "subcategories": [
+      "Sacs a main",
+      "Sacs a dos",
+      "Valises",
+      "Voyage",
+      "Sport",
+      "Bandouliere",
+      "Trousse",
+      "Ordinateur"
+    ],
+    "is_active": true,
+    "display_order": 4,
+    "created_at": "2026-02-13T16:30:57.669711+00:00",
+    "updated_at": "2026-02-13T16:30:57.669711+00:00"
+  },
+  {
+    "id": "bece26df-e285-4cd7-ad1f-078bfee33b13",
+    "slug": "sous-vetements-pyjamas",
+    "name": "Sous-vêtements & Pyjamas",
+    "description": "Confort premium, coupe et douceur.",
+    "image_url": "/categories/sleepwear.webp",
+    "subcategories": [
+      "Femme",
+      "Enfant",
+      "Lingerie",
+      "Nuisettes"
+    ],
+    "is_active": true,
+    "display_order": 5,
+    "created_at": "2026-02-13T16:30:57.669711+00:00",
+    "updated_at": "2026-02-13T16:30:57.669711+00:00"
+  },
+  {
+    "id": "e75e8402-6f9e-44c2-b6d2-11f074b374ec",
+    "slug": "vetements-femmes",
+    "name": "Vêtements Femmes",
+    "description": "Silhouettes chic du quotidien au soir.",
+    "image_url": "/categories/women-fashion.webp",
+    "subcategories": [
+      "Robes",
+      "T-shirts",
+      "Jupes",
+      "Shorts",
+      "Vestes",
+      "Pulls & Ensembles",
+      "Tenues de sport",
+      "Pantalons & Ensembles",
+      "Tops & Corsets"
+    ],
+    "is_active": true,
+    "display_order": 0,
+    "created_at": "2026-02-13T16:30:57.669711+00:00",
+    "updated_at": "2026-03-15T01:42:46.799017+00:00"
+  },
+  {
+    "id": "f3556544-3ab9-4ace-816d-229a585a0f99",
+    "slug": "beaute",
+    "name": "Beauté",
+    "description": "Soins, maquillage et essentials premium.",
+    "image_url": "/categories/women-fashion.webp",
+    "subcategories": [
+      "Maquillage",
+      "Soins visage",
+      "Blendhair",
+      "Parfums",
+      "Accessoires beaute"
+    ],
+    "is_active": true,
+    "display_order": 7,
+    "created_at": "2026-02-13T16:30:57.669711+00:00",
+    "updated_at": "2026-04-25T02:08:23.532787+00:00"
+  }
+]

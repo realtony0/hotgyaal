@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured, resolveOrderErrorMessage } from '../lib/supabase'
 import { createOrder } from '../services/orders'
 import type { CartItem } from '../types'
 import { formatCurrency } from '../utils/format'
@@ -29,26 +29,30 @@ type ShippingOption = {
   name: string
   priceLabel: string
   timeline: string
+  summary: string
 }
 
 const SHIPPING_OPTIONS: ShippingOption[] = [
   {
     id: 'gp-express',
-    name: 'Gp Express',
-    priceLabel: '10.000 FCFA / kg',
+    name: 'GP Express',
+    priceLabel: '10 000 FCFA / kg',
     timeline: '7 jours',
+    summary: 'Le plus rapide, idéal pour une ou deux pièces.',
   },
   {
     id: 'freight-aerien',
-    name: 'Freight aerien',
-    priceLabel: '7.000 FCFA / kg',
-    timeline: '10-12 jours',
+    name: 'Fret aérien',
+    priceLabel: '7 000 FCFA / kg',
+    timeline: '10 à 12 jours',
+    summary: 'Le meilleur rapport délai/prix pour une commande moyenne.',
   },
   {
     id: 'container',
-    name: 'Contener',
-    priceLabel: '117.000 FCFA / CBM',
-    timeline: '1-2 mois',
+    name: 'Conteneur',
+    priceLabel: '117 000 FCFA / m³',
+    timeline: '1 à 2 mois',
+    summary: 'Réservé aux gros volumes, sur devis après échange.',
   },
 ]
 
@@ -87,10 +91,10 @@ const buildOrderMessage = (
 ) => {
   const lines = [
     'Nouvelle commande HOTGYAAL',
-    orderNumber ? `Reference: ${orderNumber}` : 'Reference: En attente',
+    orderNumber ? `Référence: ${orderNumber}` : 'Référence: En attente',
     '',
     `Nom: ${formState.customerName}`,
-    `Telephone: ${formState.customerPhone || 'Non renseigne'}`,
+    `Téléphone: ${formState.customerPhone || 'Non renseigné'}`,
     '',
     'Articles:',
   ]
@@ -104,7 +108,7 @@ const buildOrderMessage = (
   lines.push('')
   lines.push(`Sous-total produits: ${formatCurrency(subtotal)}`)
   lines.push(`Option transit choisie: ${shippingOption.name} (${shippingOption.timeline})`)
-  lines.push('Tarif transit confirme apres verification poids/volume.')
+  lines.push('Montant du transit confirmé après pesée réelle du colis.')
   lines.push('')
   lines.push(`Adresse: ${formState.line1}, ${formState.city}`)
   if (formState.note.trim()) {
@@ -151,14 +155,12 @@ export const CartPage = () => {
     }
 
     if (!orderChatNumber) {
-      setError('Le numero de confirmation est absent.')
+      setError('Le numéro de confirmation est absent.')
       return
     }
 
     if (!isSupabaseConfigured) {
-      setError(
-        "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-      )
+      setError(resolveOrderErrorMessage('Supabase non configure'))
       return
     }
 
@@ -212,7 +214,7 @@ export const CartPage = () => {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : 'Impossible de finaliser la commande.',
+          : resolveOrderErrorMessage(submitError),
       )
     } finally {
       setLoading(false)
@@ -226,7 +228,7 @@ export const CartPage = () => {
           <div className="section__header section__header--v2">
             <div>
               <p className="eyebrow">Panier</p>
-              <h1>Votre selection</h1>
+              <h1>Votre sélection</h1>
             </div>
             <Link href="/boutique">Continuer mes achats</Link>
           </div>
@@ -244,8 +246,7 @@ export const CartPage = () => {
                 <article className="cart-item" key={item.line_id}>
                   <img
                     src={
-                      item.product.image_url ||
-                      'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=500&q=80'
+                      item.product.image_url || '/placeholder-produit.svg'
                     }
                     alt={item.product.name}
                     loading="lazy"
@@ -262,7 +263,7 @@ export const CartPage = () => {
 
                   <div className="quantity-actions">
                     <label>
-                      Qte
+                      Qté
                       <input
                         type="number"
                         min={1}
@@ -289,25 +290,25 @@ export const CartPage = () => {
           )}
         </div>
 
+        {items.length ? (
         <aside className="checkout-card checkout-card-v2">
           <h2>Finaliser</h2>
           <dl>
             <div>
-              <dt>Sous-total</dt>
+              <dt>Sous-total produits</dt>
               <dd>{formatCurrency(subtotal)}</dd>
             </div>
             <div>
               <dt>Transit</dt>
               <dd>
-                {selectedShippingOption
-                  ? `${selectedShippingOption.name} (${selectedShippingOption.timeline})`
-                  : 'A choisir'}
+                {selectedShippingOption ? selectedShippingOption.name : 'À choisir'}
               </dd>
             </div>
           </dl>
 
           <p className="shipping-note">
-            Le cout final du transit est confirme apres verification du poids ou du volume.
+            Le transit est facturé au poids réel du colis. Nous vous confirmons son
+            montant sur WhatsApp après pesée, avant tout paiement.
           </p>
 
           <form className="checkout-form checkout-form--simple" onSubmit={handleSubmit}>
@@ -331,11 +332,12 @@ export const CartPage = () => {
                       checked={selectedShippingId === option.id}
                       onChange={(event) => setSelectedShippingId(event.target.value)}
                     />
-                    <span>
+                    <span className="shipping-option__body">
                       <strong>{option.name}</strong>
                       <small>
-                        {option.priceLabel} ({option.timeline})
+                        {option.priceLabel} · {option.timeline}
                       </small>
+                      <small className="shipping-option__summary">{option.summary}</small>
                     </span>
                   </label>
                 ))}
@@ -355,7 +357,7 @@ export const CartPage = () => {
             </label>
 
             <label>
-              Telephone
+              Téléphone
               <input
                 required
                 value={formState.customerPhone}
@@ -397,6 +399,7 @@ export const CartPage = () => {
             </button>
           </form>
         </aside>
+        ) : null}
       </div>
     </section>
   )

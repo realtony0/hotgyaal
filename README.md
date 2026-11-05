@@ -41,19 +41,69 @@ NEXT_PUBLIC_ADMIN_ACCESS_CODE=142022
 ## Configuration Supabase
 
 1. Ouvrir Supabase SQL Editor.
-2. Exécuter `/Users/admin/Desktop/Housegyaal/supabase/schema.sql`.
-3. (Optionnel) Exécuter `/Users/admin/Desktop/Housegyaal/supabase/seed.sql` pour des produits de démo.
-4. (Si base deja creee) Exécuter `/Users/admin/Desktop/Housegyaal/supabase/unlock_admin_policies.sql` pour retirer l'exigence `role='admin'`.
+2. Exécuter `supabase/schema.sql`.
+4. (Si base deja creee) Exécuter `supabase/unlock_admin_policies.sql` pour retirer l'exigence `role='admin'`.
 
-## Import d'images locales
 
-Les images présentes à la racine ont été copiées vers `/Users/admin/Desktop/Housegyaal/public/products` et référencées dans le seed.
+## Sauvegarde et reprise du catalogue
 
-Pour régénérer automatiquement les produits à partir des images locales:
+Le projet Supabase a deja ete suspendu une fois pour depassement du quota
+d'egress, rendant le catalogue inaccessible. Deux scripts permettent d'en
+garder la maitrise.
+
+Exporter le catalogue vers `backup/` (produits, categories, reglages, plus la
+liste des visuels references):
 
 ```bash
-node scripts/import-local-products.mjs
+node scripts/export-catalogue.mjs
 ```
+
+Les commandes ne sont pas exportees: elles contiennent des donnees personnelles
+clientes qui n'ont pas a etre versionnees.
+
+Rejouer une sauvegarde dans un autre projet Supabase (apres avoir execute
+`supabase/full_setup.sql` dans le SQL Editor du nouveau projet):
+
+```bash
+node scripts/import-catalogue.mjs backup/ --dry-run
+node scripts/import-catalogue.mjs backup/
+```
+
+L'import est en upsert sur l'identifiant: le relancer met a jour au lieu de
+dupliquer, donc une interruption se rattrape en relancant.
+
+Variante hors ligne, si vous preferez passer par le SQL Editor plutot que par
+l'API: `node scripts/build-import-sql.mjs backup/ > import.sql` produit un
+fichier a coller ou a jouer avec `psql`.
+
+Deplacer les visuels de Supabase Storage vers R2, puis reecrire les URLs en
+base. Le script est relancable et ignore ce qui est deja sur R2:
+
+```bash
+node scripts/migrate-images-to-r2.mjs --dry-run --limit 10   # verification
+node scripts/migrate-images-to-r2.mjs                        # migration reelle
+```
+
+## Stockage des images (Cloudflare R2)
+
+Les visuels ne sont pas stockes dans Supabase: son quota d'egress avait fini
+par suspendre le projet. Ils vivent sur Cloudflare R2, qui ne facture pas la
+bande passante sortante. La base ne conserve que leur URL.
+
+Mise en place:
+
+1. Creer un bucket R2 dans le tableau de bord Cloudflare.
+2. Lui rattacher un domaine public (par exemple `img.hotgyaal.com`).
+3. Creer un jeton d'API R2 avec les droits de lecture et d'ecriture.
+4. Renseigner les cinq variables `R2_*` (voir `.env.example`) dans Vercel.
+
+Tant que ces variables sont absentes, la route `/api/upload` repond `501` et
+l'envoi bascule automatiquement sur le stockage Supabase: la boutique
+fonctionne, mais le quota d'egress reste expose.
+
+Les photos sont redimensionnees et converties en WebP dans le navigateur avant
+l'envoi (voir `src/utils/image.ts`), afin d'eviter les fichiers demesures
+venant des telephones.
 
 ## Monnaie
 

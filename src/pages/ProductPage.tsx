@@ -3,12 +3,18 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCart } from '../context/CartContext'
-import { isSupabaseConfigured } from '../lib/supabase'
-import { listProducts } from '../services/products'
+import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
+import { getProductWithVariants } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
-import { getProductVariantMeta, getRelatedVariants } from '../utils/products'
-import { buildShareUrl, shareWithFallback } from '../utils/share'
+import { getProductVariantMeta } from '../utils/products'
+import {
+  buildShareUrl,
+  buildWhatsAppShareUrl,
+  canUseNativeShare,
+  copyToClipboard,
+  shareWithFallback,
+} from '../utils/share'
 import { toAbsoluteUrl } from '../utils/site'
 
 const trimMetaDescription = (value: string, maxLength = 160) => {
@@ -85,9 +91,7 @@ export const ProductPage = ({
       setProduct(null)
       setVariants([])
       setLoading(false)
-      setError(
-        "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-      )
+      setError(resolveCatalogErrorMessage('Supabase non configure'))
       return
     }
 
@@ -96,14 +100,13 @@ export const ProductPage = ({
     const loadProduct = async () => {
       try {
         setLoading(true)
-        const allProducts = await listProducts({ forceFresh: true })
+        // Deux requetes ciblees : la fiche et ses declinaisons. Avant, la page
+        // rapatriait les 600 produits du catalogue pour n'en afficher qu'un.
+        const { product: data, variants: related } =
+          await getProductWithVariants(normalizedSlug)
         if (ignore) {
           return
         }
-
-        const data =
-          allProducts.find((item) => normalizeSlug(item.slug) === normalizedSlug) ??
-          null
 
         if (!data) {
           setProduct(null)
@@ -113,18 +116,14 @@ export const ProductPage = ({
         }
 
         setProduct(data)
-        setVariants(getRelatedVariants(allProducts, data))
+        setVariants(related)
         setActiveImage(data.image_url)
         setError(null)
       } catch (loadError) {
         if (!ignore) {
           setProduct(null)
           setVariants([])
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'Impossible de charger ce produit depuis Supabase.',
-          )
+          setError(resolveCatalogErrorMessage(loadError))
         }
       } finally {
         if (!ignore) {
@@ -186,7 +185,7 @@ export const ProductPage = ({
     const url = toAbsoluteUrl(productPath)
     const image = product.image_url
       ? toAbsoluteUrl(product.image_url)
-      : toAbsoluteUrl('/products/chrysalide-nocturne-01.webp')
+      : toAbsoluteUrl('/og-hotgyaal.png')
     const title = `${productMeta?.baseName ?? product.name} | HOTGYAAL`
     const description = trimMetaDescription(
       product.description ||
@@ -277,32 +276,53 @@ export const ProductPage = ({
     setFeedback('Ajoute au panier.')
   }
 
+  const announceShare = (message: string) => {
+    setShareFeedback(message)
+    window.setTimeout(() => {
+      setShareFeedback(null)
+    }, 2600)
+  }
+
+  const handleCopyLink = async () => {
+    if (!product) {
+      return
+    }
+
+    const url = buildShareUrl(`/produit/${product.slug}`)
+    const copied = await copyToClipboard(url)
+
+    announceShare(
+      copied ? 'Lien copié.' : 'Copie impossible. Copiez le lien depuis la barre d’adresse.',
+    )
+  }
+
   const handleShareProduct = async () => {
     if (!product) {
       return
     }
 
-    const shareResult = await shareWithFallback({
-      title: product.name,
-      text: `Regarde cet article: ${product.name}`,
-      url: buildShareUrl(`/produit/${product.slug}`),
-    })
+    const url = buildShareUrl(`/produit/${product.slug}`)
+    const text = `Regarde cet article : ${product.name}`
 
-    if (shareResult === 'cancelled') {
-      return
+    /*
+     * Sur mobile, le menu de partage du systeme couvre WhatsApp, les SMS et le
+     * reste. Ailleurs il n'existe pas : on ouvre alors directement WhatsApp,
+     * qui est le canal de la boutique.
+     */
+    if (canUseNativeShare()) {
+      const shareResult = await shareWithFallback({ title: product.name, text, url })
+
+      if (shareResult === 'cancelled') {
+        return
+      }
+
+      if (shareResult === 'shared') {
+        announceShare('Article partagé.')
+        return
+      }
     }
 
-    setShareFeedback(
-      shareResult === 'shared'
-        ? 'Article partage.'
-        : shareResult === 'copied'
-          ? 'Lien copie.'
-          : 'Partage indisponible sur cet appareil.',
-    )
-
-    window.setTimeout(() => {
-      setShareFeedback(null)
-    }, 2600)
+    window.open(buildWhatsAppShareUrl(text, url), '_blank', 'noopener,noreferrer')
   }
 
   if (loading) {
@@ -361,7 +381,7 @@ export const ProductPage = ({
               <img
                 src={
                   activeImage ||
-                  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80'
+                  '/placeholder-produit.svg'
                 }
                 alt={product.name}
                 decoding="async"
@@ -439,17 +459,34 @@ export const ProductPage = ({
             </div>
 
             <div className="product-detail-v2__actions">
-              <label>
-                Quantite
+              <div className="quantity-stepper" role="group" aria-label="Quantité">
+                <button
+                  type="button"
+                  className="quantity-stepper__button"
+                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                  disabled={quantity <= 1}
+                  aria-label="Diminuer la quantité"
+                >
+                  &minus;
+                </button>
                 <input
                   type="number"
                   min={1}
                   value={quantity}
+                  aria-label="Quantité"
                   onChange={(event) =>
                     setQuantity(Math.max(1, Number(event.target.value) || 1))
                   }
                 />
-              </label>
+                <button
+                  type="button"
+                  className="quantity-stepper__button"
+                  onClick={() => setQuantity((value) => value + 1)}
+                  aria-label="Augmenter la quantité"
+                >
+                  +
+                </button>
+              </div>
               <button
                 type="button"
                 className="button"
@@ -458,13 +495,33 @@ export const ProductPage = ({
               >
                 {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
               </button>
-              <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
-                Partager l'article
+            </div>
+
+            <div className="product-detail-v2__links">
+              <button
+                type="button"
+                className="link-action"
+                onClick={() => void handleCopyLink()}
+              >
+                Copier le lien
               </button>
-              <Link href="/panier" className="button button--ghost">
-                Aller au panier
+              <button
+                type="button"
+                className="link-action"
+                onClick={() => void handleShareProduct()}
+              >
+                Envoyer
+              </button>
+              <Link href="/panier" className="link-action">
+                Voir mon panier
               </Link>
             </div>
+
+            <ul className="product-reassurance">
+              <li>Livraison partout au Sénégal</li>
+              <li>Paiement à la livraison à Dakar</li>
+              <li>Conseil taille et couleur sur WhatsApp</li>
+            </ul>
 
             {feedback ? <p className="success-text">{feedback}</p> : null}
             {shareFeedback ? <p className="success-text">{shareFeedback}</p> : null}

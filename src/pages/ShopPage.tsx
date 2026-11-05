@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
+import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
 import { QUICK_CATEGORY_LINKS } from '../constants/quickCategories'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
@@ -18,9 +19,7 @@ export const ShopPage = () => {
     const loadProducts = async () => {
       if (!isSupabaseConfigured) {
         setProducts([])
-        setErrorProducts(
-          "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-        )
+        setErrorProducts(resolveCatalogErrorMessage('Supabase non configure'))
         setLoadingProducts(false)
         return
       }
@@ -32,11 +31,7 @@ export const ShopPage = () => {
         setErrorProducts(null)
       } catch (loadError) {
         setProducts([])
-        setErrorProducts(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Impossible de charger les produits depuis Supabase.',
-        )
+        setErrorProducts(resolveCatalogErrorMessage(loadError))
       } finally {
         setLoadingProducts(false)
       }
@@ -133,7 +128,19 @@ export const ShopPage = () => {
 
         {!loadingProducts && errorProducts ? <p className="error-text">{errorProducts}</p> : null}
         {!loadingProducts && !errorProducts && visibleProducts.length === 0 ? (
-          <p>Aucun produit disponible.</p>
+          products.length ? (
+            <EmptyState
+              title="Aucun article ne correspond"
+              description="Essayez une autre catégorie, ou parcourez l'ensemble du catalogue."
+              action={{ label: 'Voir tout le catalogue', href: '/boutique' }}
+            />
+          ) : (
+            <EmptyState
+              title="La collection arrive"
+              description="Les premières pièces sont en cours de préparation. Revenez très vite, ou écrivez-nous pour être prévenue en avant-première."
+              action={{ label: 'Nous contacter', href: '/contact' }}
+            />
+          )
         ) : null}
 
         {!loadingProducts && !errorProducts ? (

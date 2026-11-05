@@ -117,7 +117,7 @@ export const useStoreSettings = () => {
   const context = useContext(StoreSettingsContext)
 
   if (!context) {
-    throw new Error('useStoreSettings doit etre utilise dans StoreSettingsProvider.')
+    throw new Error('useStoreSettings doit être utilisé dans StoreSettingsProvider.')
   }
 
   return context

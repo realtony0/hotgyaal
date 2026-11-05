@@ -7,18 +7,18 @@ const MISSING_TABLE_SCHEMA_CACHE_CODE = 'PGRST205'
 
 export const DEFAULT_STORE_SETTINGS: StoreSettingsPayload = {
   announcement_text:
-    'Mode femme & accessoires · Importation directe Chine',
+    'Livraison partout au Sénégal · Nouveautés chaque semaine',
   hero_eyebrow: 'Mode Femme & Accessoires',
-  hero_title: 'Vetements, accessoires et chaussures tendance.',
+  hero_title: 'Vêtements, accessoires et chaussures tendance.',
   hero_description:
-    'HOTGYAAL met en avant la mode feminine: robes, tops, ensembles, sacs, bijoux et chaussures. Les produits sont selectionnes en Chine puis proposes en collection.',
+    'Robes, ensembles, sacs, bijoux et chaussures : des pièces choisies une à une pour la garde-robe des femmes qui aiment se démarquer.',
   contact_intro:
-    "HOTGYAAL source ses collections en Chine via une activite d'import-export.",
+    'Une question sur une taille, une couleur ou une livraison ? Notre équipe vous répond dans la journée.',
   contact_phone: '+221 77 493 14 74',
-  contact_email: 'sophieniang344@gmail.com',
-  contact_hours: 'lundi a samedi, 9h - 19h',
+  contact_email: 'contact@hotgyaal.com',
+  contact_hours: 'lundi à samedi, 9h - 19h',
   footer_blurb:
-    'Specialiste mode femme, accessoires et chaussures. Importation directe depuis la Chine.',
+    'Mode femme, accessoires et chaussures. Des collections renouvelées chaque semaine, livrées partout au Sénégal.',
   order_chat_number: '774931474',
 }
 
@@ -97,7 +97,7 @@ export const upsertStoreSettings = async (
   if (error) {
     if (isMissingSettingsTableError(error)) {
       throw new Error(
-        'Table store_settings manquante dans Supabase. Lancez le SQL full_setup.sql mis a jour.',
+        'Table store_settings manquante dans Supabase. Lancez le SQL full_setup.sql mis à jour.',
       )
     }
 
