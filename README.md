@@ -136,3 +136,16 @@ npm run start
 - `/panier` : panier + checkout
 - `/admin/login` : connexion admin
 - `/admin` : dashboard admin
+
+
+## Securite (acces base)
+
+Le navigateur ne lit que le catalogue avec la cle publishable. Les ecritures et
+la lecture des commandes passent par les routes serveur `/api/*`, qui utilisent
+la cle `service_role` (variable serveur `SUPABASE_SERVICE_ROLE_KEY`, jamais
+`NEXT_PUBLIC`). Le back-office s'authentifie par un cookie signe pose par
+`/api/admin/login` apres verification du code cote serveur (`ADMIN_ACCESS_CODE`,
+signe avec `ADMIN_SESSION_SECRET`).
+
+Sur un projet Supabase existant, verrouiller la base en executant
+`supabase/secure_rls.sql` dans le SQL Editor, APRES avoir deploye le code.

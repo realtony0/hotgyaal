@@ -1,5 +1,6 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { requireAdmin } from '../../src/lib/adminAuth'
 import { R2_BUCKET, buildPublicUrl, getR2Client, isR2Configured } from '../../src/lib/r2'
 
 /*
@@ -63,6 +64,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Méthode non autorisée.' })
+  }
+
+  // Seule l'administration televerse des visuels : sans ce controle, n'importe
+  // qui pouvait deposer des fichiers arbitraires sur le bucket public.
+  if (!requireAdmin(req, res)) {
+    return
   }
 
   // 501 signale au client que R2 n'est pas encore branche : il bascule alors

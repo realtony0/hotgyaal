@@ -1,18 +1,12 @@
--- ATTENTION - MODELE DE SECURITE RETENU
+-- MODELE DE SECURITE
 --
--- L'administration ecrit dans la base depuis le navigateur avec la cle
--- publique du site. Les regles ci-dessous accordent donc au public les droits
--- d'ecriture sur products, store_categories et store_settings, ainsi que la
--- lecture des commandes.
+-- Le navigateur ne fait que LIRE le catalogue (products, store_categories,
+-- store_settings) avec la cle publishable. Toute ecriture, et toute lecture de
+-- commande, passe par les routes serveur (/api/*) avec la cle service_role,
+-- qui contourne la RLS. Le public n'a donc AUCUN droit sur orders /
+-- order_items, et un droit de lecture seule ailleurs.
 --
--- Consequence assumee : toute personne capable de lire le code source d'une
--- page peut recuperer la cle publique, donc modifier le catalogue et consulter
--- les commandes clientes (nom, telephone, adresse).
---
--- L'acces admin par code (voir AuthContext) masque l'interface, il ne protege
--- pas la base. Pour refermer ces droits il faudrait faire passer les ecritures
--- par des routes serveur avec la cle de service, ce qui suppose de changer le
--- mode de connexion de l'administration.
+-- Pour un projet existant encore ouvert, appliquer supabase/secure_rls.sql.
 
 -- HOTGYAAL full setup: schema + seed
 
@@ -310,158 +304,63 @@ create policy "profiles_update_own_or_admin"
   using (id = auth.uid() or public.is_admin(auth.uid()))
   with check (id = auth.uid() or public.is_admin(auth.uid()));
 
-drop policy if exists "products_public_read" on public.products;
-create policy "products_public_read"
-  on public.products
-  for select
-  using (true);
+-- Modele de securite : le navigateur ne fait que LIRE le catalogue. Toute
+-- ecriture et toute lecture de commande passent par les routes serveur (/api/*)
+-- avec la cle service_role, qui contourne la RLS. Le public n'a donc aucun
+-- droit sur orders / order_items, et un droit de lecture seule ailleurs.
 
-drop policy if exists "products_admin_insert" on public.products;
+-- products : lecture publique seule
+drop policy if exists "products_public_read"   on public.products;
 drop policy if exists "products_public_insert" on public.products;
-create policy "products_public_insert"
-  on public.products
-  for insert
-  with check (true);
-
-drop policy if exists "products_admin_update" on public.products;
 drop policy if exists "products_public_update" on public.products;
-create policy "products_public_update"
-  on public.products
-  for update
-  using (true)
-  with check (true);
-
-drop policy if exists "products_admin_delete" on public.products;
 drop policy if exists "products_public_delete" on public.products;
-create policy "products_public_delete"
-  on public.products
-  for delete
-  using (true);
+drop policy if exists "products_admin_insert"  on public.products;
+drop policy if exists "products_admin_update"  on public.products;
+drop policy if exists "products_admin_delete"  on public.products;
+create policy "products_public_read"
+  on public.products for select using (true);
 
+-- store_categories : lecture publique seule
 drop policy if exists "store_categories_public_select" on public.store_categories;
-create policy "store_categories_public_select"
-  on public.store_categories
-  for select
-  using (true);
-
 drop policy if exists "store_categories_public_insert" on public.store_categories;
-create policy "store_categories_public_insert"
-  on public.store_categories
-  for insert
-  with check (true);
-
 drop policy if exists "store_categories_public_update" on public.store_categories;
-create policy "store_categories_public_update"
-  on public.store_categories
-  for update
-  using (true)
-  with check (true);
-
 drop policy if exists "store_categories_public_delete" on public.store_categories;
-create policy "store_categories_public_delete"
-  on public.store_categories
-  for delete
-  using (true);
+create policy "store_categories_public_read"
+  on public.store_categories for select using (true);
 
-drop policy if exists "orders_insert_public" on public.orders;
-create policy "orders_insert_public"
-  on public.orders
-  for insert
-  with check (true);
-
-drop policy if exists "orders_select_owner_or_admin" on public.orders;
-drop policy if exists "orders_public_select" on public.orders;
-create policy "orders_public_select"
-  on public.orders
-  for select
-  using (true);
-
-drop policy if exists "orders_update_admin" on public.orders;
-drop policy if exists "orders_public_update" on public.orders;
-create policy "orders_public_update"
-  on public.orders
-  for update
-  using (true)
-  with check (true);
-
-drop policy if exists "orders_public_delete" on public.orders;
-create policy "orders_public_delete"
-  on public.orders
-  for delete
-  using (true);
-
-drop policy if exists "order_items_insert_public" on public.order_items;
-create policy "order_items_insert_public"
-  on public.order_items
-  for insert
-  with check (true);
-
-drop policy if exists "order_items_select_owner_or_admin" on public.order_items;
-drop policy if exists "order_items_public_select" on public.order_items;
-create policy "order_items_public_select"
-  on public.order_items
-  for select
-  using (true);
-
-drop policy if exists "order_items_public_delete" on public.order_items;
-create policy "order_items_public_delete"
-  on public.order_items
-  for delete
-  using (true);
-
+-- store_settings : lecture publique seule
 drop policy if exists "store_settings_public_select" on public.store_settings;
-create policy "store_settings_public_select"
-  on public.store_settings
-  for select
-  using (true);
-
 drop policy if exists "store_settings_public_insert" on public.store_settings;
-create policy "store_settings_public_insert"
-  on public.store_settings
-  for insert
-  with check (true);
-
 drop policy if exists "store_settings_public_update" on public.store_settings;
-create policy "store_settings_public_update"
-  on public.store_settings
-  for update
-  using (true)
-  with check (true);
+create policy "store_settings_public_read"
+  on public.store_settings for select using (true);
+
+-- orders / order_items : aucun acces public (le serveur passe par service_role)
+drop policy if exists "orders_insert_public"           on public.orders;
+drop policy if exists "orders_public_select"           on public.orders;
+drop policy if exists "orders_public_update"           on public.orders;
+drop policy if exists "orders_public_delete"           on public.orders;
+drop policy if exists "orders_select_owner_or_admin"   on public.orders;
+drop policy if exists "orders_update_admin"            on public.orders;
+drop policy if exists "order_items_insert_public"         on public.order_items;
+drop policy if exists "order_items_public_select"         on public.order_items;
+drop policy if exists "order_items_public_delete"         on public.order_items;
+drop policy if exists "order_items_select_owner_or_admin" on public.order_items;
 
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
 
-drop policy if exists "product_images_public_read" on storage.objects;
-create policy "product_images_public_read"
-  on storage.objects
-  for select
-  to public
-  using (bucket_id = 'product-images');
-
-drop policy if exists "product_images_admin_insert" on storage.objects;
+-- storage.objects : lecture publique, pas d'ecriture publique (upload via /api)
+drop policy if exists "product_images_public_read"   on storage.objects;
 drop policy if exists "product_images_public_insert" on storage.objects;
-create policy "product_images_public_insert"
-  on storage.objects
-  for insert
-  to public
-  with check (bucket_id = 'product-images');
-
-drop policy if exists "product_images_admin_update" on storage.objects;
 drop policy if exists "product_images_public_update" on storage.objects;
-create policy "product_images_public_update"
-  on storage.objects
-  for update
-  to public
-  using (bucket_id = 'product-images')
-  with check (bucket_id = 'product-images');
-
-drop policy if exists "product_images_admin_delete" on storage.objects;
 drop policy if exists "product_images_public_delete" on storage.objects;
-create policy "product_images_public_delete"
-  on storage.objects
-  for delete
-  to public
+drop policy if exists "product_images_admin_insert"  on storage.objects;
+drop policy if exists "product_images_admin_update"  on storage.objects;
+drop policy if exists "product_images_admin_delete"  on storage.objects;
+create policy "product_images_public_read"
+  on storage.objects for select to public
   using (bucket_id = 'product-images');
 
 -- Aucun produit de demonstration n'est insere ici : la boutique se

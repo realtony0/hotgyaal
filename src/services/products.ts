@@ -1,6 +1,7 @@
 import { getSupabase } from '../lib/supabase'
 import { getProductVariantMeta } from '../utils/products'
 import { compressImageFile } from '../utils/image'
+import { adminFetch } from './adminApi'
 import { StorageNotConfiguredError, uploadToR2 } from './storage'
 import type { Product, ProductPayload } from '../types'
 
@@ -255,31 +256,19 @@ export const upsertProduct = async (
   payload: ProductPayload,
   productId?: string,
 ): Promise<Product> => {
-  const client = getSupabase()
-
-  const query = productId
-    ? client.from('products').update(payload).eq('id', productId)
-    : client.from('products').insert(payload)
-
-  const { data, error } = await query.select().single()
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const normalized = normalizeProduct(data as Product)
+  const { product } = await adminFetch<{ product: Product }>('/api/admin/products', {
+    method: 'POST',
+    body: JSON.stringify({ payload, id: productId }),
+  })
   clearProductsCache()
-  return normalized
+  return normalizeProduct(product)
 }
 
 export const removeProduct = async (productId: string): Promise<void> => {
-  const client = getSupabase()
-  const { error } = await client.from('products').delete().eq('id', productId)
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
+  await adminFetch('/api/admin/products', {
+    method: 'DELETE',
+    body: JSON.stringify({ id: productId }),
+  })
   clearProductsCache()
 }
 

@@ -1,4 +1,5 @@
 import { getSupabase } from '../lib/supabase'
+import { adminFetch } from './adminApi'
 import type { StoreSettingsPayload } from '../types'
 
 const SETTINGS_ROW_ID = 1
@@ -81,28 +82,10 @@ export const getStoreSettings = async (): Promise<StoreSettingsPayload> => {
 export const upsertStoreSettings = async (
   payload: StoreSettingsPayload,
 ): Promise<StoreSettingsPayload> => {
-  const client = getSupabase()
-  const { data, error } = await client
-    .from('store_settings')
-    .upsert(
-      {
-        id: SETTINGS_ROW_ID,
-        ...normalizeStoreSettings(payload),
-      },
-      { onConflict: 'id' },
-    )
-    .select('*')
-    .single()
-
-  if (error) {
-    if (isMissingSettingsTableError(error)) {
-      throw new Error(
-        'Table store_settings manquante dans Supabase. Lancez le SQL full_setup.sql mis à jour.',
-      )
-    }
-
-    throw new Error(error.message)
-  }
-
-  return normalizeStoreSettings(data as Partial<StoreSettingsPayload>)
+  const normalized = normalizeStoreSettings(payload)
+  const { settings } = await adminFetch<{ settings: Partial<StoreSettingsPayload> }>(
+    '/api/admin/settings',
+    { method: 'PUT', body: JSON.stringify({ payload: normalized }) },
+  )
+  return normalizeStoreSettings(settings)
 }

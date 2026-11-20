@@ -1,4 +1,5 @@
 import { CATEGORY_TREE } from '../constants/categories'
+import { adminFetch } from './adminApi'
 import { getSupabase } from '../lib/supabase'
 import { compressImageFile } from '../utils/image'
 import { StorageNotConfiguredError, uploadToR2 } from './storage'
@@ -86,40 +87,18 @@ export const upsertCategory = async (
   payload: StoreCategoryPayload,
   categoryId?: string,
 ): Promise<StoreCategory> => {
-  const client = getSupabase()
-
-  const query = categoryId
-    ? client.from('store_categories').update(payload).eq('id', categoryId)
-    : client.from('store_categories').insert(payload)
-
-  const { data, error } = await query.select('*').single()
-
-  if (error) {
-    if (isMissingCategoriesTableError(error)) {
-      throw new Error(
-        'Table store_categories manquante. Lancez le SQL full_setup.sql mis à jour.',
-      )
-    }
-
-    throw new Error(error.message)
-  }
-
-  return normalizeCategory(data as StoreCategory)
+  const { category } = await adminFetch<{ category: StoreCategory }>(
+    '/api/admin/categories',
+    { method: 'POST', body: JSON.stringify({ payload, id: categoryId }) },
+  )
+  return normalizeCategory(category)
 }
 
 export const removeCategory = async (categoryId: string): Promise<void> => {
-  const client = getSupabase()
-  const { error } = await client.from('store_categories').delete().eq('id', categoryId)
-
-  if (error) {
-    if (isMissingCategoriesTableError(error)) {
-      throw new Error(
-        'Table store_categories manquante. Lancez le SQL full_setup.sql mis à jour.',
-      )
-    }
-
-    throw new Error(error.message)
-  }
+  await adminFetch('/api/admin/categories', {
+    method: 'DELETE',
+    body: JSON.stringify({ id: categoryId }),
+  })
 }
 
 export const uploadCategoryImage = async (file: File): Promise<string> => {
