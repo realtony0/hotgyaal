@@ -6,6 +6,7 @@ import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured, resolveOrderErrorMessage } from '../lib/supabase'
 import { createOrder } from '../services/orders'
 import type { CartItem } from '../types'
+import { stripColorTag } from '../utils/colorTag'
 import { formatCurrency } from '../utils/format'
 
 type CheckoutFormState = {
@@ -108,7 +109,7 @@ const buildOrderMessage = (
     )
     // La photo du coloris leve toute ambiguite sur la teinte commandee.
     if (item.selected_color?.image_url) {
-      lines.push(`   Photo du coloris : ${item.selected_color.image_url}`)
+      lines.push(`   Photo du coloris : ${stripColorTag(item.selected_color.image_url)}`)
     }
   })
 

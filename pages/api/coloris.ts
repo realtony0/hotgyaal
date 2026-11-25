@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { extractGarmentColor } from '../../src/lib/garmentColor'
 import { getSupabase, isSupabaseConfigured } from '../../src/lib/supabase'
 import type { GalleryColor, GalleryColorIndex } from '../../src/services/galleryColors'
+import { readColorTag, stripColorTag } from '../../src/utils/colorTag'
 import { deltaE, hexToRgb, nameForHex, rgbToLab } from '../../src/utils/colors'
 
 /*
@@ -66,7 +67,14 @@ const imagesOf = (product: { image_url: string | null; gallery_urls: string[] | 
 const versionOf = (updatedAt: string | null) =>
   updatedAt ? String(new Date(updatedAt).getTime() || updatedAt) : '0'
 
-const measure = async (url: string): Promise<string | null> => {
+const measure = async (taggedUrl: string): Promise<string | null> => {
+  // Teinte deja fixee dans l'administration : rien a mesurer.
+  const tag = readColorTag(taggedUrl)
+  if (tag.hex) {
+    return tag.hex
+  }
+
+  const url = stripColorTag(taggedUrl)
   if (!isAllowedImageUrl(url)) {
     return null
   }
@@ -196,11 +204,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const images = imagesOf(product).slice(0, MAX_IMAGES)
   const hexes = await mapWithConcurrency(images, CONCURRENCY, measure)
+  const tags = images.map(readColorTag)
   const colors: GalleryColor[] = images.map((url, index) => ({
     url,
     hex: hexes[index],
-    name: hexes[index] ? nameForHex(hexes[index] as string) : null,
+    // Le nom saisi dans l'administration l'emporte sur le nom devine.
+    name: tags[index].name ?? (hexes[index] ? nameForHex(hexes[index] as string) : null),
   }))
+
+  /*
+   * Affichage : celui choisi dans l'administration s'il existe. Une palette
+   * entierement nommee a la main a ete validee par la boutique : pastilles.
+   * Sinon, on decide d'apres les teintes mesurees.
+   */
+  const mode =
+    tags[0]?.display === 'pastilles'
+      ? 'couleurs'
+      : tags[0]?.display === 'photos'
+        ? 'photos'
+        : tags.every((tag) => tag.name && tag.hex)
+          ? 'couleurs'
+          : chooseMode(colors)
 
   const requestedVersion = typeof req.query.v === 'string' ? req.query.v : ''
   const isCurrentVersion = requestedVersion === versionOf(product.updated_at)
@@ -213,5 +237,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : 'public, s-maxage=600, stale-while-revalidate=3600',
   )
 
-  return res.status(200).json({ mode: chooseMode(colors), colors })
+  return res.status(200).json({ mode, colors })
 }

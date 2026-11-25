@@ -18,6 +18,7 @@ import {
   copyToClipboard,
   shareWithFallback,
 } from '../utils/share'
+import { stripColorTag } from '../utils/colorTag'
 import { toAbsoluteUrl } from '../utils/site'
 
 const trimMetaDescription = (value: string, maxLength = 160) => {
@@ -238,7 +239,7 @@ export const ProductPage = ({
     const productPath = `/produit/${encodeURIComponent(product.slug)}`
     const url = toAbsoluteUrl(productPath)
     const image = product.image_url
-      ? toAbsoluteUrl(product.image_url)
+      ? toAbsoluteUrl(stripColorTag(product.image_url))
       : toAbsoluteUrl('/og-hotgyaal.png')
     const title = `${productMeta?.baseName ?? product.name} | HOTGYAAL`
     const description = trimMetaDescription(
@@ -603,7 +604,6 @@ export const ProductPage = ({
 
             <ul className="product-reassurance">
               <li>Livraison partout au Sénégal</li>
-              <li>Paiement à la livraison à Dakar</li>
               <li>Conseil taille et couleur sur WhatsApp</li>
             </ul>
 

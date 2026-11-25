@@ -4403,7 +4403,7 @@ body {
 
 @media (min-width: 760px) {
   .service-promises {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -4770,4 +4770,231 @@ body {
   .gallery-color--loading {
     animation: none;
   }
+}
+
+/* Administration : gestion des coloris d'une fiche */
+.admin-colors {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--paper);
+}
+
+.admin-colors__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.admin-colors__head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.admin-colors__head .admin-help {
+  max-width: 60ch;
+  margin-bottom: 0;
+}
+
+.admin-form .admin-colors__display {
+  min-width: 200px;
+}
+
+.admin-colors__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.admin-colors__item {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.45rem;
+  border: 1px solid var(--ground-alt);
+  border-radius: 0.8rem;
+  background: #fff;
+}
+
+.admin-colors__photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.6rem;
+  background: var(--ground-alt);
+  aspect-ratio: 3 / 4;
+}
+
+.admin-colors__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-colors__badge,
+.admin-colors__new {
+  position: absolute;
+  top: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-colors__badge {
+  left: 0.35rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+}
+
+.admin-colors__new {
+  top: auto;
+  bottom: 0.35rem;
+  left: 0.35rem;
+  background: var(--accent);
+  color: #fff;
+}
+
+.admin-colors__fields {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.admin-colors__swatch {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 18, 26, 0.18);
+  background: var(--ground-alt);
+  box-shadow: inset 0 0 0 2px #fff;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.admin-colors__swatch.is-light {
+  border-color: var(--line-strong);
+}
+
+.admin-colors__swatch.is-loading {
+  animation: gallery-color-pulse 1.2s ease-in-out infinite;
+}
+
+/* Le selecteur natif couvre la pastille, invisible : un clic l'ouvre. */
+.admin-colors__swatch input[type='color'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.admin-colors__name {
+  min-height: 36px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.admin-colors__actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.admin-colors__actions button {
+  min-width: 34px;
+  min-height: 32px;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-colors__actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.admin-colors__actions button.danger {
+  margin-left: auto;
+  color: var(--danger);
+  border-color: rgba(179, 38, 30, 0.3);
+}
+
+.admin-colors__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.admin-form .admin-colors__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 42px;
+  padding: 0.5rem 1rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: var(--ground);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-colors__add input {
+  display: none;
+}
+
+/* Menu hamburger : categories puis pages de la boutique */
+.app-shell--hotgyaal .nav--drawer {
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Fond plein : la page ne doit pas se lire a travers le menu. */
+  background: #fff;
+  opacity: 1;
+}
+
+.nav-drawer__title {
+  margin: 0.35rem 0.2rem 0.1rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.nav-drawer__title:first-child {
+  margin-top: 0.1rem;
+}
+
+.app-shell--hotgyaal .nav--drawer .nav-link--category {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.app-shell--hotgyaal .nav--drawer .nav-link.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }

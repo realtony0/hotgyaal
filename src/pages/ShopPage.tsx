@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
-import { QUICK_CATEGORY_LINKS } from '../constants/quickCategories'
 import {
   SPORT_FAMILIES,
   SPORT_SUB_CATEGORY,
@@ -38,11 +37,6 @@ const buildShopHref = (params: Record<string, string | undefined>) => {
   })
   const serialized = query.toString()
   return serialized ? `/boutique?${serialized}` : '/boutique'
-}
-
-const categoryFromHref = (href: string) => {
-  const raw = href.split('categorie=')[1]
-  return raw ? decodeURIComponent(raw).toLowerCase() : ''
 }
 
 export const ShopPage = ({ preset }: ShopPageProps) => {
@@ -134,50 +128,6 @@ export const ShopPage = ({ preset }: ShopPageProps) => {
         .includes(query)
     })
   }, [activeFamily, isSportPage, scopedProducts, searchQuery, subQuery])
-
-  /* Nombre de produits par categorie, pour les pastilles de premier niveau. */
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    // Une tenue de sport compte dans sa categorie (Vetements Femmes) et dans
-    // le raccourci Tenues de sport : la pastille annonce ce que la page liste.
-    sortedProducts.forEach((product) => {
-      const key = product.main_category.trim().toLowerCase()
-      counts.set(key, (counts.get(key) ?? 0) + 1)
-      if (isSportProduct(product)) {
-        counts.set('/sport', (counts.get('/sport') ?? 0) + 1)
-      }
-    })
-    return counts
-  }, [sortedProducts])
-
-  const primaryLinks = useMemo<FilterLink[]>(() => {
-    const links = QUICK_CATEGORY_LINKS.map((item) => {
-      const isSportLink = item.href === '/sport'
-      const categoryName = categoryFromHref(item.href)
-      const count = isSportLink
-        ? (categoryCounts.get('/sport') ?? 0)
-        : (categoryCounts.get(categoryName) ?? 0)
-
-      return {
-        key: item.href,
-        label: item.label,
-        href: item.href,
-        active: isSportLink ? isSportPage : Boolean(categoryQuery) && categoryName === categoryQuery.toLowerCase(),
-        count,
-      }
-    }).filter((link) => loadingProducts || link.count > 0)
-
-    return [
-      {
-        key: 'all',
-        label: 'Tout',
-        href: '/boutique',
-        active: !isSportPage && !categoryQuery,
-        count: sortedProducts.length,
-      },
-      ...links,
-    ]
-  }, [categoryCounts, categoryQuery, isSportPage, loadingProducts, sortedProducts.length])
 
   /*
    * Pastilles de second niveau :
@@ -305,8 +255,6 @@ export const ShopPage = ({ preset }: ShopPageProps) => {
           </div>
           {isSportPage || categoryQuery ? <Link href="/boutique">Tout le catalogue</Link> : null}
         </div>
-
-        {renderPills(primaryLinks, 'Catégories')}
 
         {secondaryLinks.length
           ? renderPills(

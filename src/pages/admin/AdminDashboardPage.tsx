@@ -1,4 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  ColorGalleryEditor,
+  displayFromProduct,
+  entriesFromProduct,
+  loadMeasuredColors,
+  releaseEntries,
+  serializeEntries,
+  type ColorEntry,
+  type DisplayChoice,
+} from '../../components/admin/ColorGalleryEditor'
 import { useAuth } from '../../context/AuthContext'
 import { useStoreCategories } from '../../context/StoreCategoriesContext'
 import { useStoreSettings } from '../../context/StoreSettingsContext'
@@ -10,7 +20,7 @@ import {
 } from '../../services/categories'
 import { listOrders, removeOrder, updateOrderStatus } from '../../services/orders'
 import {
-  listProducts,
+  listProductsForAdmin,
   removeProduct,
   upsertProduct,
   uploadProductImage,
@@ -25,7 +35,7 @@ import type {
   StoreSettingsPayload,
 } from '../../types'
 import { formatCurrency, formatDate } from '../../utils/format'
-import { dedupeProductsBySlug } from '../../utils/products'
+import { dedupeProductsBySlug, getProductVariantMeta } from '../../utils/products'
 import { toSlug } from '../../utils/slug'
 
 type AdminTab = 'pages' | 'categories' | 'products' | 'orders'
@@ -224,9 +234,11 @@ export const AdminDashboardPage = () => {
   const [productForm, setProductForm] = useState<ProductForm>(INITIAL_PRODUCT_FORM)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
-  const [isMultiColorMode, setIsMultiColorMode] = useState(true)
-  const [selectedImage, setSelectedImage] = useState<File | null>(null)
-  const [selectedGalleryImages, setSelectedGalleryImages] = useState<File[]>([])
+  // Par defaut, une seule fiche dont chaque photo est un coloris. Le mode
+  // "une fiche par couleur" reste disponible pour plusieurs photos par couleur.
+  const [isMultiColorMode, setIsMultiColorMode] = useState(false)
+  const [colorEntries, setColorEntries] = useState<ColorEntry[]>([])
+  const [colorDisplay, setColorDisplay] = useState<DisplayChoice>('auto')
   const [colorVariants, setColorVariants] = useState<ColorVariantDraft[]>([
     createVariantDraft(),
   ])
@@ -373,7 +385,7 @@ export const AdminDashboardPage = () => {
     const loadProductsData = async () => {
       try {
         setLoadingProducts(true)
-        const data = await listProducts()
+        const data = await listProductsForAdmin()
         setProducts(dedupeProductsBySlug(data))
       } catch (error) {
         setErrorMessage(
@@ -412,7 +424,7 @@ export const AdminDashboardPage = () => {
   }
 
   const refreshProducts = async () => {
-    const data = await listProducts()
+    const data = await listProductsForAdmin()
     setProducts(dedupeProductsBySlug(data))
   }
 
@@ -430,16 +442,21 @@ export const AdminDashboardPage = () => {
     setSelectedCategoryImage(null)
   }
 
+  // Une fiche "Modele - Couleur" est deja une couleur : ses photos sont des vues.
+  const colorEditorKind: 'coloris' | 'photos' =
+    editingProduct && getProductVariantMeta(editingProduct).color ? 'photos' : 'coloris'
+
   const resetProductForm = () => {
     setProductForm({
       ...INITIAL_PRODUCT_FORM,
       categoryKey: simpleCategoryOptions[0]?.key ?? DEFAULT_CATEGORY_KEY,
     })
     setEditingProduct(null)
-    setSelectedImage(null)
-    setSelectedGalleryImages([])
+    releaseEntries(colorEntries)
+    setColorEntries([])
+    setColorDisplay('auto')
     setIsAdvancedMode(false)
-    setIsMultiColorMode(true)
+    setIsMultiColorMode(false)
     setColorVariants([createVariantDraft()])
   }
 
@@ -873,18 +890,29 @@ export const AdminDashboardPage = () => {
         return
       }
 
-      let imageUrl = editingProduct?.image_url ?? null
-
-      if (selectedImage) {
-        imageUrl = await uploadProductImage(selectedImage)
-      } else if (!editingProduct) {
-        throw new Error('Photo principale requise pour un nouveau produit.')
+      if (!colorEntries.length) {
+        throw new Error('Ajoutez au moins une photo.')
       }
 
-      const uploadedGallery =
-        selectedGalleryImages.length > 0
-          ? await uploadFiles(selectedGalleryImages)
-          : null
+      if (colorEntries.some((entry) => entry.detecting)) {
+        throw new Error('Détection des teintes en cours, réessayez dans un instant.')
+      }
+
+      // Envoi des nouvelles photos, dans l'ordre choisi.
+      const pendingUploads = colorEntries.filter((entry) => entry.file).length
+      let uploadedCount = 0
+      const uploadedUrls: string[] = []
+      for (const entry of colorEntries) {
+        if (entry.file) {
+          uploadedCount += 1
+          setStatusMessage(`Envoi des photos ${uploadedCount}/${pendingUploads}…`)
+          uploadedUrls.push(await uploadProductImage(entry.file))
+        } else {
+          uploadedUrls.push(entry.src)
+        }
+      }
+
+      const photoUrls = serializeEntries(colorEntries, uploadedUrls, colorDisplay, colorEditorKind)
 
       const generatedSlug = toSlug(productForm.slug.trim() || name)
       if (!generatedSlug) {
@@ -901,8 +929,8 @@ export const AdminDashboardPage = () => {
           stock,
           main_category: category.main,
           sub_category: category.sub,
-          image_url: imageUrl,
-          gallery_urls: uploadedGallery ?? (editingProduct?.gallery_urls ?? []),
+          image_url: photoUrls[0],
+          gallery_urls: photoUrls.slice(1),
           sizes,
           is_out_of_stock: productForm.is_out_of_stock,
           is_new: productForm.is_new,
@@ -929,9 +957,15 @@ export const AdminDashboardPage = () => {
     setEditingProduct(product)
     setIsAdvancedMode(true)
     setIsMultiColorMode(false)
-    setSelectedImage(null)
-    setSelectedGalleryImages([])
     setColorVariants([createVariantDraft()])
+
+    releaseEntries(colorEntries)
+    const entries = entriesFromProduct(product)
+    setColorEntries(entries)
+    setColorDisplay(displayFromProduct(product))
+    if (entries.some((entry) => entry.detecting)) {
+      void loadMeasuredColors(product, setColorEntries)
+    }
 
     setProductForm({
       name: product.name,
@@ -1616,8 +1650,9 @@ export const AdminDashboardPage = () => {
                   <div>
                     <h2>{editingProduct ? 'Modifier produit' : 'Ajouter produit'}</h2>
                     <p className="admin-help">
-                      Upload image obligatoire. Ajoutez plusieurs couleurs avec plusieurs
-                      photos si besoin.
+                      Ajoutez une photo par coloris : chaque photo devient une pastille de
+                      couleur sur le site. Pour plusieurs photos d&apos;une même couleur,
+                      cochez « Une fiche par couleur ».
                     </p>
                   </div>
 
@@ -1640,12 +1675,12 @@ export const AdminDashboardPage = () => {
                             const checked = event.target.checked
                             setIsMultiColorMode(checked)
                             if (checked) {
-                              setSelectedImage(null)
-                              setSelectedGalleryImages([])
+                              releaseEntries(colorEntries)
+                              setColorEntries([])
                             }
                           }}
                         />
-                        Multi-couleurs
+                        Une fiche par couleur
                       </label>
                     ) : null}
                   </div>
@@ -1777,35 +1812,14 @@ export const AdminDashboardPage = () => {
                   )}
 
                   {!isMultiColorMode ? (
-                    <>
-                      <label className="full-width">
-                        Photo principale
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(event) =>
-                            setSelectedImage(event.target.files?.[0] ?? null)
-                          }
-                        />
-                      </label>
-
-                      <label className="full-width">
-                        Photos des coloris
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(event) =>
-                            setSelectedGalleryImages(Array.from(event.target.files ?? []))
-                          }
-                        />
-                      </label>
-                      <p className="admin-help full-width">
-                        Une photo par coloris : sur le site, chaque photo devient une pastille
-                        de couleur que la cliente peut choisir. La photo principale compte
-                        comme le premier coloris.
-                      </p>
-                    </>
+                    <ColorGalleryEditor
+                      entries={colorEntries}
+                      setEntries={setColorEntries}
+                      display={colorDisplay}
+                      onDisplayChange={setColorDisplay}
+                      kind={colorEditorKind}
+                      disabled={savingProduct}
+                    />
                   ) : (
                     <div className="full-width admin-variant-list">
                       <p className="admin-help">
@@ -2036,6 +2050,11 @@ export const AdminDashboardPage = () => {
                         </p>
                         <p className="admin-product-meta">{formatCurrency(product.price)}</p>
                         <p className="admin-product-meta">Tailles: {product.sizes.join(', ')}</p>
+                        {product.gallery_urls.length ? (
+                          <p className="admin-product-meta">
+                            {product.gallery_urls.length + 1} photos / coloris
+                          </p>
+                        ) : null}
                         <p className="admin-product-meta">
                           Statut: {product.is_out_of_stock ? 'Rupture' : 'Disponible'}
                         </p>

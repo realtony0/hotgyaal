@@ -22,7 +22,6 @@ import { getSiteUrl, stripQueryAndHash, toAbsoluteUrl } from '../utils/site'
 const primaryLinks = [
   { href: '/', label: 'Accueil' },
   { href: '/boutique', label: 'Catalogue' },
-  { href: '/sport', label: 'Tenues de sport' },
   { href: '/contact', label: 'Contact' },
   { href: '/compte', label: 'Compte' },
   { href: '/faq', label: 'FAQ' },
@@ -251,6 +250,25 @@ export const Layout = ({ children }: LayoutProps) => {
     () => categories.filter((category) => category.is_active).slice(0, 8),
     [categories],
   )
+
+  // Toutes les categories, dans le menu : les tenues de sport d'abord.
+  const menuCategories = useMemo(
+    () => [
+      { href: '/sport', label: 'Tenues de sport' },
+      ...categories
+        .filter((category) => category.is_active)
+        .map((category) => ({
+          href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
+          label: category.name,
+        })),
+    ],
+    [categories],
+  )
+
+  // Sur une page statique, le serveur ne connait pas la chaine de requete :
+  // on n'en tient compte qu'une fois le routeur pret, pour que le premier
+  // rendu client soit identique au HTML recu.
+  const activePath = router.isReady ? router.asPath || '/' : router.pathname || '/'
 
   const orderChatNumber = useMemo(
     () =>
@@ -594,14 +612,29 @@ export const Layout = ({ children }: LayoutProps) => {
               </button>
 
               <nav className={`nav nav--drawer ${isMenuOpen ? 'is-open' : ''}`}>
+                <p className="nav-drawer__title">Catégories</p>
+                {menuCategories.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={
+                      isPathActive(link.href, activePath)
+                        ? 'nav-link nav-link--category is-active'
+                        : 'nav-link nav-link--category'
+                    }
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+
+                <p className="nav-drawer__title">Boutique</p>
                 {primaryLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
                     className={
-                      isPathActive(link.href, router.asPath || '/')
-                        ? 'nav-link is-active'
-                        : 'nav-link'
+                      isPathActive(link.href, activePath) ? 'nav-link is-active' : 'nav-link'
                     }
                     onClick={() => setIsMenuOpen(false)}
                   >
@@ -758,7 +791,6 @@ export const Layout = ({ children }: LayoutProps) => {
               <p className="footer-title">Service client</p>
               <p className="footer-note">Livraison partout au Sénégal</p>
               <p className="footer-note">Conseil et suivi sur WhatsApp</p>
-              <p className="footer-note">Paiement à la livraison à Dakar</p>
             </div>
           </div>
         </div>

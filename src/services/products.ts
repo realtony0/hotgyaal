@@ -190,6 +190,27 @@ export const listProducts = async (
   }
 }
 
+/*
+ * Catalogue complet pour l'administration, galeries comprises.
+ *
+ * Les listes de la boutique se passent des galeries pour rester legeres. Le
+ * back-office, lui, en a besoin : enregistrer une fiche chargee sans sa
+ * galerie effacerait ses photos de coloris. Pas de cache non plus, pour
+ * toujours repartir de l'etat reel de la base.
+ */
+export const listProductsForAdmin = async (): Promise<Product[]> => {
+  const { data, error } = await getSupabase()
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return ((data ?? []) as Product[]).map(normalizeProduct)
+}
+
 export const getProductBySlug = async (slug: string): Promise<Product | null> => {
   const normalizedSlug = slug.trim().toLowerCase()
   if (!normalizedSlug) {

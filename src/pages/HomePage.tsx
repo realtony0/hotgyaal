@@ -231,21 +231,6 @@ export const HomePage = () => {
       </section>
       ) : null}
 
-      {homeCategories.length ? (
-      <section className="section section--quick-categories">
-        <div className="container">
-          <div className="quick-categories" role="navigation" aria-label="Accès rapide aux catégories">
-            {homeCategories.map((category) => (
-              <Link key={category.key} href={category.href} className="quick-category-pill">
-                <span>{category.name}</span>
-                <small className="quick-category-pill__count">{category.total}</small>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-      ) : null}
-
       <section className="section section-v2">
         <div className="container">
           <div className="section__header section__header--v2">
@@ -349,10 +334,6 @@ export const HomePage = () => {
             <li>
               <strong>Livraison partout au Sénégal</strong>
               <span>Dakar et régions, suivi assuré jusqu&apos;à la remise.</span>
-            </li>
-            <li>
-              <strong>Paiement à la livraison</strong>
-              <span>Vous réglez à Dakar une fois votre commande entre les mains.</span>
             </li>
             <li>
               <strong>Conseil sur WhatsApp</strong>
