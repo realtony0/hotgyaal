@@ -22,6 +22,7 @@ import { getSiteUrl, stripQueryAndHash, toAbsoluteUrl } from '../utils/site'
 const primaryLinks = [
   { href: '/', label: 'Accueil' },
   { href: '/boutique', label: 'Catalogue' },
+  { href: '/sport', label: 'Tenues de sport' },
   { href: '/contact', label: 'Contact' },
   { href: '/compte', label: 'Compte' },
   { href: '/faq', label: 'FAQ' },
@@ -64,6 +65,14 @@ const isPathActive = (href: string, asPath: string) => {
 }
 
 const getSeoContent = (pathname: string) => {
+  if (pathname.startsWith('/sport')) {
+    return {
+      title: 'HOTGYAAL | Tenues de sport',
+      description:
+        'Tenues de sport femme HOTGYAAL : ensembles, leggings, brassières, shorts et vestes, livrés partout au Sénégal.',
+    }
+  }
+
   if (pathname.startsWith('/boutique')) {
     return {
       title: 'HOTGYAAL | Boutique en ligne',
@@ -736,6 +745,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <nav className="footer-links">
                 <Link href="/">Accueil</Link>
                 <Link href="/boutique">Catalogue</Link>
+                <Link href="/sport">Tenues de sport</Link>
                 <Link href="/compte">Compte</Link>
                 <Link href="/contact">Contact</Link>
                 <Link href="/faq">FAQ</Link>

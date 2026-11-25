@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { ColorSwatches } from '../components/ColorSwatches'
 import { useCart } from '../context/CartContext'
 import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
 import { getProductWithVariants } from '../services/products'
@@ -423,22 +424,18 @@ export const ProductPage = ({
 
             {variants.length > 1 ? (
               <div className="variant-switcher">
-                <p className="variant-switcher__label">Coloris disponibles</p>
-                <div className="variant-switcher__list">
-                  {variants.map((variant) => {
-                    const meta = getProductVariantMeta(variant)
-                    return (
-                      <button
-                        type="button"
-                        key={variant.id}
-                        className={variant.id === product.id ? 'chip chip--active' : 'chip'}
-                        onClick={() => handleVariantChange(variant)}
-                      >
-                        {meta.color || 'Standard'}
-                      </button>
-                    )
-                  })}
-                </div>
+                <p className="variant-switcher__label">
+                  Coloris
+                  <span className="variant-switcher__current">
+                    {getProductVariantMeta(product).color || 'Standard'}
+                  </span>
+                </p>
+                <ColorSwatches
+                  variants={variants}
+                  activeId={product.id}
+                  onSelect={handleVariantChange}
+                  size="md"
+                />
               </div>
             ) : null}
 

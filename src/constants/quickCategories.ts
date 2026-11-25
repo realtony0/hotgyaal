@@ -5,6 +5,10 @@ export type QuickCategoryLink = {
 
 export const QUICK_CATEGORY_LINKS: QuickCategoryLink[] = [
   {
+    label: 'Tenues de sport',
+    href: '/sport',
+  },
+  {
     label: 'Vêtements Femmes',
     href: '/boutique?categorie=V%C3%AAtements%20Femmes',
   },

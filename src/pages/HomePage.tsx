@@ -2,11 +2,12 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
+import { isSportProduct } from '../constants/universes'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
 import { listProducts } from '../services/products'
-import type { Product } from '../types'
+import type { Product, StoreCategory } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
 
 type HeroSlide = {
@@ -16,12 +17,33 @@ type HeroSlide = {
   href: string
 }
 
+type HomeCategory = {
+  key: string
+  name: string
+  description: string
+  href: string
+  imageUrl: string
+  products: Product[]
+  total: number
+}
+
 const HERO_ROTATION_MS = 4200
+const PRODUCTS_PER_SECTION = 6
+const NEW_DROPS_COUNT = 8
 
 const clampWords = (value: string, limit: number) => {
   const words = value.trim().split(/\s+/)
   return words.slice(0, limit).join(' ')
 }
+
+/* Les populaires d'abord, puis les plus recentes. */
+const popularFirst = (products: Product[]) => [
+  ...products.filter((product) => product.is_best_seller),
+  ...products.filter((product) => !product.is_best_seller),
+]
+
+const categoryHref = (category: StoreCategory) =>
+  `/boutique?categorie=${encodeURIComponent(category.name)}`
 
 export const HomePage = () => {
   const { settings } = useStoreSettings()
@@ -61,53 +83,18 @@ export const HomePage = () => {
     [products],
   )
 
-  // Les categories n'ont pas toutes une image en base : on emprunte alors la
-  // photo d'un produit de la categorie plutot que d'afficher un cadre vide.
-  const categoryFallbackImages = useMemo(() => {
-    const byCategory = new Map<string, string>()
+  const newDrops = useMemo(() => sortedProducts.slice(0, NEW_DROPS_COUNT), [sortedProducts])
 
-    sortedProducts.forEach((product) => {
-      const key = product.main_category?.trim().toLowerCase()
-      if (!key || byCategory.has(key) || !product.image_url) {
-        return
-      }
-      byCategory.set(key, product.image_url)
-    })
-
-    return byCategory
-  }, [sortedProducts])
-
-  const newDrops = useMemo(
-    () => sortedProducts.filter((product) => product.is_new).slice(0, 8),
-    [sortedProducts],
-  )
-
-  const bestSellers = useMemo(() => {
-    // Deux grilles identiques a la suite n'apportent rien : on ecarte ce qui
-    // vient d'etre montre dans les nouveautes avant de completer.
-    const shown = new Set(newDrops.map((product) => product.id))
-    const favourites = sortedProducts.filter(
-      (product) => product.is_best_seller && !shown.has(product.id),
-    )
-    const filler = sortedProducts.filter((product) => !shown.has(product.id))
-
-    return (favourites.length ? favourites : filler).slice(0, 8)
-  }, [newDrops, sortedProducts])
-
-  const heroSlides = useMemo<HeroSlide[]>(() => {
-    const fromProducts = (newDrops.length ? newDrops : sortedProducts)
-      .slice(0, 4)
-      .map((product) => ({
+  const heroSlides = useMemo<HeroSlide[]>(
+    () =>
+      (newDrops.length ? newDrops : sortedProducts).slice(0, 4).map((product) => ({
         id: product.id,
         title: clampWords(product.name, 6),
-        imageUrl:
-          product.image_url ||
-          '/placeholder-produit.svg',
+        imageUrl: product.image_url || '/placeholder-produit.svg',
         href: `/produit/${product.slug}`,
-      }))
-
-    return fromProducts
-  }, [newDrops, sortedProducts])
+      })),
+    [newDrops, sortedProducts],
+  )
 
   useEffect(() => {
     if (heroSlides.length <= 1) {
@@ -133,22 +120,61 @@ export const HomePage = () => {
 
   const activeHero = heroSlides[activeHeroIndex] ?? heroSlides[0] ?? null
 
-  const activeCategories = useMemo(
-    () => categories.filter((category) => category.is_active).slice(0, 6),
-    [categories],
-  )
+  /*
+   * Tout l'accueil est organise par categorie : les tenues de sport (une
+   * sous-categorie en base, mais 40 % du catalogue) ont leur propre entree,
+   * puis chaque categorie active qui a des produits. Les produits de sport ne
+   * reapparaissent pas dans "Vetements Femmes".
+   */
+  const homeCategories = useMemo<HomeCategory[]>(() => {
+    const entries: HomeCategory[] = []
 
-  const quickCategories = useMemo(() => {
-    const fromStore = categories
+    const sport = popularFirst(sortedProducts.filter(isSportProduct))
+    if (sport.length) {
+      entries.push({
+        key: 'sport',
+        name: 'Tenues de sport',
+        description: 'Ensembles, leggings, brassières, shorts et vestes.',
+        href: '/sport',
+        imageUrl: sport.find((product) => product.image_url)?.image_url || '/placeholder-produit.svg',
+        products: sport.slice(0, PRODUCTS_PER_SECTION),
+        total: sport.length,
+      })
+    }
+
+    categories
       .filter((category) => category.is_active)
-      .slice(0, 8)
-      .map((category) => ({
-        label: category.name,
-        href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
-      }))
+      .forEach((category) => {
+        const own = popularFirst(
+          sortedProducts.filter(
+            (product) =>
+              product.main_category.trim().toLowerCase() ===
+                category.name.trim().toLowerCase() && !isSportProduct(product),
+          ),
+        )
 
-    return fromStore
-  }, [categories])
+        if (!own.length) {
+          return
+        }
+
+        entries.push({
+          key: category.id,
+          name: category.name,
+          description: category.description,
+          href: categoryHref(category),
+          // Les categories n'ont pas toutes une image en base : on emprunte
+          // alors la photo d'un produit plutot que d'afficher un cadre vide.
+          imageUrl:
+            category.image_url ||
+            own.find((product) => product.image_url)?.image_url ||
+            '/placeholder-produit.svg',
+          products: own.slice(0, PRODUCTS_PER_SECTION),
+          total: own.length,
+        })
+      })
+
+    return entries
+  }, [categories, sortedProducts])
 
   const loadingSkeletons = useMemo(
     () => Array.from({ length: 6 }, (_, index) => `skeleton-${index}`),
@@ -205,13 +231,14 @@ export const HomePage = () => {
       </section>
       ) : null}
 
-      {quickCategories.length ? (
+      {homeCategories.length ? (
       <section className="section section--quick-categories">
         <div className="container">
           <div className="quick-categories" role="navigation" aria-label="Accès rapide aux catégories">
-            {quickCategories.map((item) => (
-              <Link key={item.label} href={item.href} className="quick-category-pill">
-                <span>{item.label}</span>
+            {homeCategories.map((category) => (
+              <Link key={category.key} href={category.href} className="quick-category-pill">
+                <span>{category.name}</span>
+                <small className="quick-category-pill__count">{category.total}</small>
               </Link>
             ))}
           </div>
@@ -256,7 +283,7 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {activeCategories.length ? (
+      {homeCategories.length ? (
       <section className="section section-v2 section-v2--categories">
         <div className="container">
           <div className="section__header section__header--v2">
@@ -268,62 +295,51 @@ export const HomePage = () => {
           </div>
 
           <div className="category-grid-v2">
-            {activeCategories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/boutique?categorie=${encodeURIComponent(category.name)}`}
-                className="category-card-v2"
-              >
+            {homeCategories.map((category) => (
+              <Link key={category.key} href={category.href} className="category-card-v2">
                 <div className="category-card-v2__media">
-                  <img
-                    src={
-                      category.image_url ||
-                      categoryFallbackImages.get(category.name.trim().toLowerCase()) ||
-                      '/placeholder-produit.svg'
-                    }
-                    alt={category.name}
-                    loading="lazy"
-                  />
+                  <img src={category.imageUrl} alt={category.name} loading="lazy" />
                 </div>
                 <div className="category-card-v2__body">
                   <h3>{category.name}</h3>
                   <p>{category.description}</p>
+                  <span>{category.total} article{category.total > 1 ? 's' : ''}</span>
                 </div>
               </Link>
             ))}
           </div>
-
         </div>
       </section>
       ) : null}
 
-      <section className="section section-v2 section-v2--soft">
-        <div className="container">
-          <div className="section__header section__header--v2">
-            <div>
-              <p className="eyebrow">Tendance au Sénégal</p>
-              <h2>Les plus commandés à Dakar</h2>
+      {homeCategories.map((category, index) => (
+        <section
+          key={category.key}
+          id={`categorie-${category.key}`}
+          className={
+            index % 2 === 0 ? 'section section-v2 section-v2--soft' : 'section section-v2'
+          }
+        >
+          <div className="container">
+            <div className="section__header section__header--v2">
+              <div>
+                <p className="eyebrow">Catégorie</p>
+                <h2>{category.name}</h2>
+                {category.description ? (
+                  <p className="section__description">{category.description}</p>
+                ) : null}
+              </div>
+              <Link href={category.href}>Tout voir ({category.total})</Link>
             </div>
-            <Link href="/boutique">Voir la boutique</Link>
-          </div>
 
-          {loading ? (
-            <div className="product-grid product-grid--home-compact">
-              {loadingSkeletons.map((key) => (
-                <div key={`best-${key}`} className="product-skeleton-card" aria-hidden="true" />
-              ))}
-            </div>
-          ) : null}
-
-          {!loading && !error ? (
             <div className="product-grid product-grid--home-compact stagger-grid">
-              {bestSellers.map((product) => (
+              {category.products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
-          ) : null}
-        </div>
-      </section>
+          </div>
+        </section>
+      ))}
 
       <section className="section section-v2 section-v2--service-note">
         <div className="container">

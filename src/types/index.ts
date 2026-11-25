@@ -25,6 +25,11 @@ export type Product = {
   is_best_seller: boolean
   created_at: string
   updated_at: string
+  /**
+   * Declinaisons de couleur regroupees sous cette fiche pour la vitrine
+   * (voir groupProductsForStorefront). Absent sur une fiche brute.
+   */
+  variants?: Product[]
 }
 
 export type ProductPayload = {

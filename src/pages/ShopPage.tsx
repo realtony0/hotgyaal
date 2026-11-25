@@ -4,16 +4,54 @@ import { useRouter } from 'next/router'
 import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
 import { QUICK_CATEGORY_LINKS } from '../constants/quickCategories'
+import {
+  SPORT_FAMILIES,
+  SPORT_SUB_CATEGORY,
+  getSportFamily,
+  isSportProduct,
+} from '../constants/universes'
 import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
 
-export const ShopPage = () => {
+type ShopPageProps = {
+  /** "sport" : la page /sport, limitee aux tenues de sport et a leurs familles. */
+  preset?: 'sport'
+}
+
+type FilterLink = {
+  key: string
+  label: string
+  href: string
+  active: boolean
+  count: number
+}
+
+const readParam = (value: string | string[] | undefined) =>
+  (Array.isArray(value) ? value[0] : value)?.trim() ?? ''
+
+const buildShopHref = (params: Record<string, string | undefined>) => {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) query.set(key, value)
+  })
+  const serialized = query.toString()
+  return serialized ? `/boutique?${serialized}` : '/boutique'
+}
+
+const categoryFromHref = (href: string) => {
+  const raw = href.split('categorie=')[1]
+  return raw ? decodeURIComponent(raw).toLowerCase() : ''
+}
+
+export const ShopPage = ({ preset }: ShopPageProps) => {
   const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
   const [errorProducts, setErrorProducts] = useState<string | null>(null)
+
+  const isSportPage = preset === 'sport'
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -45,31 +83,39 @@ export const ShopPage = () => {
     [products],
   )
 
-  const searchQuery = useMemo(() => {
-    if (!router.isReady) {
-      return ''
+  const searchQuery = router.isReady ? readParam(router.query.q || router.query.recherche) : ''
+  const categoryQuery = router.isReady && !isSportPage ? readParam(router.query.categorie) : ''
+  const subQuery = router.isReady && !isSportPage ? readParam(router.query.sous) : ''
+  const familyQuery = router.isReady && isSportPage ? readParam(router.query.type) : ''
+
+  const activeFamily = SPORT_FAMILIES.find((family) => family.id === familyQuery) ?? null
+
+  // Perimetre de la page avant sous-categorie et recherche : sert aussi aux
+  // compteurs des pastilles.
+  const scopedProducts = useMemo(() => {
+    if (isSportPage) {
+      return sortedProducts.filter(isSportProduct)
     }
 
-    const value = router.query.q || router.query.recherche
-    return Array.isArray(value) ? (value[0] ?? '').trim() : (value ?? '').trim()
-  }, [router.isReady, router.query])
-
-  const categoryQuery = useMemo(() => {
-    if (!router.isReady) {
-      return ''
+    if (!categoryQuery) {
+      return sortedProducts
     }
 
-    const value = router.query.categorie
-    return Array.isArray(value) ? (value[0] ?? '').trim() : (value ?? '').trim()
-  }, [router.isReady, router.query])
+    return sortedProducts.filter(
+      (product) => product.main_category.toLowerCase() === categoryQuery.toLowerCase(),
+    )
+  }, [categoryQuery, isSportPage, sortedProducts])
 
   const visibleProducts = useMemo(() => {
     const query = searchQuery.toLowerCase()
-    const category = categoryQuery.toLowerCase()
+    const sub = subQuery.toLowerCase()
 
-    return sortedProducts.filter((product) => {
-      const matchesCategory = !category || product.main_category.toLowerCase() === category
-      if (!matchesCategory) {
+    return scopedProducts.filter((product) => {
+      if (isSportPage && activeFamily && getSportFamily(product)?.id !== activeFamily.id) {
+        return false
+      }
+
+      if (sub && product.sub_category.toLowerCase() !== sub) {
         return false
       }
 
@@ -87,36 +133,185 @@ export const ShopPage = () => {
         .toLowerCase()
         .includes(query)
     })
-  }, [categoryQuery, searchQuery, sortedProducts])
+  }, [activeFamily, isSportPage, scopedProducts, searchQuery, subQuery])
 
-  const resultsLabel = loadingProducts ? 'Chargement...' : 'Catalogue'
+  /* Nombre de produits par categorie, pour les pastilles de premier niveau. */
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    sortedProducts.forEach((product) => {
+      const key = isSportProduct(product)
+        ? '/sport'
+        : product.main_category.trim().toLowerCase()
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    })
+    return counts
+  }, [sortedProducts])
+
+  const primaryLinks = useMemo<FilterLink[]>(() => {
+    const links = QUICK_CATEGORY_LINKS.map((item) => {
+      const isSportLink = item.href === '/sport'
+      const categoryName = categoryFromHref(item.href)
+      const count = isSportLink
+        ? (categoryCounts.get('/sport') ?? 0)
+        : (categoryCounts.get(categoryName) ?? 0)
+
+      return {
+        key: item.href,
+        label: item.label,
+        href: item.href,
+        active: isSportLink ? isSportPage : Boolean(categoryQuery) && categoryName === categoryQuery.toLowerCase(),
+        count,
+      }
+    }).filter((link) => loadingProducts || link.count > 0)
+
+    return [
+      {
+        key: 'all',
+        label: 'Tout',
+        href: '/boutique',
+        active: !isSportPage && !categoryQuery,
+        count: sortedProducts.length,
+      },
+      ...links,
+    ]
+  }, [categoryCounts, categoryQuery, isSportPage, loadingProducts, sortedProducts.length])
+
+  /*
+   * Pastilles de second niveau :
+   * - sur /sport, les familles (ensembles, vestes, tops...) ;
+   * - sur une categorie, ses sous-categories, "Tenues de sport" renvoyant
+   *   vers sa page dediee.
+   */
+  const secondaryLinks = useMemo<FilterLink[]>(() => {
+    if (isSportPage) {
+      const families = SPORT_FAMILIES.map((family) => ({
+        key: family.id,
+        label: family.name,
+        href: `/sport?type=${family.id}`,
+        active: activeFamily?.id === family.id,
+        count: scopedProducts.filter((product) => getSportFamily(product)?.id === family.id)
+          .length,
+      })).filter((family) => family.count > 0)
+
+      if (!families.length) {
+        return []
+      }
+
+      return [
+        {
+          key: 'all',
+          label: 'Toutes les tenues',
+          href: '/sport',
+          active: !activeFamily,
+          count: scopedProducts.length,
+        },
+        ...families,
+      ]
+    }
+
+    if (!categoryQuery) {
+      return []
+    }
+
+    const counts = new Map<string, number>()
+    scopedProducts.forEach((product) => {
+      const key = product.sub_category.trim()
+      if (!key) return
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    })
+
+    const subs = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({
+        key: name,
+        label: name,
+        href:
+          name.toLowerCase() === SPORT_SUB_CATEGORY.toLowerCase()
+            ? '/sport'
+            : buildShopHref({ categorie: categoryQuery, sous: name, q: searchQuery }),
+        active: subQuery.toLowerCase() === name.toLowerCase(),
+        count,
+      }))
+
+    if (!subs.length) {
+      return []
+    }
+
+    return [
+      {
+        key: 'all',
+        label: 'Toutes',
+        href: buildShopHref({ categorie: categoryQuery, q: searchQuery }),
+        active: !subQuery,
+        count: scopedProducts.length,
+      },
+      ...subs,
+    ]
+  }, [activeFamily, categoryQuery, isSportPage, scopedProducts, searchQuery, subQuery])
+
+  const pageTitle = isSportPage
+    ? activeFamily
+      ? activeFamily.name
+      : 'Tenues de sport'
+    : searchQuery
+      ? `Résultats pour « ${searchQuery} »`
+      : subQuery || categoryQuery || 'Tout le catalogue'
+
+  const resultsLabel = loadingProducts
+    ? 'Chargement...'
+    : `${visibleProducts.length} article${visibleProducts.length > 1 ? 's' : ''}`
 
   const loadingSkeletons = useMemo(
     () => Array.from({ length: 6 }, (_, index) => `shop-skeleton-${index}`),
     [],
   )
 
+  const renderPills = (links: FilterLink[], label: string, extraClass = '') => (
+    <div
+      className={`quick-categories quick-categories--shop ${extraClass}`.trim()}
+      role="navigation"
+      aria-label={label}
+    >
+      {links.map((item) => (
+        <Link
+          key={item.key}
+          href={item.href}
+          className={item.active ? 'quick-category-pill is-active' : 'quick-category-pill'}
+          aria-current={item.active ? 'page' : undefined}
+          scroll={false}
+        >
+          <span>{item.label}</span>
+          {!loadingProducts ? (
+            <small className="quick-category-pill__count">{item.count}</small>
+          ) : null}
+        </Link>
+      ))}
+    </div>
+  )
+
   return (
     <section className="section shop-v2 shop-v2--mobile-first">
       <div className="container">
-        <div className="shop-mobile-summary" role="status" aria-live="polite">
-          <p>{resultsLabel}</p>
-
-          {searchQuery || categoryQuery ? (
-            <div className="shop-mobile-summary__chips">
-              {categoryQuery ? <span className="active-pill">{categoryQuery}</span> : null}
-              {searchQuery ? <span className="active-pill">Recherche: {searchQuery}</span> : null}
-            </div>
-          ) : null}
+        <div className="section__header section__header--v2 shop-header">
+          <div>
+            <p className="eyebrow">{isSportPage ? 'Catégorie' : searchQuery ? 'Recherche' : 'Boutique'}</p>
+            <h1>{pageTitle}</h1>
+            <p className="shop-header__count" role="status" aria-live="polite">
+              {resultsLabel}
+            </p>
+          </div>
+          {isSportPage || categoryQuery ? <Link href="/boutique">Tout le catalogue</Link> : null}
         </div>
 
-        <div className="quick-categories quick-categories--shop" role="navigation" aria-label="Filtres rapides">
-          {QUICK_CATEGORY_LINKS.map((item) => (
-            <Link key={`shop-${item.label}`} href={item.href} className="quick-category-pill">
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </div>
+        {renderPills(primaryLinks, 'Catégories')}
+
+        {secondaryLinks.length
+          ? renderPills(
+              secondaryLinks,
+              isSportPage ? 'Familles de tenues de sport' : 'Sous-catégories',
+              'quick-categories--secondary',
+            )
+          : null}
 
         {loadingProducts ? (
           <div className="product-grid product-grid--shop-mobile">
@@ -131,8 +326,16 @@ export const ShopPage = () => {
           products.length ? (
             <EmptyState
               title="Aucun article ne correspond"
-              description="Essayez une autre catégorie, ou parcourez l'ensemble du catalogue."
-              action={{ label: 'Voir tout le catalogue', href: '/boutique' }}
+              description={
+                isSportPage
+                  ? 'Essayez une autre famille de tenues, ou parcourez toute la catégorie.'
+                  : "Essayez une autre catégorie, ou parcourez l'ensemble du catalogue."
+              }
+              action={
+                isSportPage
+                  ? { label: 'Toutes les tenues de sport', href: '/sport' }
+                  : { label: 'Voir tout le catalogue', href: '/boutique' }
+              }
             />
           ) : (
             <EmptyState

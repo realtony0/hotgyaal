@@ -14,6 +14,7 @@ type SitemapEntry = {
 const STATIC_ROUTES: SitemapEntry[] = [
   { loc: toAbsoluteUrl('/'), changefreq: 'daily', priority: 1.0 },
   { loc: toAbsoluteUrl('/boutique'), changefreq: 'daily', priority: 0.95 },
+  { loc: toAbsoluteUrl('/sport'), changefreq: 'daily', priority: 0.9 },
   { loc: toAbsoluteUrl('/contact'), changefreq: 'weekly', priority: 0.8 },
   { loc: toAbsoluteUrl('/faq'), changefreq: 'weekly', priority: 0.7 },
   { loc: toAbsoluteUrl('/cgv-retours'), changefreq: 'monthly', priority: 0.5 },
