@@ -3,8 +3,10 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { ColorSwatches } from '../components/ColorSwatches'
+import { GalleryColorPicker } from '../components/GalleryColorPicker'
 import { useCart } from '../context/CartContext'
 import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
+import { describeGalleryColor, useGalleryColors } from '../services/galleryColors'
 import { getProductWithVariants } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
@@ -152,6 +154,57 @@ export const ProductPage = ({
     return Array.from(new Set(imagePool))
   }, [product])
 
+  /*
+   * Une fiche sans declinaisons nommees mais avec plusieurs photos : chaque
+   * photo est un coloris. On les presente en palette, et le coloris choisi
+   * accompagne l'article dans le panier.
+   */
+  const galleryIsColors = variants.length <= 1 && gallery.length >= 2
+  const { data: galleryColors, loading: galleryColorsLoading } = useGalleryColors(
+    product?.id ?? null,
+    product?.updated_at,
+    galleryIsColors,
+  )
+
+  const requestedColorIndex = useMemo(() => {
+    const raw = Array.isArray(router.query.coloris) ? router.query.coloris[0] : router.query.coloris
+    const parsed = Number(raw)
+    return Number.isInteger(parsed) && parsed >= 1 ? parsed - 1 : 0
+  }, [router.query.coloris])
+
+  const [selectedColorIndex, setSelectedColorIndex] = useState(0)
+
+  // Le lien partage peut viser un coloris precis (?coloris=5).
+  useEffect(() => {
+    if (!galleryIsColors) {
+      return
+    }
+
+    const index = requestedColorIndex < gallery.length ? requestedColorIndex : 0
+    setSelectedColorIndex(index)
+    setActiveImage(gallery[index] ?? null)
+  }, [gallery, galleryIsColors, requestedColorIndex])
+
+  const selectedGalleryColor = galleryIsColors
+    ? (galleryColors?.colors[selectedColorIndex] ?? null)
+    : null
+
+  const handleGalleryColorChange = (index: number) => {
+    if (!product) {
+      return
+    }
+
+    setSelectedColorIndex(index)
+    setActiveImage(gallery[index] ?? null)
+    setFeedback(null)
+
+    void router.replace(
+      index > 0 ? `/produit/${product.slug}?coloris=${index + 1}` : `/produit/${product.slug}`,
+      undefined,
+      { shallow: true, scroll: false },
+    )
+  }
+
   const availableSizes = useMemo(() => {
     if (!product) {
       return []
@@ -273,9 +326,24 @@ export const ProductPage = ({
     }
 
     const size = selectedSize || availableSizes[0] || 'Taille unique'
-    addToCart(product, size, quantity)
-    setFeedback('Ajoute au panier.')
+    const color = galleryIsColors
+      ? {
+          index: selectedColorIndex,
+          label: describeGalleryColor(selectedColorIndex, selectedGalleryColor?.name),
+          image_url: gallery[selectedColorIndex] ?? product.image_url ?? '',
+          hex: selectedGalleryColor?.hex ?? null,
+        }
+      : null
+
+    addToCart(product, size, quantity, color)
+    setFeedback(color ? `Ajouté au panier : ${color.label}, taille ${size}.` : 'Ajouté au panier.')
   }
+
+  // Le lien partage garde le coloris affiche.
+  const currentProductPath = () =>
+    product && galleryIsColors && selectedColorIndex > 0
+      ? `/produit/${product.slug}?coloris=${selectedColorIndex + 1}`
+      : `/produit/${product?.slug ?? ''}`
 
   const announceShare = (message: string) => {
     setShareFeedback(message)
@@ -289,7 +357,7 @@ export const ProductPage = ({
       return
     }
 
-    const url = buildShareUrl(`/produit/${product.slug}`)
+    const url = buildShareUrl(currentProductPath())
     const copied = await copyToClipboard(url)
 
     announceShare(
@@ -302,7 +370,7 @@ export const ProductPage = ({
       return
     }
 
-    const url = buildShareUrl(`/produit/${product.slug}`)
+    const url = buildShareUrl(currentProductPath())
     const text = `Regarde cet article : ${product.name}`
 
     /*
@@ -390,7 +458,7 @@ export const ProductPage = ({
               />
             </div>
 
-            {gallery.length > 1 ? (
+            {gallery.length > 1 && !galleryIsColors ? (
               <div className="product-detail-v2__thumbs">
                 {gallery.map((imageUrl) => (
                   <button
@@ -435,6 +503,25 @@ export const ProductPage = ({
                   activeId={product.id}
                   onSelect={handleVariantChange}
                   size="md"
+                />
+              </div>
+            ) : null}
+
+            {galleryIsColors ? (
+              <div className="variant-switcher">
+                <p className="variant-switcher__label">
+                  Coloris
+                  <span className="variant-switcher__current">
+                    {selectedColorIndex + 1} sur {gallery.length}
+                    {selectedGalleryColor?.name ? ` · ${selectedGalleryColor.name}` : ''}
+                  </span>
+                </p>
+                <GalleryColorPicker
+                  images={gallery}
+                  data={galleryColors}
+                  loading={galleryColorsLoading}
+                  activeIndex={selectedColorIndex}
+                  onSelect={handleGalleryColorChange}
                 />
               </div>
             ) : null}

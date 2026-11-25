@@ -40,7 +40,9 @@ const toIncomingItems = (items: CartItem[] | IncomingItem[] | undefined): Incomi
         return {
           product_id: cart.product.id,
           product_name: cart.product.name,
-          selected_size: cart.selected_size,
+          selected_size: cart.selected_color
+            ? `${cart.selected_size} · ${cart.selected_color.label}`
+            : cart.selected_size,
           quantity: cart.quantity,
         }
       }

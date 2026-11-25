@@ -72,3 +72,122 @@ export const resolveSwatchColor = (name: string | null | undefined): SwatchColor
 
   return { value: match[1], light: LIGHT_COLORS.has(match[1]) }
 }
+
+/*
+ * Nommage approximatif d'une teinte mesuree sur une photo.
+ *
+ * On compare la couleur a une liste de teintes nommees dans l'espace Lab,
+ * ou la distance suit mieux la perception que le RGB. Le nom reste indicatif :
+ * c'est la photo du coloris qui fait foi, et elle accompagne la commande.
+ */
+
+const NAMED_COLORS: [string, string][] = [
+  ['Noir', '#1a1a1c'],
+  ['Anthracite', '#3f3f45'],
+  ['Gris', '#8f8f95'],
+  ['Gris clair', '#c4c4c6'],
+  ['Blanc', '#f5f5f2'],
+  ['Crème', '#ece3d0'],
+  ['Beige', '#d6c3a5'],
+  ['Sable', '#c8b08a'],
+  ['Taupe', '#8b7d70'],
+  ['Camel', '#b07c48'],
+  ['Marron', '#6b4430'],
+  ['Chocolat', '#3d2b1e'],
+  ['Bordeaux', '#6d1f3a'],
+  ['Rouge', '#c0282d'],
+  ['Framboise', '#a81e47'],
+  ['Fuchsia', '#d6278a'],
+  ['Rose', '#e889ac'],
+  ['Rose pâle', '#f2c6d2'],
+  ['Vieux rose', '#c98a96'],
+  ['Corail', '#f08a6b'],
+  ['Orange', '#e4702f'],
+  ['Moutarde', '#c9962b'],
+  ['Jaune', '#f0d23c'],
+  ['Jaune pâle', '#f5e48f'],
+  ['Kaki', '#6b7a3a'],
+  ['Vert sauge', '#a2ab92'],
+  ['Menthe', '#a9dcc3'],
+  ['Vert', '#2f8a4f'],
+  ['Vert foncé', '#1f4d35'],
+  ['Émeraude', '#0e8a5c'],
+  ['Turquoise', '#2a9c9c'],
+  ['Bleu canard', '#2f5c6a'],
+  ['Bleu ciel', '#a8cbe8'],
+  ['Bleu', '#2f5fb0'],
+  ['Bleu roi', '#1e4dd6'],
+  ['Bleu marine', '#1c2547'],
+  ['Lavande', '#b7a8d8'],
+  ['Violet', '#6f3fa0'],
+  ['Prune', '#4e2a5a'],
+  ['Mauve', '#8e5a7a'],
+]
+
+export type Lab = [number, number, number]
+
+export const hexToRgb = (hex: string): [number, number, number] => {
+  const value = hex.replace('#', '')
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ]
+}
+
+export const rgbToLab = (r: number, g: number, b: number): Lab => {
+  const lin = (c: number) => {
+    const v = c / 255
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  }
+  const R = lin(r)
+  const G = lin(g)
+  const B = lin(b)
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116)
+  const x = f((R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047)
+  const y = f(R * 0.2126 + G * 0.7152 + B * 0.0722)
+  const z = f((R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883)
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)]
+}
+
+export const deltaE = (a: Lab, b: Lab) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+const NAMED_LABS = NAMED_COLORS.map(([name, hex]) => ({
+  name,
+  lab: rgbToLab(...hexToRgb(hex)),
+}))
+
+/** Saturation percue : sous ce seuil, une teinte se lit comme un gris. */
+export const NEUTRAL_CHROMA = 7
+
+export const chromaOf = (lab: Lab) => Math.hypot(lab[1], lab[2])
+
+export const nameForHex = (hex: string) => {
+  const lab = rgbToLab(...hexToRgb(hex))
+
+  // Les gris se nomment a la clarte : la teinte voisine la plus proche
+  // ("Vert sauge" pour un gris chaud) serait trompeuse.
+  if (chromaOf(lab) < NEUTRAL_CHROMA) {
+    if (lab[0] < 22) return 'Noir'
+    if (lab[0] < 38) return 'Anthracite'
+    if (lab[0] < 62) return 'Gris'
+    if (lab[0] < 82) return 'Gris clair'
+    return 'Blanc'
+  }
+
+  let best = NAMED_LABS[0]
+  let bestDistance = Infinity
+
+  for (const entry of NAMED_LABS) {
+    const distance = deltaE(lab, entry.lab)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      best = entry
+    }
+  }
+
+  return best.name
+}
+
+/** Vrai pour les teintes tres claires, qui ont besoin d'un contour marque. */
+export const isLightHex = (hex: string) => rgbToLab(...hexToRgb(hex))[0] > 82

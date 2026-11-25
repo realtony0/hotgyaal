@@ -1790,7 +1790,7 @@ export const AdminDashboardPage = () => {
                       </label>
 
                       <label className="full-width">
-                        Photos supplementaires
+                        Photos des coloris
                         <input
                           type="file"
                           accept="image/*"
@@ -1800,6 +1800,11 @@ export const AdminDashboardPage = () => {
                           }
                         />
                       </label>
+                      <p className="admin-help full-width">
+                        Une photo par coloris : sur le site, chaque photo devient une pastille
+                        de couleur que la cliente peut choisir. La photo principale compte
+                        comme le premier coloris.
+                      </p>
                     </>
                   ) : (
                     <div className="full-width admin-variant-list">

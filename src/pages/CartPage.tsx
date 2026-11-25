@@ -100,9 +100,16 @@ const buildOrderMessage = (
   ]
 
   items.forEach((item, index) => {
+    const options = item.selected_color
+      ? `${item.selected_size} · ${item.selected_color.label}`
+      : item.selected_size
     lines.push(
-      `${index + 1}. ${item.product.name} [${item.selected_size}] x${item.quantity} - ${formatCurrency(item.product.price * item.quantity)}`,
+      `${index + 1}. ${item.product.name} [${options}] x${item.quantity} - ${formatCurrency(item.product.price * item.quantity)}`,
     )
+    // La photo du coloris leve toute ambiguite sur la teinte commandee.
+    if (item.selected_color?.image_url) {
+      lines.push(`   Photo du coloris : ${item.selected_color.image_url}`)
+    }
   })
 
   lines.push('')
@@ -246,7 +253,9 @@ export const CartPage = () => {
                 <article className="cart-item" key={item.line_id}>
                   <img
                     src={
-                      item.product.image_url || '/placeholder-produit.svg'
+                      item.selected_color?.image_url ||
+                      item.product.image_url ||
+                      '/placeholder-produit.svg'
                     }
                     alt={item.product.name}
                     loading="lazy"
@@ -258,6 +267,18 @@ export const CartPage = () => {
                       {item.product.main_category} · {item.product.sub_category}
                     </p>
                     <p className="cart-item__size">Taille: {item.selected_size}</p>
+                    {item.selected_color ? (
+                      <p className="cart-item__color">
+                        {item.selected_color.hex ? (
+                          <span
+                            className="cart-item__color-dot"
+                            style={{ background: item.selected_color.hex }}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {item.selected_color.label}
+                      </p>
+                    ) : null}
                     <strong>{formatCurrency(item.product.price)}</strong>
                   </div>
 

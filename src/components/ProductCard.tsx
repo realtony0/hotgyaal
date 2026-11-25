@@ -1,10 +1,16 @@
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCart } from '../context/CartContext'
+import {
+  describeGalleryColor,
+  useGalleryColorIndex,
+  useGalleryColors,
+} from '../services/galleryColors'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
 import { getProductVariantMeta } from '../utils/products'
 import { ColorSwatches } from './ColorSwatches'
+import { GalleryColorPicker } from './GalleryColorPicker'
 
 type ProductCardProps = {
   product: Product
@@ -38,21 +44,67 @@ const shortenName = (value: string) => {
   return `${words.slice(0, MAX_NAME_WORDS).join(' ')}...`
 }
 
+/* Vrai une fois que l'element est entre dans l'ecran (ou presque). */
+const useSeenOnce = <T extends Element>() => {
+  const ref = useRef<T | null>(null)
+  // Sans IntersectionObserver (vieux navigateurs), on charge tout de suite.
+  const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined')
+
+  useEffect(() => {
+    const node = ref.current
+    if (!node || seen) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setSeen(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '200px 0px' },
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [seen])
+
+  return { ref, seen }
+}
+
 export const ProductCard = ({ product }: ProductCardProps) => {
   const { addToCart } = useCart()
   const [isAdding, setIsAdding] = useState(false)
+  const { ref, seen } = useSeenOnce<HTMLElement>()
 
   /*
-   * Une carte regroupe les coloris d'un meme modele. La pastille choisie
-   * decide de la photo, du lien et de ce qui part au panier.
+   * Deux facons d'avoir plusieurs coloris :
+   * - des fiches distinctes "Modele - Couleur", regroupees sur une carte ;
+   * - une seule fiche dont chaque photo de la galerie est un coloris.
    */
   const variants = product.variants ?? []
   const [selectedVariant, setSelectedVariant] = useState<Product | null>(null)
   const active = selectedVariant ?? variants[0] ?? product
 
-  const href = `/produit/${active.slug}`
-  const imageUrl = active.image_url || product.image_url || '/placeholder-produit.svg'
-  const activeColor = variants.length > 1 ? getProductVariantMeta(active).color : null
+  const colorIndex = useGalleryColorIndex()
+  const galleryCount = variants.length > 1 ? 0 : (colorIndex[product.id]?.count ?? 0)
+  const hasGalleryColors = galleryCount >= 2
+  const { data: galleryColors, loading: galleryColorsLoading } = useGalleryColors(
+    product.id,
+    product.updated_at,
+    hasGalleryColors && seen,
+  )
+  const [galleryIndex, setGalleryIndex] = useState(0)
+  const galleryColor = hasGalleryColors ? (galleryColors?.colors[galleryIndex] ?? null) : null
+
+  const href =
+    hasGalleryColors && galleryIndex > 0
+      ? `/produit/${product.slug}?coloris=${galleryIndex + 1}`
+      : `/produit/${active.slug}`
+  const imageUrl =
+    galleryColor?.url || active.image_url || product.image_url || '/placeholder-produit.svg'
+  const activeColor = variants.length > 1 ? getProductVariantMeta(active).color : galleryColor?.name
 
   const mainSize = (active.sizes[0] ?? product.sizes[0])?.trim() || FALLBACK_SIZE
   const isOutOfStock = variants.length > 1 ? active.is_out_of_stock : product.is_out_of_stock
@@ -81,7 +133,17 @@ export const ProductCard = ({ product }: ProductCardProps) => {
       return
     }
 
-    addToCart(variants.length > 1 ? active : product, mainSize, 1)
+    // Ajout rapide : le coloris affiche sur la carte est celui qui part au panier.
+    const color = hasGalleryColors
+      ? {
+          index: galleryIndex,
+          label: describeGalleryColor(galleryIndex, galleryColor?.name),
+          image_url: galleryColor?.url || product.image_url || '',
+          hex: galleryColor?.hex ?? null,
+        }
+      : null
+
+    addToCart(variants.length > 1 ? active : product, mainSize, 1, color)
     setIsAdding(true)
 
     window.setTimeout(() => {
@@ -89,8 +151,11 @@ export const ProductCard = ({ product }: ProductCardProps) => {
     }, 320)
   }
 
+  const showGalleryPicker =
+    hasGalleryColors && !galleryColorsLoading && galleryColors?.mode === 'couleurs'
+
   return (
-    <article className="product-card-v2 product-card-v2--commerce">
+    <article ref={ref} className="product-card-v2 product-card-v2--commerce">
       <Link href={href} className="product-card-v2__media" aria-label={product.name}>
         <img
           key={imageUrl}
@@ -121,6 +186,27 @@ export const ProductCard = ({ product }: ProductCardProps) => {
               limit={MAX_SWATCHES}
             />
             <span className="product-card-v2__color-name">{activeColor ?? ' '}</span>
+          </div>
+        ) : null}
+
+        {hasGalleryColors ? (
+          <div className="product-card-v2__colors">
+            {showGalleryPicker ? (
+              <GalleryColorPicker
+                images={galleryColors.colors.map((color) => color.url)}
+                data={galleryColors}
+                loading={false}
+                activeIndex={galleryIndex}
+                onSelect={setGalleryIndex}
+                size="sm"
+                limit={MAX_SWATCHES}
+              />
+            ) : null}
+            <span className="product-card-v2__color-name">
+              {showGalleryPicker && galleryColor?.name
+                ? galleryColor.name
+                : `${galleryCount} coloris`}
+            </span>
           </div>
         ) : null}
 

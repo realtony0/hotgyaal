@@ -23,7 +23,11 @@ export const createOrder = async (payload: CheckoutPayload): Promise<Order> => {
       items: payload.items.map((item) => ({
         product_id: item.product.id,
         product_name: item.product.name,
-        selected_size: item.selected_size,
+        // Le coloris voyage avec la taille : la table order_items n'a pas de
+        // colonne dediee, et l'administration affiche ce champ tel quel.
+        selected_size: item.selected_color
+          ? `${item.selected_size} · ${item.selected_color.label}`
+          : item.selected_size,
         quantity: item.quantity,
       })),
     }),

@@ -138,11 +138,14 @@ export const ShopPage = ({ preset }: ShopPageProps) => {
   /* Nombre de produits par categorie, pour les pastilles de premier niveau. */
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>()
+    // Une tenue de sport compte dans sa categorie (Vetements Femmes) et dans
+    // le raccourci Tenues de sport : la pastille annonce ce que la page liste.
     sortedProducts.forEach((product) => {
-      const key = isSportProduct(product)
-        ? '/sport'
-        : product.main_category.trim().toLowerCase()
+      const key = product.main_category.trim().toLowerCase()
       counts.set(key, (counts.get(key) ?? 0) + 1)
+      if (isSportProduct(product)) {
+        counts.set('/sport', (counts.get('/sport') ?? 0) + 1)
+      }
     })
     return counts
   }, [sortedProducts])
