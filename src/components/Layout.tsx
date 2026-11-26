@@ -10,13 +10,29 @@ import {
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { INSTAGRAM_URL } from '../constants/social'
 import { useCart } from '../context/CartContext'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
+import {
+  SPORT_FAMILIES,
+  SPORT_SUB_CATEGORY,
+  getSportFamily,
+  isSportProduct,
+} from '../constants/universes'
+import { formatCurrency } from '../utils/format'
 import { groupProductsForStorefront } from '../utils/products'
+import {
+  buildSearchEntries,
+  highlightMatches,
+  labelMatches,
+  readRecentSearches,
+  rememberSearch,
+  searchCatalogueWithFallback,
+} from '../utils/search'
 import { getSiteUrl, stripQueryAndHash, toAbsoluteUrl } from '../utils/site'
 
 const primaryLinks = [
@@ -150,8 +166,15 @@ type SearchSuggestion = {
   label: string
   hint: string
   href: string
-  kind: 'product' | 'category' | 'query'
+  kind: 'product' | 'category' | 'query' | 'recent'
+  imageUrl?: string | null
+  price?: number
+  /** Recherche a memoriser quand la suggestion est choisie */
+  query?: string
 }
+
+const MAX_PRODUCT_SUGGESTIONS = 6
+const MAX_CATEGORY_SUGGESTIONS = 4
 
 type HeaderIconName = 'menu' | 'search' | 'cart' | 'close'
 
@@ -208,7 +231,9 @@ export const Layout = ({ children }: LayoutProps) => {
   )
   const [searchableProducts, setSearchableProducts] = useState<Product[]>([])
   const [shouldLoadSearchData, setShouldLoadSearchData] = useState(false)
-  const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
+  // -1 : aucune suggestion choisie au clavier, Entree lance la recherche.
+  const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(-1)
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
 
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
   const defaultSocialImage = toAbsoluteUrl('/og-hotgyaal.png')
@@ -246,24 +271,60 @@ export const Layout = ({ children }: LayoutProps) => {
     ? 'noindex, nofollow, noarchive'
     : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
 
-  const activeCategories = useMemo(
-    () => categories.filter((category) => category.is_active).slice(0, 8),
-    [categories],
-  )
-
   // Toutes les categories, dans le menu : les tenues de sport d'abord.
-  const menuCategories = useMemo(
-    () => [
-      { href: '/sport', label: 'Tenues de sport' },
+  /*
+   * Toutes les categories, dans le menu : les tenues de sport d'abord. Chacune
+   * se deplie sur ses sous-categories (ses familles, pour le sport). Une fois
+   * le catalogue charge, on masque celles qui n'ont aucun article.
+   */
+  const menuCategories = useMemo(() => {
+    const hasProducts = searchableProducts.length > 0
+    const subCounts = new Map<string, number>()
+    const familyCounts = new Map<string, number>()
+
+    searchableProducts.forEach((product) => {
+      const key = `${product.main_category}|||${product.sub_category}`.toLowerCase()
+      subCounts.set(key, (subCounts.get(key) ?? 0) + 1)
+      if (isSportProduct(product)) {
+        const family = getSportFamily(product)?.id
+        if (family) familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1)
+      }
+    })
+
+    const sport = {
+      href: '/sport',
+      label: 'Tenues de sport',
+      children: SPORT_FAMILIES.filter(
+        (family) => !hasProducts || (familyCounts.get(family.id) ?? 0) > 0,
+      ).map((family) => ({ href: `/sport?type=${family.id}`, label: family.name })),
+    }
+
+    return [
+      sport,
       ...categories
         .filter((category) => category.is_active)
-        .map((category) => ({
-          href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
-          label: category.name,
-        })),
-    ],
-    [categories],
-  )
+        .map((category) => {
+          const base = `/boutique?categorie=${encodeURIComponent(category.name)}`
+          return {
+            href: base,
+            label: category.name,
+            children: category.subcategories
+              .filter(
+                (subCategory) =>
+                  !hasProducts ||
+                  (subCounts.get(`${category.name}|||${subCategory}`.toLowerCase()) ?? 0) > 0,
+              )
+              .map((subCategory) => ({
+                href:
+                  subCategory.toLowerCase() === SPORT_SUB_CATEGORY.toLowerCase()
+                    ? '/sport'
+                    : `${base}&sous=${encodeURIComponent(subCategory)}`,
+                label: subCategory,
+              })),
+          }
+        }),
+    ]
+  }, [categories, searchableProducts])
 
   // Sur une page statique, le serveur ne connait pas la chaine de requete :
   // on n'en tient compte qu'une fois le routeur pret, pour que le premier
@@ -339,7 +400,7 @@ export const Layout = ({ children }: LayoutProps) => {
           return
         }
 
-        setSearchableProducts(groupProductsForStorefront(data).slice(0, 200))
+        setSearchableProducts(groupProductsForStorefront(data))
       } catch {
         if (!ignore) {
           setSearchableProducts([])
@@ -395,115 +456,119 @@ export const Layout = ({ children }: LayoutProps) => {
       setShouldLoadSearchData(true)
     }
 
+    setRecentSearches(readRecentSearches())
     setIsMenuOpen(false)
     setIsSearchOpen(true)
-    setHighlightedSuggestionIndex(0)
+    setHighlightedSuggestionIndex(-1)
   }
 
+  const searchEntries = useMemo(() => buildSearchEntries(searchableProducts), [searchableProducts])
+
+  // Categories et sous-categories proposees, telles qu'elles figurent au menu.
+  const searchableCategories = useMemo(
+    () =>
+      menuCategories.flatMap((group) => [
+        { key: group.href, label: group.label, hint: 'Catégorie', href: group.href },
+        ...group.children.map((child) => ({
+          key: child.href,
+          label: child.label,
+          hint: group.label,
+          href: child.href,
+        })),
+      ]),
+    [menuCategories],
+  )
+
   const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
-    const query = searchInput.trim().toLowerCase()
+    const query = searchInput.trim()
 
-    const baseProductSuggestions = searchableProducts.map((product) => {
-      const name = product.name.toLowerCase()
-      const mainCategory = product.main_category.toLowerCase()
-      const subCategory = product.sub_category.toLowerCase()
-      const description = product.description.toLowerCase()
-
-      if (!query) {
-        return { product, score: 0 }
-      }
-
-      let score = 0
-
-      if (name === query) {
-        score += 140
-      }
-
-      if (name.startsWith(query)) {
-        score += 110
-      }
-
-      if (name.includes(query)) {
-        score += 80
-      }
-
-      if (mainCategory.includes(query) || subCategory.includes(query)) {
-        score += 45
-      }
-
-      if (description.includes(query)) {
-        score += 20
-      }
-
-      return { product, score }
+    const toProductSuggestion = (product: Product): SearchSuggestion => ({
+      key: `product-${product.id}`,
+      label: product.name,
+      hint: product.sub_category || product.main_category,
+      href: `/produit/${product.slug}`,
+      kind: 'product',
+      imageUrl: product.image_url,
+      price: product.price,
+      query: query || undefined,
     })
 
     if (!query) {
-      const trendingProducts = baseProductSuggestions.slice(0, 8).map(({ product }) => ({
-        key: `product-${product.id}`,
-        label: product.name,
-        hint: `${product.main_category} · ${product.sub_category}`,
-        href: `/produit/${product.slug}`,
-        kind: 'product' as const,
+      const recent = recentSearches.map<SearchSuggestion>((item) => ({
+        key: `recent-${item}`,
+        label: item,
+        hint: 'Recherche récente',
+        href: `/boutique?q=${encodeURIComponent(item)}`,
+        kind: 'recent',
+        query: item,
       }))
+      const categories = menuCategories.slice(0, MAX_CATEGORY_SUGGESTIONS).map<SearchSuggestion>(
+        (group) => ({
+          key: `category-${group.href}`,
+          label: group.label,
+          hint: 'Catégorie',
+          href: group.href,
+          kind: 'category',
+        }),
+      )
+      const popular = searchableProducts
+        .filter((product) => product.is_best_seller && !product.is_out_of_stock)
+        .slice(0, 4)
+        .map(toProductSuggestion)
 
-      const trendingCategories = activeCategories.slice(0, 4).map((category) => ({
-        key: `category-${category.id}`,
-        label: category.name,
-        hint: 'Catégorie',
-        href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
-        kind: 'category' as const,
-      }))
-
-      return [...trendingProducts, ...trendingCategories]
+      return [...recent, ...categories, ...popular]
     }
 
-    const productMatches = baseProductSuggestions
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 7)
-      .map(({ product }) => ({
-        key: `product-${product.id}`,
-        label: product.name,
-        hint: `${product.main_category} · ${product.sub_category}`,
-        href: `/produit/${product.slug}`,
-        kind: 'product' as const,
+    const { results, usedQuery, exact } = searchCatalogueWithFallback(searchEntries, query)
+    const products = results
+      .slice(0, MAX_PRODUCT_SUGGESTIONS)
+      .map((product) => ({ ...toProductSuggestion(product), query: usedQuery }))
+    const categories = searchableCategories
+      .filter((category) => labelMatches(category.label, query))
+      .slice(0, MAX_CATEGORY_SUGGESTIONS)
+      .map<SearchSuggestion>((category) => ({
+        key: `category-${category.key}`,
+        label: category.label,
+        hint: category.hint,
+        href: category.href,
+        kind: 'category',
+        query,
       }))
 
-    const categoryMatches = activeCategories
-      .filter((category) => category.name.toLowerCase().includes(query))
-      .slice(0, 3)
-      .map((category) => ({
-        key: `category-${category.id}`,
-        label: category.name,
-        hint: 'Catégorie',
-        href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
-        kind: 'category' as const,
-      }))
+    const seeAllLabel = !results.length
+      ? `Aucun article pour « ${query} » : voir tout le catalogue`
+      : !exact
+        ? `Rien pour « ${query} » · voir les résultats pour « ${usedQuery} »`
+        : results.length === 1
+          ? `Voir le résultat pour « ${query} »`
+          : `Voir les ${results.length} résultats pour « ${query} »`
 
-    const combined = [...productMatches, ...categoryMatches]
-
-    if (combined.length === 0) {
-      return [
-        {
-          key: `query-${query}`,
-          label: `Rechercher "${searchInput.trim()}"`,
-          hint: 'Voir les résultats',
-          href: `/boutique?q=${encodeURIComponent(searchInput.trim())}`,
-          kind: 'query',
-        },
-      ]
+    const seeAll: SearchSuggestion = {
+      key: `query-${query}`,
+      label: seeAllLabel,
+      hint: 'Rechercher',
+      href: results.length ? `/boutique?q=${encodeURIComponent(usedQuery)}` : '/boutique',
+      kind: 'query',
+      query: results.length ? usedQuery : undefined,
     }
 
-    return combined
-  }, [activeCategories, searchInput, searchableProducts])
+    return [...categories, ...products, seeAll]
+  }, [
+    menuCategories,
+    recentSearches,
+    searchEntries,
+    searchInput,
+    searchableCategories,
+    searchableProducts,
+  ])
 
   const activeSuggestionIndex =
-    highlightedSuggestionIndex < searchSuggestions.length
-      ? highlightedSuggestionIndex
-      : 0
+    highlightedSuggestionIndex < searchSuggestions.length ? highlightedSuggestionIndex : -1
 
   const selectSearchSuggestion = (suggestion: SearchSuggestion) => {
+    if (suggestion.query) {
+      rememberSearch(suggestion.query)
+    }
     setSearchInput(suggestion.label)
     setIsSearchOpen(false)
     setIsMenuOpen(false)
@@ -526,12 +591,12 @@ export const Layout = ({ children }: LayoutProps) => {
     if (event.key === 'ArrowUp') {
       event.preventDefault()
       setHighlightedSuggestionIndex((current) =>
-        current - 1 < 0 ? searchSuggestions.length - 1 : current - 1,
+        current <= 0 ? searchSuggestions.length - 1 : current - 1,
       )
       return
     }
 
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
       const selected = searchSuggestions[activeSuggestionIndex]
       if (selected) {
         event.preventDefault()
@@ -550,6 +615,7 @@ export const Layout = ({ children }: LayoutProps) => {
       return
     }
 
+    rememberSearch(query)
     setIsSearchOpen(false)
     void router.push({
       pathname: '/boutique',
@@ -602,7 +668,11 @@ export const Layout = ({ children }: LayoutProps) => {
               <button
                 type="button"
                 className="icon-button icon-button--header menu-toggle"
-                onClick={() => setIsMenuOpen((current) => !current)}
+                onClick={() => {
+                  // Le catalogue sert a masquer les sous-categories vides.
+                  setShouldLoadSearchData(true)
+                  setIsMenuOpen((current) => !current)
+                }}
                 aria-label="Ouvrir le menu"
                 aria-expanded={isMenuOpen}
               >
@@ -613,20 +683,57 @@ export const Layout = ({ children }: LayoutProps) => {
 
               <nav className={`nav nav--drawer ${isMenuOpen ? 'is-open' : ''}`}>
                 <p className="nav-drawer__title">Catégories</p>
-                {menuCategories.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={
-                      isPathActive(link.href, activePath)
-                        ? 'nav-link nav-link--category is-active'
-                        : 'nav-link nav-link--category'
-                    }
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+                {menuCategories.map((group) =>
+                  group.children.length ? (
+                    <details key={group.href} className="nav-group">
+                      <summary
+                        className={
+                          isPathActive(group.href, activePath)
+                            ? 'nav-link nav-link--category is-active'
+                            : 'nav-link nav-link--category'
+                        }
+                      >
+                        {group.label}
+                      </summary>
+                      <div className="nav-group__items">
+                        <Link
+                          href={group.href}
+                          className="nav-sublink nav-sublink--all"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          Tout voir
+                        </Link>
+                        {group.children.map((child) => (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={
+                              isPathActive(child.href, activePath)
+                                ? 'nav-sublink is-active'
+                                : 'nav-sublink'
+                            }
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </details>
+                  ) : (
+                    <Link
+                      key={group.href}
+                      href={group.href}
+                      className={
+                        isPathActive(group.href, activePath)
+                          ? 'nav-link nav-link--category is-active'
+                          : 'nav-link nav-link--category'
+                      }
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {group.label}
+                    </Link>
+                  ),
+                )}
 
                 <p className="nav-drawer__title">Boutique</p>
                 {primaryLinks.map((link) => (
@@ -634,7 +741,12 @@ export const Layout = ({ children }: LayoutProps) => {
                     key={link.href}
                     href={link.href}
                     className={
-                      isPathActive(link.href, activePath) ? 'nav-link is-active' : 'nav-link'
+                      // "Catalogue" ne s'allume pas sur une page de categorie,
+                      // deja signalee plus haut dans le menu.
+                      isPathActive(link.href, activePath) &&
+                      !(link.href === '/boutique' && activePath.includes('categorie='))
+                        ? 'nav-link is-active'
+                        : 'nav-link'
                     }
                     onClick={() => setIsMenuOpen(false)}
                   >
@@ -702,11 +814,12 @@ export const Layout = ({ children }: LayoutProps) => {
                       setShouldLoadSearchData(true)
                     }
                     setSearchInput(event.target.value)
-                    setHighlightedSuggestionIndex(0)
+                    setHighlightedSuggestionIndex(-1)
                   }}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder="Recherche premium: robes, sacs, bijoux..."
-                  aria-label="Recherche premium"
+                  placeholder="Tapez un article : legging, robe, sac…"
+                  aria-label="Rechercher un article"
+                  autoComplete="off"
                 />
               </div>
 
@@ -722,7 +835,15 @@ export const Layout = ({ children }: LayoutProps) => {
               </button>
             </form>
 
-            <p className="search-overlay__hint">Produits populaires et suggestions intelligentes</p>
+            <p className="search-overlay__hint">
+              {searchInput.trim()
+                ? searchableProducts.length
+                  ? 'Suggestions'
+                  : 'Chargement du catalogue…'
+                : recentSearches.length
+                  ? 'Vos dernières recherches et nos catégories'
+                  : 'Catégories et articles populaires'}
+            </p>
 
             <div className="search-overlay__results">
               {searchSuggestions.map((suggestion, index) => (
@@ -735,9 +856,31 @@ export const Layout = ({ children }: LayoutProps) => {
                       : 'search-overlay__item'
                   }
                   onClick={() => selectSearchSuggestion(suggestion)}
+                  onMouseEnter={() => setHighlightedSuggestionIndex(index)}
                 >
-                  <span>{suggestion.label}</span>
-                  <small>{suggestion.hint}</small>
+                  {suggestion.kind === 'product' ? (
+                    <img
+                      className="search-overlay__thumb"
+                      src={suggestion.imageUrl || '/placeholder-produit.svg'}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <span className={`search-overlay__icon search-overlay__icon--${suggestion.kind}`} aria-hidden="true" />
+                  )}
+                  <span className="search-overlay__text">
+                    <span className="search-overlay__label">
+                      {highlightMatches(suggestion.label, suggestion.kind === 'product' || suggestion.kind === 'category' ? searchInput : '').map(
+                        (part, partIndex) =>
+                          part.match ? <mark key={partIndex}>{part.text}</mark> : <span key={partIndex}>{part.text}</span>,
+                      )}
+                    </span>
+                    <small>{suggestion.hint}</small>
+                  </span>
+                  {typeof suggestion.price === 'number' ? (
+                    <strong className="search-overlay__price">{formatCurrency(suggestion.price)}</strong>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -747,19 +890,37 @@ export const Layout = ({ children }: LayoutProps) => {
 
       <main>{children}</main>
 
-      <a
-        className="floating-whatsapp"
-        href={`https://wa.me/${orderChatNumber}?text=${encodeURIComponent('Bonjour HOTGYAAL, je veux commander.')}`}
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Contacter HOTGYAAL"
-      >
-        <span className="floating-whatsapp__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12.03 3.23a8.68 8.68 0 0 0-7.5 13.05L3 21l4.85-1.52a8.68 8.68 0 1 0 4.18-16.25Zm0 15.72a7.01 7.01 0 0 1-3.58-.98l-.26-.15-2.88.9.9-2.8-.16-.28a7.02 7.02 0 1 1 5.98 3.31Zm3.85-5.26c-.21-.1-1.23-.61-1.42-.68-.19-.07-.33-.1-.47.1-.14.2-.54.68-.66.82-.12.14-.25.16-.46.05-.21-.1-.88-.32-1.67-1.02-.61-.54-1.03-1.21-1.15-1.41-.12-.2-.01-.31.09-.41.09-.09.21-.24.31-.35.1-.12.14-.2.21-.34.07-.14.03-.26-.02-.36-.05-.1-.47-1.13-.64-1.55-.17-.4-.35-.35-.47-.36h-.4c-.14 0-.36.05-.55.26-.19.21-.72.7-.72 1.71s.74 1.99.84 2.13c.1.14 1.45 2.22 3.52 3.11.49.21.88.34 1.17.44.49.16.94.14 1.29.09.39-.06 1.23-.5 1.4-.98.17-.48.17-.89.12-.98-.05-.09-.19-.14-.4-.24Z" />
-          </svg>
-        </span>
-      </a>
+      <div className="floating-actions">
+        <a
+          className="floating-instagram"
+          href={INSTAGRAM_URL}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="HOTGYAAL sur Instagram"
+        >
+          <span className="floating-whatsapp__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+              <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5" />
+              <circle cx="12" cy="12" r="4.1" />
+              <circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none" />
+            </svg>
+          </span>
+        </a>
+
+        <a
+          className="floating-whatsapp"
+          href={`https://wa.me/${orderChatNumber}?text=${encodeURIComponent('Bonjour HOTGYAAL, je veux commander.')}`}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Contacter HOTGYAAL"
+        >
+          <span className="floating-whatsapp__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.03 3.23a8.68 8.68 0 0 0-7.5 13.05L3 21l4.85-1.52a8.68 8.68 0 1 0 4.18-16.25Zm0 15.72a7.01 7.01 0 0 1-3.58-.98l-.26-.15-2.88.9.9-2.8-.16-.28a7.02 7.02 0 1 1 5.98 3.31Zm3.85-5.26c-.21-.1-1.23-.61-1.42-.68-.19-.07-.33-.1-.47.1-.14.2-.54.68-.66.82-.12.14-.25.16-.46.05-.21-.1-.88-.32-1.67-1.02-.61-.54-1.03-1.21-1.15-1.41-.12-.2-.01-.31.09-.41.09-.09.21-.24.31-.35.1-.12.14-.2.21-.34.07-.14.03-.26-.02-.36-.05-.1-.47-1.13-.64-1.55-.17-.4-.35-.35-.47-.36h-.4c-.14 0-.36.05-.55.26-.19.21-.72.7-.72 1.71s.74 1.99.84 2.13c.1.14 1.45 2.22 3.52 3.11.49.21.88.34 1.17.44.49.16.94.14 1.29.09.39-.06 1.23-.5 1.4-.98.17-.48.17-.89.12-.98-.05-.09-.19-.14-.4-.24Z" />
+            </svg>
+          </span>
+        </a>
+      </div>
 
       <footer className="footer">
         <div className="container footer__content footer__content--grid">

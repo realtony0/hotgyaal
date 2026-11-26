@@ -4998,3 +4998,155 @@ body {
   border-color: var(--ink);
   color: #fff;
 }
+
+/* Menu : categories depliables sur leurs sous-categories */
+.nav-group {
+  display: grid;
+}
+
+.nav-group > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.nav-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-group > summary::after {
+  content: '+';
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ink-muted);
+  transition: transform 0.2s ease;
+}
+
+.nav-group[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.nav-group__items {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.3rem 0 0.4rem 0.75rem;
+  margin-left: 0.6rem;
+  border-left: 1px solid var(--line);
+}
+
+.nav-sublink {
+  padding: 0.42rem 0.5rem;
+  border-radius: 0.55rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.nav-sublink:hover,
+.nav-sublink.is-active {
+  background: var(--ground-alt);
+  color: var(--ink);
+}
+
+.nav-sublink--all {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Boutons flottants : Instagram a cote de WhatsApp */
+.floating-actions {
+  position: fixed;
+  right: 0.72rem;
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.floating-actions .floating-whatsapp {
+  position: static;
+}
+
+.floating-instagram {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  box-shadow: 0 18px 28px -22px rgba(214, 36, 159, 0.7);
+  transition: transform 0.24s ease;
+}
+
+.floating-instagram:hover,
+.floating-instagram:active {
+  transform: translateY(-2px);
+}
+
+/* Recherche : suggestions avec vignette, prix et lettres tapees en gras */
+.search-overlay__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  text-align: left;
+}
+
+.search-overlay__thumb {
+  width: 44px;
+  height: 56px;
+  border-radius: 0.55rem;
+  object-fit: cover;
+  background: var(--ground-alt);
+}
+
+.search-overlay__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--ground-alt);
+  display: inline-grid;
+  place-items: center;
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+.search-overlay__icon--category::before {
+  content: '▦';
+}
+
+.search-overlay__icon--recent::before {
+  content: '↺';
+}
+
+.search-overlay__icon--query::before {
+  content: '⌕';
+  font-size: 1.2rem;
+}
+
+.search-overlay__text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.search-overlay__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-overlay__label mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.search-overlay__price {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
