@@ -22,7 +22,6 @@ type HomeCategory = {
   name: string
   description: string
   href: string
-  imageUrl: string
   products: Product[]
   total: number
 }
@@ -136,7 +135,6 @@ export const HomePage = () => {
         name: 'Tenues de sport',
         description: 'Ensembles, leggings, brassières, shorts et vestes.',
         href: '/sport',
-        imageUrl: sport.find((product) => product.image_url)?.image_url || '/placeholder-produit.svg',
         products: sport.slice(0, PRODUCTS_PER_SECTION),
         total: sport.length,
       })
@@ -162,12 +160,6 @@ export const HomePage = () => {
           name: category.name,
           description: category.description,
           href: categoryHref(category),
-          // Les categories n'ont pas toutes une image en base : on emprunte
-          // alors la photo d'un produit plutot que d'afficher un cadre vide.
-          imageUrl:
-            category.image_url ||
-            own.find((product) => product.image_url)?.image_url ||
-            '/placeholder-produit.svg',
           products: own.slice(0, PRODUCTS_PER_SECTION),
           total: own.length,
         })
@@ -267,35 +259,6 @@ export const HomePage = () => {
           ) : null}
         </div>
       </section>
-
-      {homeCategories.length ? (
-      <section className="section section-v2 section-v2--categories">
-        <div className="container">
-          <div className="section__header section__header--v2">
-            <div>
-              <p className="eyebrow">Catégories</p>
-              <h2>Découvrez nos univers</h2>
-            </div>
-            <Link href="/boutique">Catalogue complet</Link>
-          </div>
-
-          <div className="category-grid-v2">
-            {homeCategories.map((category) => (
-              <Link key={category.key} href={category.href} className="category-card-v2">
-                <div className="category-card-v2__media">
-                  <img src={category.imageUrl} alt={category.name} loading="lazy" />
-                </div>
-                <div className="category-card-v2__body">
-                  <h3>{category.name}</h3>
-                  <p>{category.description}</p>
-                  <span>{category.total} article{category.total > 1 ? 's' : ''}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-      ) : null}
 
       {homeCategories.map((category, index) => (
         <section
