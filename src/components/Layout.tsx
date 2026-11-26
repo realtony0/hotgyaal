@@ -24,8 +24,7 @@ import {
   buildSearchEntries,
   highlightMatches,
   labelMatches,
-  readRecentSearches,
-  rememberSearch,
+  forgetRecentSearches,
   searchCatalogueWithFallback,
 } from '../utils/search'
 import { getSiteUrl, stripQueryAndHash, toAbsoluteUrl } from '../utils/site'
@@ -161,11 +160,9 @@ type SearchSuggestion = {
   label: string
   hint: string
   href: string
-  kind: 'product' | 'category' | 'query' | 'recent'
+  kind: 'product' | 'category' | 'query'
   imageUrl?: string | null
   price?: number
-  /** Recherche a memoriser quand la suggestion est choisie */
-  query?: string
 }
 
 const MAX_PRODUCT_SUGGESTIONS = 6
@@ -228,7 +225,6 @@ export const Layout = ({ children }: LayoutProps) => {
   const [shouldLoadSearchData, setShouldLoadSearchData] = useState(false)
   // -1 : aucune suggestion choisie au clavier, Entree lance la recherche.
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(-1)
-  const [recentSearches, setRecentSearches] = useState<string[]>([])
 
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
   const defaultSocialImage = toAbsoluteUrl('/og-hotgyaal.png')
@@ -436,7 +432,8 @@ export const Layout = ({ children }: LayoutProps) => {
       setShouldLoadSearchData(true)
     }
 
-    setRecentSearches(readRecentSearches())
+    // L'historique de recherche n'est plus garde : on efface l'ancien.
+    forgetRecentSearches()
     setIsMenuOpen(false)
     setIsSearchOpen(true)
     setHighlightedSuggestionIndex(-1)
@@ -470,18 +467,9 @@ export const Layout = ({ children }: LayoutProps) => {
       kind: 'product',
       imageUrl: product.image_url,
       price: product.price,
-      query: query || undefined,
     })
 
     if (!query) {
-      const recent = recentSearches.map<SearchSuggestion>((item) => ({
-        key: `recent-${item}`,
-        label: item,
-        hint: 'Recherche récente',
-        href: `/boutique?q=${encodeURIComponent(item)}`,
-        kind: 'recent',
-        query: item,
-      }))
       const categories = menuCategories.slice(0, MAX_CATEGORY_SUGGESTIONS).map<SearchSuggestion>(
         (group) => ({
           key: `category-${group.href}`,
@@ -496,13 +484,13 @@ export const Layout = ({ children }: LayoutProps) => {
         .slice(0, 4)
         .map(toProductSuggestion)
 
-      return [...recent, ...categories, ...popular]
+      return [...categories, ...popular]
     }
 
     const { results, usedQuery, exact } = searchCatalogueWithFallback(searchEntries, query)
     const products = results
       .slice(0, MAX_PRODUCT_SUGGESTIONS)
-      .map((product) => ({ ...toProductSuggestion(product), query: usedQuery }))
+      .map(toProductSuggestion)
     const categories = searchableCategories
       .filter((category) => labelMatches(category.label, query))
       .slice(0, MAX_CATEGORY_SUGGESTIONS)
@@ -512,7 +500,6 @@ export const Layout = ({ children }: LayoutProps) => {
         hint: category.hint,
         href: category.href,
         kind: 'category',
-        query,
       }))
 
     const seeAllLabel = !results.length
@@ -529,13 +516,11 @@ export const Layout = ({ children }: LayoutProps) => {
       hint: 'Rechercher',
       href: results.length ? `/boutique?q=${encodeURIComponent(usedQuery)}` : '/boutique',
       kind: 'query',
-      query: results.length ? usedQuery : undefined,
     }
 
     return [...categories, ...products, seeAll]
   }, [
     menuCategories,
-    recentSearches,
     searchEntries,
     searchInput,
     searchableCategories,
@@ -546,9 +531,6 @@ export const Layout = ({ children }: LayoutProps) => {
     highlightedSuggestionIndex < searchSuggestions.length ? highlightedSuggestionIndex : -1
 
   const selectSearchSuggestion = (suggestion: SearchSuggestion) => {
-    if (suggestion.query) {
-      rememberSearch(suggestion.query)
-    }
     setSearchInput(suggestion.label)
     setIsSearchOpen(false)
     setIsMenuOpen(false)
@@ -595,7 +577,6 @@ export const Layout = ({ children }: LayoutProps) => {
       return
     }
 
-    rememberSearch(query)
     setIsSearchOpen(false)
     void router.push({
       pathname: '/boutique',
@@ -820,9 +801,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 ? searchableProducts.length
                   ? 'Suggestions'
                   : 'Chargement du catalogue…'
-                : recentSearches.length
-                  ? 'Vos dernières recherches et nos catégories'
-                  : 'Catégories et articles populaires'}
+                : 'Catégories et articles populaires'}
             </p>
 
             <div className="search-overlay__results">
