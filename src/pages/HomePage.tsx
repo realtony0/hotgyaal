@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
-import { isSportProduct } from '../constants/universes'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
@@ -120,25 +119,11 @@ export const HomePage = () => {
   const activeHero = heroSlides[activeHeroIndex] ?? heroSlides[0] ?? null
 
   /*
-   * Tout l'accueil est organise par categorie : les tenues de sport (une
-   * sous-categorie en base, mais 40 % du catalogue) ont leur propre entree,
-   * puis chaque categorie active qui a des produits. Les produits de sport ne
-   * reapparaissent pas dans "Vetements Femmes".
+   * Une rangee d'articles par categorie active qui a des produits. Les tenues
+   * de sport restent dans "Vetements Femmes", leur categorie en base.
    */
   const homeCategories = useMemo<HomeCategory[]>(() => {
     const entries: HomeCategory[] = []
-
-    const sport = popularFirst(sortedProducts.filter(isSportProduct))
-    if (sport.length) {
-      entries.push({
-        key: 'sport',
-        name: 'Tenues de sport',
-        description: 'Ensembles, leggings, brassières, shorts et vestes.',
-        href: '/sport',
-        products: sport.slice(0, PRODUCTS_PER_SECTION),
-        total: sport.length,
-      })
-    }
 
     categories
       .filter((category) => category.is_active)
@@ -147,7 +132,7 @@ export const HomePage = () => {
           sortedProducts.filter(
             (product) =>
               product.main_category.trim().toLowerCase() ===
-                category.name.trim().toLowerCase() && !isSportProduct(product),
+                category.name.trim().toLowerCase(),
           ),
         )
 
@@ -271,7 +256,6 @@ export const HomePage = () => {
           <div className="container">
             <div className="section__header section__header--v2">
               <div>
-                <p className="eyebrow">Catégorie</p>
                 <h2>{category.name}</h2>
                 {category.description ? (
                   <p className="section__description">{category.description}</p>
