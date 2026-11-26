@@ -28,9 +28,6 @@ type AuthProviderProps = {
 }
 
 const PROFILE_NOT_FOUND_CODE = 'PGRST116'
-const ADMIN_ACCESS_CODE =
-  process.env.NEXT_PUBLIC_ADMIN_ACCESS_CODE?.trim() || '142022'
-const ADMIN_ACCESS_STORAGE_KEY = 'hotgyaal_admin_access'
 
 const getProfile = async (userId: string): Promise<UserProfile | null> => {
   const client = getSupabase()
@@ -65,13 +62,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading] = useState(false)
-  const [isCodeAdmin, setIsCodeAdmin] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false
-    }
+  // L'etat admin est tranche par le serveur (cookie signe httpOnly), jamais
+  // par un drapeau que le navigateur pourrait poser lui-meme.
+  const [isCodeAdmin, setIsCodeAdmin] = useState(false)
 
-    return window.localStorage.getItem(ADMIN_ACCESS_STORAGE_KEY) === '1'
-  })
+  useEffect(() => {
+    let active = true
+    fetch('/api/admin/session', { credentials: 'same-origin' })
+      .then((response) => (response.ok ? response.json() : { isAdmin: false }))
+      .then((data: { isAdmin?: boolean }) => {
+        if (active) {
+          setIsCodeAdmin(Boolean(data.isAdmin))
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
 
   const syncProfile = useCallback(async (userId: string) => {
     try {
@@ -133,14 +141,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [syncProfile])
 
   const unlockAdminByCode = useCallback(async (code: string) => {
-    if (code.trim() !== ADMIN_ACCESS_CODE) {
-      throw new Error('Code incorrect.')
+    const response = await fetch('/api/admin/login', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code.trim() }),
+    })
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null
+      throw new Error(data?.error || 'Code incorrect.')
     }
 
     setIsCodeAdmin(true)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(ADMIN_ACCESS_STORAGE_KEY, '1')
-    }
   }, [])
 
   const signOut = useCallback(async () => {
@@ -151,9 +164,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
 
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(ADMIN_ACCESS_STORAGE_KEY)
-    }
+    await fetch('/api/admin/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+    }).catch(() => undefined)
 
     setIsCodeAdmin(false)
     setProfile(null)

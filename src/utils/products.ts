@@ -74,8 +74,13 @@ export const groupProductsForStorefront = (products: Product[]): Product[] => {
       ),
     )
 
+    // Les declinaisons gardent leur nom complet ("Top Azur - Noir") : c'est
+    // ainsi qu'on en extrait la couleur pour les pastilles.
+    const variants = group.length > 1 ? group.map((item) => ({ ...item })) : undefined
+
     return {
       ...primary,
+      variants,
       name: primaryMeta.baseName,
       image_url: imagePool[0] ?? primary.image_url,
       gallery_urls: imagePool.slice(1),

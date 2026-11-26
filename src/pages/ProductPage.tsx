@@ -2,13 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { ColorSwatches } from '../components/ColorSwatches'
+import { GalleryColorPicker } from '../components/GalleryColorPicker'
 import { useCart } from '../context/CartContext'
-import { isSupabaseConfigured } from '../lib/supabase'
-import { listProducts } from '../services/products'
+import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
+import { describeGalleryColor, useGalleryColors } from '../services/galleryColors'
+import { getProductWithVariants } from '../services/products'
 import type { Product } from '../types'
 import { formatCurrency } from '../utils/format'
-import { getProductVariantMeta, getRelatedVariants } from '../utils/products'
-import { buildShareUrl, shareWithFallback } from '../utils/share'
+import { getProductVariantMeta } from '../utils/products'
+import {
+  buildShareUrl,
+  buildWhatsAppShareUrl,
+  canUseNativeShare,
+  copyToClipboard,
+  shareWithFallback,
+} from '../utils/share'
+import { stripColorTag } from '../utils/colorTag'
 import { toAbsoluteUrl } from '../utils/site'
 
 const trimMetaDescription = (value: string, maxLength = 160) => {
@@ -85,9 +95,7 @@ export const ProductPage = ({
       setProduct(null)
       setVariants([])
       setLoading(false)
-      setError(
-        "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-      )
+      setError(resolveCatalogErrorMessage('Supabase non configure'))
       return
     }
 
@@ -96,14 +104,13 @@ export const ProductPage = ({
     const loadProduct = async () => {
       try {
         setLoading(true)
-        const allProducts = await listProducts({ forceFresh: true })
+        // Deux requetes ciblees : la fiche et ses declinaisons. Avant, la page
+        // rapatriait les 600 produits du catalogue pour n'en afficher qu'un.
+        const { product: data, variants: related } =
+          await getProductWithVariants(normalizedSlug)
         if (ignore) {
           return
         }
-
-        const data =
-          allProducts.find((item) => normalizeSlug(item.slug) === normalizedSlug) ??
-          null
 
         if (!data) {
           setProduct(null)
@@ -113,18 +120,14 @@ export const ProductPage = ({
         }
 
         setProduct(data)
-        setVariants(getRelatedVariants(allProducts, data))
+        setVariants(related)
         setActiveImage(data.image_url)
         setError(null)
       } catch (loadError) {
         if (!ignore) {
           setProduct(null)
           setVariants([])
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'Impossible de charger ce produit depuis Supabase.',
-          )
+          setError(resolveCatalogErrorMessage(loadError))
         }
       } finally {
         if (!ignore) {
@@ -151,6 +154,57 @@ export const ProductPage = ({
 
     return Array.from(new Set(imagePool))
   }, [product])
+
+  /*
+   * Une fiche sans declinaisons nommees mais avec plusieurs photos : chaque
+   * photo est un coloris. On les presente en palette, et le coloris choisi
+   * accompagne l'article dans le panier.
+   */
+  const galleryIsColors = variants.length <= 1 && gallery.length >= 2
+  const { data: galleryColors, loading: galleryColorsLoading } = useGalleryColors(
+    product?.id ?? null,
+    product?.updated_at,
+    galleryIsColors,
+  )
+
+  const requestedColorIndex = useMemo(() => {
+    const raw = Array.isArray(router.query.coloris) ? router.query.coloris[0] : router.query.coloris
+    const parsed = Number(raw)
+    return Number.isInteger(parsed) && parsed >= 1 ? parsed - 1 : 0
+  }, [router.query.coloris])
+
+  const [selectedColorIndex, setSelectedColorIndex] = useState(0)
+
+  // Le lien partage peut viser un coloris precis (?coloris=5).
+  useEffect(() => {
+    if (!galleryIsColors) {
+      return
+    }
+
+    const index = requestedColorIndex < gallery.length ? requestedColorIndex : 0
+    setSelectedColorIndex(index)
+    setActiveImage(gallery[index] ?? null)
+  }, [gallery, galleryIsColors, requestedColorIndex])
+
+  const selectedGalleryColor = galleryIsColors
+    ? (galleryColors?.colors[selectedColorIndex] ?? null)
+    : null
+
+  const handleGalleryColorChange = (index: number) => {
+    if (!product) {
+      return
+    }
+
+    setSelectedColorIndex(index)
+    setActiveImage(gallery[index] ?? null)
+    setFeedback(null)
+
+    void router.replace(
+      index > 0 ? `/produit/${product.slug}?coloris=${index + 1}` : `/produit/${product.slug}`,
+      undefined,
+      { shallow: true, scroll: false },
+    )
+  }
 
   const availableSizes = useMemo(() => {
     if (!product) {
@@ -185,8 +239,8 @@ export const ProductPage = ({
     const productPath = `/produit/${encodeURIComponent(product.slug)}`
     const url = toAbsoluteUrl(productPath)
     const image = product.image_url
-      ? toAbsoluteUrl(product.image_url)
-      : toAbsoluteUrl('/products/chrysalide-nocturne-01.webp')
+      ? toAbsoluteUrl(stripColorTag(product.image_url))
+      : toAbsoluteUrl('/og-hotgyaal.png')
     const title = `${productMeta?.baseName ?? product.name} | HOTGYAAL`
     const description = trimMetaDescription(
       product.description ||
@@ -273,8 +327,43 @@ export const ProductPage = ({
     }
 
     const size = selectedSize || availableSizes[0] || 'Taille unique'
-    addToCart(product, size, quantity)
-    setFeedback('Ajoute au panier.')
+    const color = galleryIsColors
+      ? {
+          index: selectedColorIndex,
+          label: describeGalleryColor(selectedColorIndex, selectedGalleryColor?.name),
+          image_url: gallery[selectedColorIndex] ?? product.image_url ?? '',
+          hex: selectedGalleryColor?.hex ?? null,
+        }
+      : null
+
+    addToCart(product, size, quantity, color)
+    setFeedback(color ? `Ajouté au panier : ${color.label}, taille ${size}.` : 'Ajouté au panier.')
+  }
+
+  // Le lien partage garde le coloris affiche.
+  const currentProductPath = () =>
+    product && galleryIsColors && selectedColorIndex > 0
+      ? `/produit/${product.slug}?coloris=${selectedColorIndex + 1}`
+      : `/produit/${product?.slug ?? ''}`
+
+  const announceShare = (message: string) => {
+    setShareFeedback(message)
+    window.setTimeout(() => {
+      setShareFeedback(null)
+    }, 2600)
+  }
+
+  const handleCopyLink = async () => {
+    if (!product) {
+      return
+    }
+
+    const url = buildShareUrl(currentProductPath())
+    const copied = await copyToClipboard(url)
+
+    announceShare(
+      copied ? 'Lien copié.' : 'Copie impossible. Copiez le lien depuis la barre d’adresse.',
+    )
   }
 
   const handleShareProduct = async () => {
@@ -282,27 +371,28 @@ export const ProductPage = ({
       return
     }
 
-    const shareResult = await shareWithFallback({
-      title: product.name,
-      text: `Regarde cet article: ${product.name}`,
-      url: buildShareUrl(`/produit/${product.slug}`),
-    })
+    const url = buildShareUrl(currentProductPath())
+    const text = `Regarde cet article : ${product.name}`
 
-    if (shareResult === 'cancelled') {
-      return
+    /*
+     * Sur mobile, le menu de partage du systeme couvre WhatsApp, les SMS et le
+     * reste. Ailleurs il n'existe pas : on ouvre alors directement WhatsApp,
+     * qui est le canal de la boutique.
+     */
+    if (canUseNativeShare()) {
+      const shareResult = await shareWithFallback({ title: product.name, text, url })
+
+      if (shareResult === 'cancelled') {
+        return
+      }
+
+      if (shareResult === 'shared') {
+        announceShare('Article partagé.')
+        return
+      }
     }
 
-    setShareFeedback(
-      shareResult === 'shared'
-        ? 'Article partage.'
-        : shareResult === 'copied'
-          ? 'Lien copie.'
-          : 'Partage indisponible sur cet appareil.',
-    )
-
-    window.setTimeout(() => {
-      setShareFeedback(null)
-    }, 2600)
+    window.open(buildWhatsAppShareUrl(text, url), '_blank', 'noopener,noreferrer')
   }
 
   if (loading) {
@@ -361,7 +451,7 @@ export const ProductPage = ({
               <img
                 src={
                   activeImage ||
-                  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80'
+                  '/placeholder-produit.svg'
                 }
                 alt={product.name}
                 decoding="async"
@@ -369,7 +459,7 @@ export const ProductPage = ({
               />
             </div>
 
-            {gallery.length > 1 ? (
+            {gallery.length > 1 && !galleryIsColors ? (
               <div className="product-detail-v2__thumbs">
                 {gallery.map((imageUrl) => (
                   <button
@@ -403,22 +493,37 @@ export const ProductPage = ({
 
             {variants.length > 1 ? (
               <div className="variant-switcher">
-                <p className="variant-switcher__label">Coloris disponibles</p>
-                <div className="variant-switcher__list">
-                  {variants.map((variant) => {
-                    const meta = getProductVariantMeta(variant)
-                    return (
-                      <button
-                        type="button"
-                        key={variant.id}
-                        className={variant.id === product.id ? 'chip chip--active' : 'chip'}
-                        onClick={() => handleVariantChange(variant)}
-                      >
-                        {meta.color || 'Standard'}
-                      </button>
-                    )
-                  })}
-                </div>
+                <p className="variant-switcher__label">
+                  Coloris
+                  <span className="variant-switcher__current">
+                    {getProductVariantMeta(product).color || 'Standard'}
+                  </span>
+                </p>
+                <ColorSwatches
+                  variants={variants}
+                  activeId={product.id}
+                  onSelect={handleVariantChange}
+                  size="md"
+                />
+              </div>
+            ) : null}
+
+            {galleryIsColors ? (
+              <div className="variant-switcher">
+                <p className="variant-switcher__label">
+                  Coloris
+                  <span className="variant-switcher__current">
+                    {selectedColorIndex + 1} sur {gallery.length}
+                    {selectedGalleryColor?.name ? ` · ${selectedGalleryColor.name}` : ''}
+                  </span>
+                </p>
+                <GalleryColorPicker
+                  images={gallery}
+                  data={galleryColors}
+                  loading={galleryColorsLoading}
+                  activeIndex={selectedColorIndex}
+                  onSelect={handleGalleryColorChange}
+                />
               </div>
             ) : null}
 
@@ -439,17 +544,34 @@ export const ProductPage = ({
             </div>
 
             <div className="product-detail-v2__actions">
-              <label>
-                Quantite
+              <div className="quantity-stepper" role="group" aria-label="Quantité">
+                <button
+                  type="button"
+                  className="quantity-stepper__button"
+                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                  disabled={quantity <= 1}
+                  aria-label="Diminuer la quantité"
+                >
+                  &minus;
+                </button>
                 <input
                   type="number"
                   min={1}
                   value={quantity}
+                  aria-label="Quantité"
                   onChange={(event) =>
                     setQuantity(Math.max(1, Number(event.target.value) || 1))
                   }
                 />
-              </label>
+                <button
+                  type="button"
+                  className="quantity-stepper__button"
+                  onClick={() => setQuantity((value) => value + 1)}
+                  aria-label="Augmenter la quantité"
+                >
+                  +
+                </button>
+              </div>
               <button
                 type="button"
                 className="button"
@@ -458,13 +580,32 @@ export const ProductPage = ({
               >
                 {product.is_out_of_stock ? 'Rupture de stock' : 'Ajouter au panier'}
               </button>
-              <button type="button" className="button button--ghost" onClick={() => void handleShareProduct()}>
-                Partager l'article
+            </div>
+
+            <div className="product-detail-v2__links">
+              <button
+                type="button"
+                className="link-action"
+                onClick={() => void handleCopyLink()}
+              >
+                Copier le lien
               </button>
-              <Link href="/panier" className="button button--ghost">
-                Aller au panier
+              <button
+                type="button"
+                className="link-action"
+                onClick={() => void handleShareProduct()}
+              >
+                Envoyer
+              </button>
+              <Link href="/panier" className="link-action">
+                Voir mon panier
               </Link>
             </div>
+
+            <ul className="product-reassurance">
+              <li>Livraison partout au Sénégal</li>
+              <li>Conseil taille et couleur sur WhatsApp</li>
+            </ul>
 
             {feedback ? <p className="success-text">{feedback}</p> : null}
             {shareFeedback ? <p className="success-text">{shareFeedback}</p> : null}

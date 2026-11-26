@@ -3,15 +3,21 @@ import {
   useContext,
   useEffect,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import type { CartItem, Product } from '../types'
+import type { CartItem, Product, SelectedColor } from '../types'
 
 type CartContextValue = {
   items: CartItem[]
   totalItems: number
   subtotal: number
-  addToCart: (product: Product, selectedSize: string, quantity?: number) => void
+  addToCart: (
+    product: Product,
+    selectedSize: string,
+    quantity?: number,
+    selectedColor?: SelectedColor | null,
+  ) => void
   removeFromCart: (lineId: string) => void
   updateQuantity: (lineId: string, quantity: number) => void
   clearCart: () => void
@@ -40,8 +46,24 @@ const resolveSize = (product: Product, selectedSize?: string | null) => {
   return FALLBACK_SIZE
 }
 
-const getLineId = (productId: string, selectedSize: string) =>
-  `${productId}::${selectedSize.toLowerCase()}`
+const getLineId = (
+  productId: string,
+  selectedSize: string,
+  selectedColor?: SelectedColor | null,
+) =>
+  selectedColor
+    ? `${productId}::${selectedSize.toLowerCase()}::c${selectedColor.index}`
+    : `${productId}::${selectedSize.toLowerCase()}`
+
+const isSelectedColor = (value: unknown): value is SelectedColor => {
+  if (!value || typeof value !== 'object') return false
+  const color = value as SelectedColor
+  return (
+    typeof color.index === 'number' &&
+    typeof color.label === 'string' &&
+    typeof color.image_url === 'string'
+  )
+}
 
 const getInitialCart = (): CartItem[] => {
   if (typeof window === 'undefined') {
@@ -60,7 +82,7 @@ const getInitialCart = (): CartItem[] => {
     }
 
     const normalizedItems = parsed
-      .map((item) => {
+      .map((item): CartItem | null => {
         if (!item || typeof item !== 'object') {
           return null
         }
@@ -72,7 +94,10 @@ const getInitialCart = (): CartItem[] => {
         }
 
         const selectedSize = resolveSize(product, candidate.selected_size)
-        const lineId = candidate.line_id || getLineId(product.id, selectedSize)
+        const selectedColor = isSelectedColor(candidate.selected_color)
+          ? candidate.selected_color
+          : null
+        const lineId = candidate.line_id || getLineId(product.id, selectedSize, selectedColor)
         const quantity =
           typeof candidate.quantity === 'number' && candidate.quantity > 0
             ? candidate.quantity
@@ -82,8 +107,9 @@ const getInitialCart = (): CartItem[] => {
           line_id: lineId,
           product,
           selected_size: selectedSize,
+          selected_color: selectedColor,
           quantity,
-        } satisfies CartItem
+        }
       })
       .filter((item): item is CartItem => item !== null)
 
@@ -103,17 +129,38 @@ const getInitialCart = (): CartItem[] => {
   }
 }
 
+const subscribeToNothing = () => () => {}
+
 export function CartProvider({ children }: CartProviderProps) {
   const [items, setItems] = useState<CartItem[]>(getInitialCart)
+
+  /*
+   * Le panier vit dans le localStorage, donc absent du rendu serveur.
+   * Ce drapeau vaut false pendant l'hydratation et true ensuite : le premier
+   * rendu client reproduit ainsi exactement le HTML serveur (panier vide),
+   * ce qui evite l'erreur d'hydratation de React, puis le contenu apparait.
+   */
+  const hydrated = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  )
+
+  const visibleItems = hydrated ? items : []
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
   }, [items])
 
-  const addToCart = (product: Product, selectedSize: string, quantity = 1) => {
+  const addToCart = (
+    product: Product,
+    selectedSize: string,
+    quantity = 1,
+    selectedColor: SelectedColor | null = null,
+  ) => {
     const safeQuantity = Math.max(1, quantity)
     const size = resolveSize(product, selectedSize)
-    const lineId = getLineId(product.id, size)
+    const lineId = getLineId(product.id, size, selectedColor)
 
     setItems((current) => {
       const existingItem = current.find((item) => item.line_id === lineId)
@@ -132,6 +179,7 @@ export function CartProvider({ children }: CartProviderProps) {
           line_id: lineId,
           product,
           selected_size: size,
+          selected_color: selectedColor,
           quantity: safeQuantity,
         },
       ]
@@ -159,14 +207,14 @@ export function CartProvider({ children }: CartProviderProps) {
     setItems([])
   }
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
-  const subtotal = items.reduce(
+  const totalItems = visibleItems.reduce((sum, item) => sum + item.quantity, 0)
+  const subtotal = visibleItems.reduce(
     (sum, item) => sum + item.quantity * item.product.price,
     0,
   )
 
   const value: CartContextValue = {
-    items,
+    items: visibleItems,
     totalItems,
     subtotal,
     addToCart,

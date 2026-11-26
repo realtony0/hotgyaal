@@ -1,5 +1,4 @@
 import type { GetServerSideProps } from 'next'
-import { LOCAL_PRODUCTS } from '../src/data/localProducts'
 import { isSupabaseConfigured } from '../src/lib/supabase'
 import { listProducts } from '../src/services/products'
 import type { Product } from '../src/types'
@@ -15,6 +14,7 @@ type SitemapEntry = {
 const STATIC_ROUTES: SitemapEntry[] = [
   { loc: toAbsoluteUrl('/'), changefreq: 'daily', priority: 1.0 },
   { loc: toAbsoluteUrl('/boutique'), changefreq: 'daily', priority: 0.95 },
+  { loc: toAbsoluteUrl('/sport'), changefreq: 'daily', priority: 0.9 },
   { loc: toAbsoluteUrl('/contact'), changefreq: 'weekly', priority: 0.8 },
   { loc: toAbsoluteUrl('/faq'), changefreq: 'weekly', priority: 0.7 },
   { loc: toAbsoluteUrl('/cgv-retours'), changefreq: 'monthly', priority: 0.5 },
@@ -38,20 +38,20 @@ const parseIsoDate = (value: string) => {
   return date.toISOString()
 }
 
+/*
+ * Un plan de site incomplet vaut mieux qu'un plan qui reference des produits
+ * inexistants : si la base ne repond pas, on ne publie que les pages fixes.
+ */
 const resolveProducts = async (): Promise<Product[]> => {
   if (!isSupabaseConfigured) {
-    return LOCAL_PRODUCTS
+    return []
   }
 
   try {
-    const products = await listProducts({ forceFresh: true })
-    if (products.length) {
-      return products
-    }
-
-    return LOCAL_PRODUCTS
-  } catch {
-    return LOCAL_PRODUCTS
+    return await listProducts({ forceFresh: true })
+  } catch (error) {
+    console.error('[hotgyaal] plan de site sans produits', error)
+    return []
   }
 }
 

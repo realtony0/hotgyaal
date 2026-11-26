@@ -1,3 +1,13 @@
+-- MODELE DE SECURITE
+--
+-- Le navigateur ne fait que LIRE le catalogue (products, store_categories,
+-- store_settings) avec la cle publishable. Toute ecriture, et toute lecture de
+-- commande, passe par les routes serveur (/api/*) avec la cle service_role,
+-- qui contourne la RLS. Le public n'a donc AUCUN droit sur orders /
+-- order_items, et un droit de lecture seule ailleurs.
+--
+-- Pour un projet existant encore ouvert, appliquer supabase/secure_rls.sql.
+
 -- HOTGYAAL full setup: schema + seed
 
 create extension if not exists pgcrypto;
@@ -294,450 +304,65 @@ create policy "profiles_update_own_or_admin"
   using (id = auth.uid() or public.is_admin(auth.uid()))
   with check (id = auth.uid() or public.is_admin(auth.uid()));
 
-drop policy if exists "products_public_read" on public.products;
-create policy "products_public_read"
-  on public.products
-  for select
-  using (true);
+-- Modele de securite : le navigateur ne fait que LIRE le catalogue. Toute
+-- ecriture et toute lecture de commande passent par les routes serveur (/api/*)
+-- avec la cle service_role, qui contourne la RLS. Le public n'a donc aucun
+-- droit sur orders / order_items, et un droit de lecture seule ailleurs.
 
-drop policy if exists "products_admin_insert" on public.products;
+-- products : lecture publique seule
+drop policy if exists "products_public_read"   on public.products;
 drop policy if exists "products_public_insert" on public.products;
-create policy "products_public_insert"
-  on public.products
-  for insert
-  with check (true);
-
-drop policy if exists "products_admin_update" on public.products;
 drop policy if exists "products_public_update" on public.products;
-create policy "products_public_update"
-  on public.products
-  for update
-  using (true)
-  with check (true);
-
-drop policy if exists "products_admin_delete" on public.products;
 drop policy if exists "products_public_delete" on public.products;
-create policy "products_public_delete"
-  on public.products
-  for delete
-  using (true);
+drop policy if exists "products_admin_insert"  on public.products;
+drop policy if exists "products_admin_update"  on public.products;
+drop policy if exists "products_admin_delete"  on public.products;
+create policy "products_public_read"
+  on public.products for select using (true);
 
+-- store_categories : lecture publique seule
 drop policy if exists "store_categories_public_select" on public.store_categories;
-create policy "store_categories_public_select"
-  on public.store_categories
-  for select
-  using (true);
-
 drop policy if exists "store_categories_public_insert" on public.store_categories;
-create policy "store_categories_public_insert"
-  on public.store_categories
-  for insert
-  with check (true);
-
 drop policy if exists "store_categories_public_update" on public.store_categories;
-create policy "store_categories_public_update"
-  on public.store_categories
-  for update
-  using (true)
-  with check (true);
-
 drop policy if exists "store_categories_public_delete" on public.store_categories;
-create policy "store_categories_public_delete"
-  on public.store_categories
-  for delete
-  using (true);
+create policy "store_categories_public_read"
+  on public.store_categories for select using (true);
 
-drop policy if exists "orders_insert_public" on public.orders;
-create policy "orders_insert_public"
-  on public.orders
-  for insert
-  with check (true);
-
-drop policy if exists "orders_select_owner_or_admin" on public.orders;
-drop policy if exists "orders_public_select" on public.orders;
-create policy "orders_public_select"
-  on public.orders
-  for select
-  using (true);
-
-drop policy if exists "orders_update_admin" on public.orders;
-drop policy if exists "orders_public_update" on public.orders;
-create policy "orders_public_update"
-  on public.orders
-  for update
-  using (true)
-  with check (true);
-
-drop policy if exists "order_items_insert_public" on public.order_items;
-create policy "order_items_insert_public"
-  on public.order_items
-  for insert
-  with check (true);
-
-drop policy if exists "order_items_select_owner_or_admin" on public.order_items;
-drop policy if exists "order_items_public_select" on public.order_items;
-create policy "order_items_public_select"
-  on public.order_items
-  for select
-  using (true);
-
+-- store_settings : lecture publique seule
 drop policy if exists "store_settings_public_select" on public.store_settings;
-create policy "store_settings_public_select"
-  on public.store_settings
-  for select
-  using (true);
-
 drop policy if exists "store_settings_public_insert" on public.store_settings;
-create policy "store_settings_public_insert"
-  on public.store_settings
-  for insert
-  with check (true);
-
 drop policy if exists "store_settings_public_update" on public.store_settings;
-create policy "store_settings_public_update"
-  on public.store_settings
-  for update
-  using (true)
-  with check (true);
+create policy "store_settings_public_read"
+  on public.store_settings for select using (true);
+
+-- orders / order_items : aucun acces public (le serveur passe par service_role)
+drop policy if exists "orders_insert_public"           on public.orders;
+drop policy if exists "orders_public_select"           on public.orders;
+drop policy if exists "orders_public_update"           on public.orders;
+drop policy if exists "orders_public_delete"           on public.orders;
+drop policy if exists "orders_select_owner_or_admin"   on public.orders;
+drop policy if exists "orders_update_admin"            on public.orders;
+drop policy if exists "order_items_insert_public"         on public.order_items;
+drop policy if exists "order_items_public_select"         on public.order_items;
+drop policy if exists "order_items_public_delete"         on public.order_items;
+drop policy if exists "order_items_select_owner_or_admin" on public.order_items;
 
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
 
-drop policy if exists "product_images_public_read" on storage.objects;
-create policy "product_images_public_read"
-  on storage.objects
-  for select
-  to public
-  using (bucket_id = 'product-images');
-
-drop policy if exists "product_images_admin_insert" on storage.objects;
+-- storage.objects : lecture publique, pas d'ecriture publique (upload via /api)
+drop policy if exists "product_images_public_read"   on storage.objects;
 drop policy if exists "product_images_public_insert" on storage.objects;
-create policy "product_images_public_insert"
-  on storage.objects
-  for insert
-  to public
-  with check (bucket_id = 'product-images');
-
-drop policy if exists "product_images_admin_update" on storage.objects;
 drop policy if exists "product_images_public_update" on storage.objects;
-create policy "product_images_public_update"
-  on storage.objects
-  for update
-  to public
-  using (bucket_id = 'product-images')
-  with check (bucket_id = 'product-images');
-
-drop policy if exists "product_images_admin_delete" on storage.objects;
 drop policy if exists "product_images_public_delete" on storage.objects;
-create policy "product_images_public_delete"
-  on storage.objects
-  for delete
-  to public
+drop policy if exists "product_images_admin_insert"  on storage.objects;
+drop policy if exists "product_images_admin_update"  on storage.objects;
+drop policy if exists "product_images_admin_delete"  on storage.objects;
+create policy "product_images_public_read"
+  on storage.objects for select to public
   using (bucket_id = 'product-images');
 
-insert into public.products (
-  name,
-  slug,
-  description,
-  price,
-  compare_price,
-  stock,
-  main_category,
-  sub_category,
-  image_url,
-  gallery_urls,
-  sizes,
-  is_out_of_stock,
-  is_new,
-  is_best_seller
-)
-values
-  (
-    'Aura',
-    'aura',
-    'Robe féminine fluide, coupe élégante et tombé léger pour un look premium.',
-    25000,
-    32000,
-    20,
-    'Vêtements Femmes',
-    'Robes',
-    '/products/aura-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    true
-  ),
-  (
-    'Body Shaping Jumpsuit',
-    'body-shaping-jumpsuit',
-    'Body sculptant effet gainant, maintien confortable et coupe seconde peau.',
-    25000,
-    null,
-    18,
-    'Sous-vêtements & Pyjamas',
-    'Lingerie',
-    '/products/body-shaping-jumpsuit-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    false
-  ),
-  (
-    'Cape Celeste',
-    'cape-celeste',
-    'Cape élégante aux lignes épurées, parfaite pour une allure chic.',
-    28000,
-    34000,
-    16,
-    'Vêtements Femmes',
-    'Robes',
-    '/products/cape-celeste-01.webp',
-    array['/products/cape-celeste-02.webp', '/products/cape-celeste-03.webp'],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    true
-  ),
-  (
-    'Causal Pant Suit',
-    'causal-pant-suit',
-    'Ensemble tailoring casual, raffiné et facile à porter.',
-    30000,
-    null,
-    14,
-    'Vêtements Femmes',
-    'Tenues de sport',
-    '/products/causal-pant-suit-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    false,
-    false
-  ),
-  (
-    'Chrysalide Nocturne',
-    'chrysalide-nocturne',
-    'Robe sophistiquée aux reflets profonds, parfaite pour vos soirées.',
-    35000,
-    42000,
-    12,
-    'Vêtements Femmes',
-    'Robes',
-    '/products/chrysalide-nocturne-01.webp',
-    array['/products/chrysalide-nocturne-02.webp', '/products/chrysalide-nocturne-03.webp'],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    true
-  ),
-  (
-    'Combinaison de sport imprimé Leopard',
-    'combinaison-de-sport-imprime-leopard',
-    'Combinaison sport ultra stretch, imprimé tendance et confort total.',
-    22000,
-    null,
-    24,
-    'Vêtements Femmes',
-    'Tenues de sport',
-    '/products/combinaison-de-sport-imprime-leopard-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    false
-  ),
-  (
-    'Jean Déchiré Mi-Taille Pliée',
-    'jean-dechire-mi-taille-pliee',
-    'Jean denim tendance avec coupe moderne et détails déchirés.',
-    24000,
-    null,
-    20,
-    'Vêtements Femmes',
-    'Pantalons',
-    '/products/jean-dechire-mi-taille-pliee-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    false,
-    false
-  ),
-  (
-    'Jogging Set',
-    'jogging-set',
-    'Ensemble jogging doux, coupe confort et style urbain.',
-    26000,
-    32000,
-    18,
-    'Vêtements Femmes',
-    'Tenues de sport',
-    '/products/jogging-set-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    false,
-    true
-  ),
-  (
-    'Lumière d''Aube',
-    'lumiere-d-aube',
-    'Robe légère et lumineuse, parfaite pour une allure douce.',
-    27000,
-    null,
-    16,
-    'Vêtements Femmes',
-    'Robes',
-    '/products/lumiere-d-aube-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    false
-  ),
-  (
-    'Midnight Elegance',
-    'midnight-elegance',
-    'Ensemble top et pantalon ajusté pour un look evening moderne.',
-    36000,
-    null,
-    10,
-    'Vêtements Femmes',
-    'Pantalons',
-    '/products/midnight-elegance-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    true
-  ),
-  (
-    'Midnight Muse',
-    'midnight-muse',
-    'Pièce statement au tombé fluide, look premium assuré.',
-    34000,
-    40000,
-    12,
-    'Vêtements Femmes',
-    'Robes',
-    '/products/midnight-muse-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    true
-  ),
-  (
-    'Mint Cascade',
-    'mint-cascade',
-    'Combinaison pantalon pastel, coupe ajustée et allure chic.',
-    23000,
-    null,
-    22,
-    'Vêtements Femmes',
-    'Pantalons',
-    '/products/mint-cascade-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    false,
-    false
-  ),
-  (
-    'Pink Flower',
-    'pink-flower',
-    'Ensemble veste denim et jean coordonne pour un style casual premium.',
-    25000,
-    null,
-    20,
-    'Vêtements Femmes',
-    'Vestes',
-    '/products/pink-flower-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    false,
-    false
-  ),
-  (
-    'Skye',
-    'skye',
-    'Ensemble près du corps, confortable et adapté au style athleisure.',
-    26000,
-    null,
-    18,
-    'Vêtements Femmes',
-    'Tenues de sport',
-    '/products/skye-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    false,
-    false
-  ),
-  (
-    'Urban Wanderer',
-    'urban-wanderer',
-    'Combinaison pantalon élégante pour un style urbain affirmé.',
-    24000,
-    null,
-    24,
-    'Vêtements Femmes',
-    'Pantalons',
-    '/products/urban-wanderer-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    false,
-    false
-  ),
-  (
-    'Yoga Flow Short à manches courtes',
-    'yoga-flow-short-a-manches-courtes',
-    'Ensemble sport doux, respirant et parfaitement ajusté.',
-    22000,
-    28000,
-    26,
-    'Vêtements Femmes',
-    'Tenues de sport',
-    '/products/yoga-flow-short-a-manches-courtes-01.webp',
-    array['/products/yoga-flow-short-a-manches-courtes-02.webp', '/products/yoga-flow-short-a-manches-courtes-03.webp', '/products/yoga-flow-short-a-manches-courtes-04.webp', '/products/yoga-flow-short-a-manches-courtes-05.webp', '/products/yoga-flow-short-a-manches-courtes-06.webp', '/products/yoga-flow-short-a-manches-courtes-07.webp', '/products/yoga-flow-short-a-manches-courtes-08.webp', '/products/yoga-flow-short-a-manches-courtes-09.webp', '/products/yoga-flow-short-a-manches-courtes-10.webp'],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    true
-  ),
-  (
-    'Yoga Set',
-    'yoga-set',
-    'Ensemble yoga confort, maintien et style premium.',
-    21000,
-    null,
-    30,
-    'Vêtements Femmes',
-    'Tenues de sport',
-    '/products/yoga-set-01.webp',
-    array[]::text[],
-    array['S', 'M', 'L', 'XL'],
-    false,
-    true,
-    false
-  )
-on conflict (slug) do update
-set
-  name = excluded.name,
-  description = excluded.description,
-  price = excluded.price,
-  compare_price = excluded.compare_price,
-  stock = excluded.stock,
-  main_category = excluded.main_category,
-  sub_category = excluded.sub_category,
-  image_url = excluded.image_url,
-  gallery_urls = excluded.gallery_urls,
-  sizes = excluded.sizes,
-  is_out_of_stock = excluded.is_out_of_stock,
-  is_new = excluded.is_new,
-  is_best_seller = excluded.is_best_seller,
-  updated_at = now();
+-- Aucun produit de demonstration n'est insere ici : la boutique se
+-- remplit depuis le back-office, ou via scripts/import-catalogue.mjs a
+-- partir d'une sauvegarde.

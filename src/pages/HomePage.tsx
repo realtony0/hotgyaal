@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { EmptyState } from '../components/EmptyState'
 import { ProductCard } from '../components/ProductCard'
+import { isSportProduct } from '../constants/universes'
 import { useStoreCategories } from '../context/StoreCategoriesContext'
 import { useStoreSettings } from '../context/StoreSettingsContext'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured, resolveCatalogErrorMessage } from '../lib/supabase'
 import { listProducts } from '../services/products'
-import type { Product } from '../types'
+import type { Product, StoreCategory } from '../types'
 import { groupProductsForStorefront } from '../utils/products'
 
 type HeroSlide = {
@@ -15,42 +17,37 @@ type HeroSlide = {
   href: string
 }
 
-const FALLBACK_HERO_SLIDES: HeroSlide[] = [
-  {
-    id: 'fallback-1',
-    title: 'Looks femme qui marquent vite',
-    imageUrl: '/products/chrysalide-nocturne-01.webp',
-    href: '/boutique',
-  },
-  {
-    id: 'fallback-2',
-    title: 'Tenues premium prêtes à commander',
-    imageUrl: '/products/cape-celeste-01.webp',
-    href: '/boutique?categorie=V%C3%AAtements%20Femmes',
-  },
-]
+type HomeCategory = {
+  key: string
+  name: string
+  description: string
+  href: string
+  imageUrl: string
+  products: Product[]
+  total: number
+}
 
 const HERO_ROTATION_MS = 4200
-
-const FALLBACK_QUICK_CATEGORIES = [
-  { label: 'Vetements Femmes', href: '/boutique?categorie=V%C3%AAtements%20Femmes' },
-  { label: 'Bijoux & Accessoires', href: '/boutique?categorie=Bijoux%20%26%20Accessoires' },
-  { label: 'Chaussures', href: '/boutique?categorie=Chaussures' },
-  { label: 'Telephone & Accessoires', href: '/boutique?categorie=T%C3%A9l%C3%A9phone%20%26%20Accessoires' },
-  { label: 'Sacs & Bagages', href: '/boutique?categorie=Sacs%20%26%20Bagages' },
-  { label: 'Sous-vetements & Pyjamas', href: '/boutique?categorie=Sous-v%C3%AAtements%20%26%20Pyjamas' },
-  { label: 'Home & Living', href: '/boutique?categorie=Home%20%26%20Living' },
-  { label: 'Beaute', href: '/boutique?categorie=Beaut%C3%A9' },
-]
+const PRODUCTS_PER_SECTION = 6
+const NEW_DROPS_COUNT = 8
 
 const clampWords = (value: string, limit: number) => {
   const words = value.trim().split(/\s+/)
   return words.slice(0, limit).join(' ')
 }
 
+/* Les populaires d'abord, puis les plus recentes. */
+const popularFirst = (products: Product[]) => [
+  ...products.filter((product) => product.is_best_seller),
+  ...products.filter((product) => !product.is_best_seller),
+]
+
+const categoryHref = (category: StoreCategory) =>
+  `/boutique?categorie=${encodeURIComponent(category.name)}`
+
 export const HomePage = () => {
   const { settings } = useStoreSettings()
-  const { categories, loading: loadingCategories } = useStoreCategories()
+  const { categories } = useStoreCategories()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,9 +57,7 @@ export const HomePage = () => {
     const loadProducts = async () => {
       if (!isSupabaseConfigured) {
         setProducts([])
-        setError(
-          "Supabase n'est pas configure. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-        )
+        setError(resolveCatalogErrorMessage('Supabase non configure'))
         setLoading(false)
         return
       }
@@ -74,11 +69,7 @@ export const HomePage = () => {
         setError(null)
       } catch (loadError) {
         setProducts([])
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Impossible de charger les produits depuis Supabase.',
-        )
+        setError(resolveCatalogErrorMessage(loadError))
       } finally {
         setLoading(false)
       }
@@ -92,30 +83,18 @@ export const HomePage = () => {
     [products],
   )
 
-  const newDrops = useMemo(
-    () => sortedProducts.filter((product) => product.is_new).slice(0, 8),
-    [sortedProducts],
-  )
+  const newDrops = useMemo(() => sortedProducts.slice(0, NEW_DROPS_COUNT), [sortedProducts])
 
-  const bestSellers = useMemo(() => {
-    const list = sortedProducts.filter((product) => product.is_best_seller)
-    return (list.length ? list : sortedProducts).slice(0, 8)
-  }, [sortedProducts])
-
-  const heroSlides = useMemo<HeroSlide[]>(() => {
-    const fromProducts = (newDrops.length ? newDrops : sortedProducts)
-      .slice(0, 4)
-      .map((product) => ({
+  const heroSlides = useMemo<HeroSlide[]>(
+    () =>
+      (newDrops.length ? newDrops : sortedProducts).slice(0, 4).map((product) => ({
         id: product.id,
         title: clampWords(product.name, 6),
-        imageUrl:
-          product.image_url ||
-          'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80',
+        imageUrl: product.image_url || '/placeholder-produit.svg',
         href: `/produit/${product.slug}`,
-      }))
-
-    return fromProducts.length ? fromProducts : FALLBACK_HERO_SLIDES
-  }, [newDrops, sortedProducts])
+      })),
+    [newDrops, sortedProducts],
+  )
 
   useEffect(() => {
     if (heroSlides.length <= 1) {
@@ -139,24 +118,63 @@ export const HomePage = () => {
     setActiveHeroIndex(0)
   }, [activeHeroIndex, heroSlides.length])
 
-  const activeHero = heroSlides[activeHeroIndex] ?? heroSlides[0]
+  const activeHero = heroSlides[activeHeroIndex] ?? heroSlides[0] ?? null
 
-  const activeCategories = useMemo(
-    () => categories.filter((category) => category.is_active).slice(0, 6),
-    [categories],
-  )
+  /*
+   * Tout l'accueil est organise par categorie : les tenues de sport (une
+   * sous-categorie en base, mais 40 % du catalogue) ont leur propre entree,
+   * puis chaque categorie active qui a des produits. Les produits de sport ne
+   * reapparaissent pas dans "Vetements Femmes".
+   */
+  const homeCategories = useMemo<HomeCategory[]>(() => {
+    const entries: HomeCategory[] = []
 
-  const quickCategories = useMemo(() => {
-    const fromStore = categories
+    const sport = popularFirst(sortedProducts.filter(isSportProduct))
+    if (sport.length) {
+      entries.push({
+        key: 'sport',
+        name: 'Tenues de sport',
+        description: 'Ensembles, leggings, brassières, shorts et vestes.',
+        href: '/sport',
+        imageUrl: sport.find((product) => product.image_url)?.image_url || '/placeholder-produit.svg',
+        products: sport.slice(0, PRODUCTS_PER_SECTION),
+        total: sport.length,
+      })
+    }
+
+    categories
       .filter((category) => category.is_active)
-      .slice(0, 8)
-      .map((category) => ({
-        label: category.name,
-        href: `/boutique?categorie=${encodeURIComponent(category.name)}`,
-      }))
+      .forEach((category) => {
+        const own = popularFirst(
+          sortedProducts.filter(
+            (product) =>
+              product.main_category.trim().toLowerCase() ===
+                category.name.trim().toLowerCase() && !isSportProduct(product),
+          ),
+        )
 
-    return fromStore.length ? fromStore : FALLBACK_QUICK_CATEGORIES
-  }, [categories])
+        if (!own.length) {
+          return
+        }
+
+        entries.push({
+          key: category.id,
+          name: category.name,
+          description: category.description,
+          href: categoryHref(category),
+          // Les categories n'ont pas toutes une image en base : on emprunte
+          // alors la photo d'un produit plutot que d'afficher un cadre vide.
+          imageUrl:
+            category.image_url ||
+            own.find((product) => product.image_url)?.image_url ||
+            '/placeholder-produit.svg',
+          products: own.slice(0, PRODUCTS_PER_SECTION),
+          total: own.length,
+        })
+      })
+
+    return entries
+  }, [categories, sortedProducts])
 
   const loadingSkeletons = useMemo(
     () => Array.from({ length: 6 }, (_, index) => `skeleton-${index}`),
@@ -165,6 +183,15 @@ export const HomePage = () => {
 
   return (
     <div className="home-v2 home-v2--mobile-first">
+      {loading ? (
+        <section className="hero-convert">
+          <div className="container">
+            <div className="hero-convert__placeholder" aria-hidden="true" />
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && activeHero ? (
       <section className="hero-convert">
         <div className="container">
           <article className="hero-convert__slide" key={activeHero.id}>
@@ -176,11 +203,11 @@ export const HomePage = () => {
             />
 
             <div className="hero-convert__overlay">
-              <p className="hero-convert__kicker">NEW IN</p>
+              <p className="hero-convert__kicker">Nouveautés</p>
               <h1>{activeHero.title}</h1>
 
               <Link href={activeHero.href} className="button hero-convert__cta">
-                Shop now
+                Découvrir
               </Link>
             </div>
           </article>
@@ -198,35 +225,17 @@ export const HomePage = () => {
           </div>
 
           <div className="hero-convert__meta">
-            <span>Livraison partout au Senegal</span>
+            <span>Livraison partout au Sénégal</span>
           </div>
         </div>
       </section>
-
-      <section className="section section--quick-categories">
-        <div className="container">
-          <div className="section__header section__header--v2">
-            <div>
-              <p className="eyebrow">Shop rapide</p>
-              <h2>Choisissez votre univers</h2>
-            </div>
-          </div>
-
-          <div className="quick-categories" role="navigation" aria-label="Acces rapide categories">
-            {quickCategories.map((item) => (
-              <Link key={item.label} href={item.href} className="quick-category-pill">
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      ) : null}
 
       <section className="section section-v2">
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">New in</p>
+              <p className="eyebrow">Nouveautés</p>
               <h2>Les pièces à prendre vite</h2>
             </div>
             <Link href="/boutique">Tout voir</Link>
@@ -242,7 +251,11 @@ export const HomePage = () => {
 
           {!loading && error ? <p className="error-text">{error}</p> : null}
           {!loading && !error && newDrops.length === 0 ? (
-            <p>Aucun produit disponible pour le moment.</p>
+            <EmptyState
+              title="La collection arrive"
+              description="Les premières pièces sont en cours de préparation. Écrivez-nous sur WhatsApp pour être prévenue dès leur mise en ligne."
+              action={{ label: 'Nous contacter', href: '/contact' }}
+            />
           ) : null}
 
           {!loading && !error ? (
@@ -255,76 +268,78 @@ export const HomePage = () => {
         </div>
       </section>
 
-      <section className="section section-v2 section-v2--soft">
-        <div className="container">
-          <div className="section__header section__header--v2">
-            <div>
-              <p className="eyebrow">Tendance au Sénégal</p>
-              <h2>Les plus commandés à Dakar</h2>
-            </div>
-            <Link href="/boutique">Voir la boutique</Link>
-          </div>
-
-          {loading ? (
-            <div className="product-grid product-grid--home-compact">
-              {loadingSkeletons.map((key) => (
-                <div key={`best-${key}`} className="product-skeleton-card" aria-hidden="true" />
-              ))}
-            </div>
-          ) : null}
-
-          {!loading && !error ? (
-            <div className="product-grid product-grid--home-compact stagger-grid">
-              {bestSellers.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
-
+      {homeCategories.length ? (
       <section className="section section-v2 section-v2--categories">
         <div className="container">
           <div className="section__header section__header--v2">
             <div>
-              <p className="eyebrow">Categories</p>
-              <h2>Decouvrez nos univers</h2>
+              <p className="eyebrow">Catégories</p>
+              <h2>Découvrez nos univers</h2>
             </div>
             <Link href="/boutique">Catalogue complet</Link>
           </div>
 
           <div className="category-grid-v2">
-            {activeCategories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/boutique?categorie=${encodeURIComponent(category.name)}`}
-                className="category-card-v2"
-              >
+            {homeCategories.map((category) => (
+              <Link key={category.key} href={category.href} className="category-card-v2">
                 <div className="category-card-v2__media">
-                  <img
-                    src={
-                      category.image_url ||
-                      'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80'
-                    }
-                    alt={category.name}
-                    loading="lazy"
-                  />
+                  <img src={category.imageUrl} alt={category.name} loading="lazy" />
                 </div>
                 <div className="category-card-v2__body">
                   <h3>{category.name}</h3>
                   <p>{category.description}</p>
+                  <span>{category.total} article{category.total > 1 ? 's' : ''}</span>
                 </div>
               </Link>
             ))}
           </div>
-
-          {loadingCategories ? <p>Chargement des categories...</p> : null}
         </div>
       </section>
+      ) : null}
+
+      {homeCategories.map((category, index) => (
+        <section
+          key={category.key}
+          id={`categorie-${category.key}`}
+          className={
+            index % 2 === 0 ? 'section section-v2 section-v2--soft' : 'section section-v2'
+          }
+        >
+          <div className="container">
+            <div className="section__header section__header--v2">
+              <div>
+                <p className="eyebrow">Catégorie</p>
+                <h2>{category.name}</h2>
+                {category.description ? (
+                  <p className="section__description">{category.description}</p>
+                ) : null}
+              </div>
+              <Link href={category.href}>Tout voir ({category.total})</Link>
+            </div>
+
+            <div className="product-grid product-grid--home-compact stagger-grid">
+              {category.products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </div>
+        </section>
+      ))}
 
       <section className="section section-v2 section-v2--service-note">
-        <div className="container service-note-band">
-          <p>{settings.hero_description}</p>
+        <div className="container">
+          <p className="service-note-lead">{settings.hero_description}</p>
+
+          <ul className="service-promises">
+            <li>
+              <strong>Livraison partout au Sénégal</strong>
+              <span>Dakar et régions, suivi assuré jusqu&apos;à la remise.</span>
+            </li>
+            <li>
+              <strong>Conseil sur WhatsApp</strong>
+              <span>Une question de taille ou de coloris ? On vous répond dans la journée.</span>
+            </li>
+          </ul>
         </div>
       </section>
     </div>

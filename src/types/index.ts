@@ -25,6 +25,11 @@ export type Product = {
   is_best_seller: boolean
   created_at: string
   updated_at: string
+  /**
+   * Declinaisons de couleur regroupees sous cette fiche pour la vitrine
+   * (voir groupProductsForStorefront). Absent sur une fiche brute.
+   */
+  variants?: Product[]
 }
 
 export type ProductPayload = {
@@ -67,10 +72,22 @@ export type StoreCategoryPayload = {
   display_order: number
 }
 
+/** Coloris choisi parmi les photos de la galerie d'un produit. */
+export type SelectedColor = {
+  /** Position de la photo dans la galerie (0 = photo principale) */
+  index: number
+  /** Libelle envoye avec la commande, ex. "Coloris 5 (Rouge)" */
+  label: string
+  /** Photo du coloris, montree dans le panier et jointe au message WhatsApp */
+  image_url: string
+  hex?: string | null
+}
+
 export type CartItem = {
   line_id: string
   product: Product
   selected_size: string
+  selected_color?: SelectedColor | null
   quantity: number
 }
 

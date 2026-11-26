@@ -1,7 +1,25 @@
 import { getSupabase } from '../lib/supabase'
+import { getProductVariantMeta } from '../utils/products'
+import { compressImageFile } from '../utils/image'
+import { adminFetch } from './adminApi'
+import { StorageNotConfiguredError, uploadToR2 } from './storage'
 import type { Product, ProductPayload } from '../types'
 
 const PRODUCT_BUCKET = 'product-images'
+
+/*
+ * Colonnes chargees pour les grilles. La galerie n'y sert jamais - seule la
+ * fiche produit l'affiche - et elle pese pres de 15 % de la reponse. La retirer
+ * allege chaque chargement de page, ce qui compte sur une connexion mobile.
+ */
+/*
+ * Un nom de produit peut contenir % ou _, qui sont les jokers de LIKE.
+ * Sans echappement, "100% coton" ramenerait n'importe quoi.
+ */
+const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, '\\$&')
+
+const LIST_COLUMNS =
+  'id,name,slug,description,price,compare_price,stock,main_category,sub_category,image_url,sizes,is_out_of_stock,is_new,is_best_seller,created_at,updated_at'
 const DEFAULT_SIZE = 'Taille unique'
 const PRODUCT_CACHE_KEY = 'hotgyaal_products_cache_v1'
 const PRODUCT_CACHE_TTL_MS = 1000 * 60 * 10
@@ -149,7 +167,7 @@ export const listProducts = async (
   const client = getSupabase()
   const { data, error } = await client
     .from('products')
-    .select('*')
+    .select(LIST_COLUMNS)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -172,59 +190,127 @@ export const listProducts = async (
   }
 }
 
+/*
+ * Catalogue complet pour l'administration, galeries comprises.
+ *
+ * Les listes de la boutique se passent des galeries pour rester legeres. Le
+ * back-office, lui, en a besoin : enregistrer une fiche chargee sans sa
+ * galerie effacerait ses photos de coloris. Pas de cache non plus, pour
+ * toujours repartir de l'etat reel de la base.
+ */
+export const listProductsForAdmin = async (): Promise<Product[]> => {
+  const { data, error } = await getSupabase()
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return ((data ?? []) as Product[]).map(normalizeProduct)
+}
+
 export const getProductBySlug = async (slug: string): Promise<Product | null> => {
   const normalizedSlug = slug.trim().toLowerCase()
   if (!normalizedSlug) {
     return null
   }
 
-  const products = await listProducts()
-  return (
-    products.find((product) => product.slug.trim().toLowerCase() === normalizedSlug) ??
-    null
-  )
+  const client = getSupabase()
+  const { data, error } = await client
+    .from('products')
+    .select('*')
+    .eq('slug', normalizedSlug)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data ? normalizeProduct(data as Product) : null
+}
+
+/**
+ * Fiche produit et ses declinaisons de couleur, en deux requetes ciblees.
+ *
+ * Les variantes se reconnaissent au nom : "Top Azur - Noir" et
+ * "Top Azur - Blanc" partagent la base "Top Azur". On interroge donc ce
+ * prefixe plutot que de charger les 600 fiches du catalogue pour en retenir
+ * deux ou trois.
+ */
+export const getProductWithVariants = async (
+  slug: string,
+): Promise<{ product: Product | null; variants: Product[] }> => {
+  const product = await getProductBySlug(slug)
+  if (!product) {
+    return { product: null, variants: [] }
+  }
+
+  const { baseName } = getProductVariantMeta(product)
+  const client = getSupabase()
+
+  const { data, error } = await client
+    .from('products')
+    .select('*')
+    .eq('main_category', product.main_category)
+    .ilike('name', `${escapeLikePattern(baseName)}%`)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    // Une variante manquante ne doit pas empecher d'afficher la fiche.
+    console.error('[hotgyaal] chargement des déclinaisons impossible', error)
+    return { product, variants: [product] }
+  }
+
+  // `ilike` ramene aussi les noms qui commencent pareil sans etre des
+  // declinaisons ("Top Azur Long" face a "Top Azur") : on ne garde que
+  // celles dont la base correspond exactement.
+  const variants = ((data ?? []) as Product[])
+    .map(normalizeProduct)
+    .filter((candidate) => getProductVariantMeta(candidate).baseName === baseName)
+
+  return { product, variants: variants.length ? variants : [product] }
 }
 
 export const upsertProduct = async (
   payload: ProductPayload,
   productId?: string,
 ): Promise<Product> => {
-  const client = getSupabase()
-
-  const query = productId
-    ? client.from('products').update(payload).eq('id', productId)
-    : client.from('products').insert(payload)
-
-  const { data, error } = await query.select().single()
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const normalized = normalizeProduct(data as Product)
+  const { product } = await adminFetch<{ product: Product }>('/api/admin/products', {
+    method: 'POST',
+    body: JSON.stringify({ payload, id: productId }),
+  })
   clearProductsCache()
-  return normalized
+  return normalizeProduct(product)
 }
 
 export const removeProduct = async (productId: string): Promise<void> => {
-  const client = getSupabase()
-  const { error } = await client.from('products').delete().eq('id', productId)
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
+  await adminFetch('/api/admin/products', {
+    method: 'DELETE',
+    body: JSON.stringify({ id: productId }),
+  })
   clearProductsCache()
 }
 
 export const uploadProductImage = async (file: File): Promise<string> => {
+  try {
+    return await uploadToR2(file, 'products')
+  } catch (error) {
+    // Repli sur le stockage Supabase tant que R2 n'est pas configure.
+    if (!(error instanceof StorageNotConfiguredError)) {
+      throw error
+    }
+  }
+
   const client = getSupabase()
-  const extension = file.name.split('.').pop() ?? 'jpg'
+  const optimized = await compressImageFile(file)
+  const extension = optimized.name.split('.').pop() ?? 'jpg'
   const filePath = `products/${createFileToken()}.${extension}`
 
   const { error: uploadError } = await client.storage
     .from(PRODUCT_BUCKET)
-    .upload(filePath, file, {
+    .upload(filePath, optimized, {
       upsert: false,
       cacheControl: '3600',
     })

@@ -1,77 +1,65 @@
-import { getSupabase } from '../lib/supabase'
+import { adminFetch } from './adminApi'
 import type { CheckoutPayload, Order, OrderStatus } from '../types'
 
 export const listOrders = async (): Promise<Order[]> => {
-  const client = getSupabase()
-  const { data, error } = await client
-    .from('orders')
-    .select('*, order_items(*)')
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return (data ?? []) as Order[]
+  const { orders } = await adminFetch<{ orders: Order[] }>('/api/admin/orders')
+  return orders
 }
 
 export const createOrder = async (payload: CheckoutPayload): Promise<Order> => {
-  const client = getSupabase()
-
   if (!payload.items.length) {
     throw new Error('Le panier est vide.')
   }
 
-  const totalAmount = payload.items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
-    0,
-  )
+  const response = await fetch('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: payload.userId ?? null,
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone ?? null,
+      shippingAddress: payload.shippingAddress,
+      items: payload.items.map((item) => ({
+        product_id: item.product.id,
+        product_name: item.product.name,
+        // Le coloris voyage avec la taille : la table order_items n'a pas de
+        // colonne dediee, et l'administration affiche ce champ tel quel.
+        selected_size: item.selected_color
+          ? `${item.selected_size} · ${item.selected_color.label}`
+          : item.selected_size,
+        quantity: item.quantity,
+      })),
+    }),
+  })
 
-  const { data: order, error: orderError } = await client
-    .from('orders')
-    .insert({
-      user_id: payload.userId ?? null,
-      customer_name: payload.customerName,
-      customer_email: payload.customerEmail,
-      customer_phone: payload.customerPhone ?? null,
-      shipping_address: payload.shippingAddress,
-      total_amount: totalAmount,
-      status: 'pending' as OrderStatus,
-    })
-    .select('*')
-    .single()
+  const data = (await response.json().catch(() => null)) as
+    | { order?: Order; error?: string }
+    | null
 
-  if (orderError) {
-    throw new Error(orderError.message)
+  if (!response.ok || !data?.order) {
+    throw new Error(
+      data?.error ||
+        "Votre commande n'a pas pu etre enregistree pour le moment. Merci de reessayer dans quelques instants ou de nous contacter directement.",
+    )
   }
 
-  const orderItems = payload.items.map((item) => ({
-    order_id: order.id,
-    product_id: item.product.id,
-    product_name: item.product.name,
-    selected_size: item.selected_size,
-    unit_price: item.product.price,
-    quantity: item.quantity,
-    subtotal: item.quantity * item.product.price,
-  }))
-
-  const { error: itemsError } = await client.from('order_items').insert(orderItems)
-
-  if (itemsError) {
-    throw new Error(itemsError.message)
-  }
-
-  return order as Order
+  return data.order
 }
 
 export const updateOrderStatus = async (
   orderId: string,
   status: OrderStatus,
 ): Promise<void> => {
-  const client = getSupabase()
-  const { error } = await client.from('orders').update({ status }).eq('id', orderId)
+  await adminFetch('/api/admin/orders', {
+    method: 'PATCH',
+    body: JSON.stringify({ id: orderId, status }),
+  })
+}
 
-  if (error) {
-    throw new Error(error.message)
-  }
+export const removeOrder = async (orderId: string): Promise<void> => {
+  await adminFetch('/api/admin/orders', {
+    method: 'DELETE',
+    body: JSON.stringify({ id: orderId }),
+  })
 }
