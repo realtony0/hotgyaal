@@ -5150,3 +5150,56 @@ body {
   font-size: 0.8rem;
   white-space: nowrap;
 }
+
+/*
+ * Cartes produit un peu plus grandes (accueil et boutique).
+ * Telephone : marges laterales reduites, photo plus haute, texte plus lisible.
+ * Ordinateur : 3 articles par ligne au lieu de 4.
+ */
+@media (max-width: 1024px), (hover: none) and (pointer: coarse) {
+  .section-v2 > .container,
+  .shop-v2 > .container {
+    width: calc(100% - 1.2rem);
+  }
+
+  .product-grid.product-grid--home-compact,
+  .product-grid.product-grid--shop-mobile {
+    gap: 0.6rem;
+  }
+
+  .product-grid--home-compact .product-card-v2--commerce .product-card-v2__media img,
+  .product-grid--shop-mobile .product-card-v2--commerce .product-card-v2__media img {
+    aspect-ratio: 3 / 4;
+  }
+
+  .product-grid--home-compact .product-card-v2--commerce .product-card-v2__body,
+  .product-grid--shop-mobile .product-card-v2--commerce .product-card-v2__body {
+    padding: 0.6rem;
+    gap: 0.3rem;
+  }
+
+  .product-grid--home-compact .product-card-v2--commerce .product-card-v2__title,
+  .product-grid--shop-mobile .product-card-v2--commerce .product-card-v2__title {
+    font-size: 0.9rem;
+    line-height: 1.25;
+  }
+
+  .product-grid--home-compact .product-card-v2--commerce .product-card-v2__price strong,
+  .product-grid--shop-mobile .product-card-v2--commerce .product-card-v2__price strong {
+    font-size: 1rem;
+  }
+
+  .product-grid--home-compact .product-card-v2__add,
+  .product-grid--shop-mobile .product-card-v2__add {
+    min-height: 40px;
+    font-size: 0.6rem;
+  }
+}
+
+@media (min-width: 1025px) and (hover: hover) and (pointer: fine) {
+  .product-grid.product-grid--home-compact,
+  .product-grid.product-grid--shop-mobile {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.2rem;
+  }
+}
