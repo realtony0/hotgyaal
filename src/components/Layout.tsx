@@ -469,22 +469,9 @@ export const Layout = ({ children }: LayoutProps) => {
       price: product.price,
     })
 
+    // Champ vide : aucune suggestion, elles n'apparaissent qu'en tapant.
     if (!query) {
-      const categories = menuCategories.slice(0, MAX_CATEGORY_SUGGESTIONS).map<SearchSuggestion>(
-        (group) => ({
-          key: `category-${group.href}`,
-          label: group.label,
-          hint: 'Catégorie',
-          href: group.href,
-          kind: 'category',
-        }),
-      )
-      const popular = searchableProducts
-        .filter((product) => product.is_best_seller && !product.is_out_of_stock)
-        .slice(0, 4)
-        .map(toProductSuggestion)
-
-      return [...categories, ...popular]
+      return []
     }
 
     const { results, usedQuery, exact } = searchCatalogueWithFallback(searchEntries, query)
@@ -519,13 +506,7 @@ export const Layout = ({ children }: LayoutProps) => {
     }
 
     return [...categories, ...products, seeAll]
-  }, [
-    menuCategories,
-    searchEntries,
-    searchInput,
-    searchableCategories,
-    searchableProducts,
-  ])
+  }, [searchEntries, searchInput, searchableCategories])
 
   const activeSuggestionIndex =
     highlightedSuggestionIndex < searchSuggestions.length ? highlightedSuggestionIndex : -1
@@ -796,13 +777,11 @@ export const Layout = ({ children }: LayoutProps) => {
               </button>
             </form>
 
-            <p className="search-overlay__hint">
-              {searchInput.trim()
-                ? searchableProducts.length
-                  ? 'Suggestions'
-                  : 'Chargement du catalogue…'
-                : 'Catégories et articles populaires'}
-            </p>
+            {searchInput.trim() ? (
+              <p className="search-overlay__hint">
+                {searchableProducts.length ? 'Suggestions' : 'Chargement du catalogue…'}
+              </p>
+            ) : null}
 
             <div className="search-overlay__results">
               {searchSuggestions.map((suggestion, index) => (
