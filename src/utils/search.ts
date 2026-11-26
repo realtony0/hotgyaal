@@ -182,30 +182,16 @@ export const highlightMatches = (label: string, query: string): HighlightPart[] 
   return parts
 }
 
-/* Recherches recentes, gardees sur l'appareil de la cliente. */
+/*
+ * La boutique ne garde plus d'historique de recherche. Les versions
+ * precedentes en enregistraient un sur l'appareil : on l'efface.
+ */
 const RECENT_KEY = 'hotgyaal_recent_searches'
-const RECENT_LIMIT = 5
 
-export const readRecentSearches = (): string[] => {
+export const forgetRecentSearches = () => {
   try {
-    const raw = window.localStorage.getItem(RECENT_KEY)
-    const parsed = raw ? (JSON.parse(raw) as unknown) : []
-    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string').slice(0, RECENT_LIMIT) : []
+    window.localStorage.removeItem(RECENT_KEY)
   } catch {
-    return []
-  }
-}
-
-export const rememberSearch = (query: string) => {
-  const value = query.trim()
-  if (value.length < 2) return
-  try {
-    const next = [
-      value,
-      ...readRecentSearches().filter((item) => normalizeSearchText(item) !== normalizeSearchText(value)),
-    ].slice(0, RECENT_LIMIT)
-    window.localStorage.setItem(RECENT_KEY, JSON.stringify(next))
-  } catch {
-    // stockage indisponible (navigation privee) : sans consequence
+    // stockage indisponible (navigation privee) : rien a effacer
   }
 }
