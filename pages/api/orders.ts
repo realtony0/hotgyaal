@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { getSupabase, isSupabaseConfigured } from '../../src/lib/supabase'
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../../src/lib/supabaseAdmin'
 import type { CartItem, OrderStatus, ShippingAddress } from '../../src/types'
 
@@ -62,7 +63,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Méthode non autorisée.' })
   }
-  if (!isSupabaseAdminConfigured) {
+  /*
+   * Cle de service absente (variable Vercel pas encore posee) : on ne bloque
+   * pas les ventes. Tant que supabase/secure_rls.sql n'a pas ete execute, la
+   * base accepte encore les commandes passees avec la cle publique ; on s'en
+   * sert en secours. Une fois la cle posee, c'est elle qui sert.
+   */
+  if (!isSupabaseAdminConfigured && !isSupabaseConfigured) {
     return res.status(501).json({ error: 'Service non configuré.' })
   }
 
@@ -76,7 +83,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Le nom est requis.' })
   }
 
-  const db = getSupabaseAdmin()
+  const db = isSupabaseAdminConfigured ? getSupabaseAdmin() : getSupabase()
+  if (!isSupabaseAdminConfigured) {
+    console.warn('[hotgyaal] SUPABASE_SERVICE_ROLE_KEY absente : commande enregistree avec la cle publique')
+  }
 
   // Les prix viennent de la base, pas du navigateur : un client ne fixe pas
   // le montant de sa commande.
