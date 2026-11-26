@@ -17,12 +17,7 @@ import { useStoreSettings } from '../context/StoreSettingsContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { listProducts } from '../services/products'
 import type { Product } from '../types'
-import {
-  SPORT_FAMILIES,
-  SPORT_SUB_CATEGORY,
-  getSportFamily,
-  isSportProduct,
-} from '../constants/universes'
+import { SPORT_SUB_CATEGORY } from '../constants/universes'
 import { formatCurrency } from '../utils/format'
 import { groupProductsForStorefront } from '../utils/products'
 import {
@@ -271,59 +266,44 @@ export const Layout = ({ children }: LayoutProps) => {
     ? 'noindex, nofollow, noarchive'
     : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
 
-  // Toutes les categories, dans le menu : les tenues de sport d'abord.
   /*
-   * Toutes les categories, dans le menu : les tenues de sport d'abord. Chacune
-   * se deplie sur ses sous-categories (ses familles, pour le sport). Une fois
-   * le catalogue charge, on masque celles qui n'ont aucun article.
+   * Toutes les categories, dans le menu. Chacune se deplie sur ses
+   * sous-categories ; une fois le catalogue charge, on masque celles qui n'ont
+   * aucun article.
    */
   const menuCategories = useMemo(() => {
     const hasProducts = searchableProducts.length > 0
     const subCounts = new Map<string, number>()
-    const familyCounts = new Map<string, number>()
 
     searchableProducts.forEach((product) => {
       const key = `${product.main_category}|||${product.sub_category}`.toLowerCase()
       subCounts.set(key, (subCounts.get(key) ?? 0) + 1)
-      if (isSportProduct(product)) {
-        const family = getSportFamily(product)?.id
-        if (family) familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1)
-      }
     })
 
-    const sport = {
-      href: '/sport',
-      label: 'Tenues de sport',
-      children: SPORT_FAMILIES.filter(
-        (family) => !hasProducts || (familyCounts.get(family.id) ?? 0) > 0,
-      ).map((family) => ({ href: `/sport?type=${family.id}`, label: family.name })),
-    }
-
-    return [
-      sport,
-      ...categories
-        .filter((category) => category.is_active)
-        .map((category) => {
-          const base = `/boutique?categorie=${encodeURIComponent(category.name)}`
-          return {
-            href: base,
-            label: category.name,
-            children: category.subcategories
-              .filter(
-                (subCategory) =>
-                  !hasProducts ||
-                  (subCounts.get(`${category.name}|||${subCategory}`.toLowerCase()) ?? 0) > 0,
-              )
-              .map((subCategory) => ({
-                href:
-                  subCategory.toLowerCase() === SPORT_SUB_CATEGORY.toLowerCase()
-                    ? '/sport'
-                    : `${base}&sous=${encodeURIComponent(subCategory)}`,
-                label: subCategory,
-              })),
-          }
-        }),
-    ]
+    // Les tenues de sport n'ont pas d'entree a part : elles sont rangees dans
+    // "Vetements Femmes", comme en base, et y menent a leur page dediee.
+    return categories
+      .filter((category) => category.is_active)
+      .map((category) => {
+        const base = `/boutique?categorie=${encodeURIComponent(category.name)}`
+        return {
+          href: base,
+          label: category.name,
+          children: category.subcategories
+            .filter(
+              (subCategory) =>
+                !hasProducts ||
+                (subCounts.get(`${category.name}|||${subCategory}`.toLowerCase()) ?? 0) > 0,
+            )
+            .map((subCategory) => ({
+              href:
+                subCategory.toLowerCase() === SPORT_SUB_CATEGORY.toLowerCase()
+                  ? '/sport'
+                  : `${base}&sous=${encodeURIComponent(subCategory)}`,
+              label: subCategory,
+            })),
+        }
+      })
   }, [categories, searchableProducts])
 
   // Sur une page statique, le serveur ne connait pas la chaine de requete :
