@@ -7,6 +7,13 @@ import { isSupabaseConfigured, resolveOrderErrorMessage } from '../lib/supabase'
 import { createOrder } from '../services/orders'
 import type { CartItem } from '../types'
 import { stripColorTag } from '../utils/colorTag'
+import {
+  COUNTRIES,
+  DEFAULT_COUNTRY_CODE,
+  FREQUENT_COUNTRY_CODES,
+  countryName,
+  type Country,
+} from '../constants/countries'
 import { formatCurrency } from '../utils/format'
 
 type CheckoutFormState = {
@@ -14,6 +21,7 @@ type CheckoutFormState = {
   customerPhone: string
   line1: string
   city: string
+  country: string
   note: string
 }
 
@@ -21,9 +29,14 @@ const initialCheckoutState: CheckoutFormState = {
   customerName: '',
   customerPhone: '',
   line1: '',
-  city: 'Dakar',
+  city: '',
+  country: DEFAULT_COUNTRY_CODE,
   note: '',
 }
+
+const frequentCountries = FREQUENT_COUNTRY_CODES.map((code) =>
+  COUNTRIES.find((country) => country.code === code),
+).filter((country): country is Country => Boolean(country))
 
 type ShippingOption = {
   id: string
@@ -118,7 +131,12 @@ const buildOrderMessage = (
   lines.push(`Option transit choisie: ${shippingOption.name} (${shippingOption.timeline})`)
   lines.push('Montant du transit confirmé après pesée réelle du colis.')
   lines.push('')
-  lines.push(`Adresse: ${formState.line1}, ${formState.city}`)
+  lines.push(
+    `Adresse de livraison: ${[formState.line1, formState.city, countryName(formState.country)]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(', ')}`,
+  )
   if (formState.note.trim()) {
     lines.push(`Note cliente: ${formState.note.trim()}`)
   }
@@ -193,9 +211,9 @@ export const CartPage = () => {
         shippingAddress: {
           line1: formState.line1,
           line2,
-          city: formState.city.trim() || 'Dakar',
+          city: formState.city.trim(),
           postal_code: '00000',
-          country: 'International',
+          country: countryName(formState.country),
         },
         items,
       })
@@ -379,6 +397,33 @@ export const CartPage = () => {
             </label>
 
             <label>
+              Pays de livraison
+              <select
+                required
+                value={formState.country}
+                onChange={(event) =>
+                  setFormState((state) => ({ ...state, country: event.target.value }))
+                }
+                autoComplete="country"
+              >
+                <optgroup label="Pays fréquents">
+                  {frequentCountries.map((country) => (
+                    <option key={`frequent-${country.code}`} value={country.code}>
+                      {country.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Tous les pays">
+                  {COUNTRIES.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </label>
+
+            <label>
               Téléphone
               <input
                 required
@@ -386,19 +431,39 @@ export const CartPage = () => {
                 onChange={(event) =>
                   setFormState((state) => ({ ...state, customerPhone: event.target.value }))
                 }
-                placeholder="Ex: 77 000 00 00"
+                placeholder={
+                  formState.country === 'SN'
+                    ? 'Ex : 77 000 00 00'
+                    : "Avec l'indicatif, ex : +33 6 12 34 56 78"
+                }
+                type="tel"
+                autoComplete="tel"
               />
             </label>
 
             <label>
-              Adresse / Quartier
+              Ville
+              <input
+                required
+                value={formState.city}
+                onChange={(event) =>
+                  setFormState((state) => ({ ...state, city: event.target.value }))
+                }
+                placeholder={formState.country === 'SN' ? 'Ex : Dakar, Thiès, Saint-Louis' : 'Ex : Paris, Abidjan'}
+                autoComplete="address-level2"
+              />
+            </label>
+
+            <label>
+              Adresse de livraison
               <input
                 required
                 value={formState.line1}
                 onChange={(event) =>
                   setFormState((state) => ({ ...state, line1: event.target.value }))
                 }
-                placeholder="Ex: Parcelles Assainies U10"
+                placeholder="Quartier, rue, point de repère (ex : Parcelles Assainies U10)"
+                autoComplete="street-address"
               />
             </label>
 
